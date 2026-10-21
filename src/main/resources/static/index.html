@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#02060c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>J.A.R.V.I.S.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #02060c;
+    --c: 79, 216, 255;               /* cian holográfico (r,g,b) */
+    --cyan: rgb(var(--c));
+    --dim: rgba(var(--c), .35);
+    --faint: rgba(var(--c), .12);
+    --amber: #ffb43c;
+    --text: #cdefff;
+    --head: "Orbitron", "Segoe UI", sans-serif;
+    --body: "Rajdhani", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden; color: var(--text); font-family: var(--body); font-size: 16px;
+    background:
+      radial-gradient(ellipse at 50% 45%, rgba(20, 70, 110, .45) 0%, transparent 60%),
+      linear-gradient(var(--faint) 1px, transparent 1px) 0 0 / 40px 40px,
+      linear-gradient(90deg, var(--faint) 1px, transparent 1px) 0 0 / 40px 40px,
+      var(--bg);
+  }
+  /* líneas de escaneo */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+  }
+
+  /* ---------- Estructura ---------- */
+  .hud { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 14px 18px; gap: 12px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand h1 { margin: 0; font-family: var(--head); font-weight: 800; font-size: 1.6rem; letter-spacing: .45em; color: var(--cyan);
+              text-shadow: 0 0 14px rgba(var(--c), .8); }
+  .brand small { display: block; font-size: .72rem; letter-spacing: .32em; opacity: .6; text-transform: uppercase; margin-top: 2px; }
+  .clock { text-align: right; font-family: var(--head); }
+  .clock .t { font-size: 1.6rem; color: var(--cyan); letter-spacing: .08em; text-shadow: 0 0 10px rgba(var(--c), .6); }
+  .clock .d { font-size: .7rem; letter-spacing: .25em; opacity: .7; text-transform: uppercase; }
+
+  main { display: grid; grid-template-columns: 290px 1fr 360px; gap: 18px; min-height: 0; }
+
+  .panel { position: relative; border: 1px solid var(--dim); background: linear-gradient(160deg, rgba(10, 40, 70, .35), rgba(2, 10, 20, .55));
+           padding: 16px; min-height: 0; display: flex; flex-direction: column;
+           clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 14px; height: 14px; border: 2px solid var(--cyan); }
+  .panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  .panel h2 { margin: 0 0 14px; font-family: var(--head); font-size: .72rem; font-weight: 600; letter-spacing: .35em; color: var(--cyan);
+              display: flex; align-items: center; gap: 10px; }
+  .panel h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--dim), transparent); }
+
+  /* ---------- Panel sistema ---------- */
+  .gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px; margin-bottom: 18px; }
+  .gauge { position: relative; text-align: center; }
+  .gauge svg { width: 92px; height: 92px; transform: rotate(-90deg); display: block; margin: 0 auto; }
+  .gauge circle { fill: none; stroke-width: 5; }
+  .gauge .track { stroke: rgba(var(--c), .12); }
+  .gauge .val { stroke: var(--cyan); stroke-linecap: round; stroke-dasharray: 213.6; stroke-dashoffset: 213.6;
+                transition: stroke-dashoffset 1s ease, stroke .3s; filter: drop-shadow(0 0 4px rgba(var(--c), .9)); }
+  .gauge .val.hot { stroke: var(--amber); filter: drop-shadow(0 0 4px var(--amber)); }
+  .gauge b { position: absolute; top: 30px; left: 0; right: 0; font-family: var(--head); font-size: 1.15rem; color: #fff; }
+  .gauge span { display: block; font-size: .72rem; letter-spacing: .3em; opacity: .7; margin-top: 4px; }
+  .info { list-style: none; margin: 0; padding: 0; font-size: .92rem; overflow-y: auto; }
+  .info li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed rgba(var(--c), .15); }
+  .info li span:first-child { opacity: .6; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; }
+  .info li span:last-child { color: var(--cyan); text-align: right; word-break: break-all; }
+
+  /* ---------- Centro: reactor ---------- */
+  .core { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; gap: 10px; }
+  #reactor { width: min(58vh, 100%, 520px); aspect-ratio: 1; cursor: pointer; filter: drop-shadow(0 0 18px rgba(var(--c), .45));
+             -webkit-tap-highlight-color: transparent; }
+  .state { font-family: var(--head); letter-spacing: .5em; font-size: .9rem; color: var(--cyan); text-shadow: 0 0 10px rgba(var(--c), .7); }
+  .state.thinking { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
+  #transcript { min-height: 1.5em; font-size: 1.1rem; opacity: .85; text-align: center; max-width: 560px; font-style: italic; }
+
+  /* ---------- Registro ---------- */
+  #log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px; font-size: 1rem; line-height: 1.35; }
+  #log::-webkit-scrollbar { width: 4px; } #log::-webkit-scrollbar-thumb { background: var(--dim); }
+  .entry .meta { font-family: var(--head); font-size: .62rem; letter-spacing: .25em; opacity: .55; margin-bottom: 3px; }
+  .entry .txt { white-space: pre-wrap; }
+  .entry.me .meta { color: #9fb8c8; } .entry.me .txt { color: #e8f6ff; }
+  .entry.bot .meta { color: var(--cyan); opacity: .85; } .entry.bot .txt { color: var(--cyan); border-left: 2px solid var(--dim); padding-left: 10px; }
+  .entry.sys .txt { color: var(--amber); font-size: .9rem; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { font-family: var(--body); font-size: .82rem; letter-spacing: .08em; padding: 5px 10px; background: rgba(var(--c), .06);
+          border: 1px solid var(--dim); color: var(--text); cursor: pointer; }
+  .chip:hover { background: rgba(var(--c), .18); color: #fff; }
+
+  /* ---------- Barra de órdenes ---------- */
+  footer { display: flex; gap: 10px; align-items: stretch; }
+  .cmd { flex: 1; display: flex; align-items: center; border: 1px solid var(--dim); background: rgba(2, 14, 26, .8); padding: 0 14px; }
+  .cmd::before { content: ">"; font-family: var(--head); color: var(--cyan); margin-right: 10px; }
+  #input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-family: var(--body); font-size: 1.1rem; padding: 13px 0; }
+  #input::placeholder { color: rgba(var(--c), .4); }
+  .btn { font-family: var(--head); font-size: .68rem; letter-spacing: .2em; padding: 0 16px; border: 1px solid var(--dim); background: rgba(var(--c), .06);
+         color: var(--cyan); cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: rgba(var(--c), .18); }
+  .btn.on { background: var(--cyan); color: var(--bg); box-shadow: 0 0 18px rgba(var(--c), .7); }
+
+  /* ---------- Arranque ---------- */
+  #boot { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  #boot h1 { font-family: var(--head); font-weight: 800; font-size: clamp(2rem, 6vw, 4rem); letter-spacing: .4em; margin: 0 0 0 .4em; color: var(--cyan);
+             text-shadow: 0 0 24px rgba(var(--c), .9); }
+  #boot p { margin: -12px 0 0; letter-spacing: .4em; font-size: .8rem; opacity: .6; text-transform: uppercase; text-align: center; }
+  #bootLines { font-family: var(--head); font-size: .72rem; letter-spacing: .15em; color: var(--cyan); min-height: 9em; width: min(460px, 90vw); }
+  #bootLines div { opacity: .85; } #bootLines div b { color: #fff; float: right; }
+  #bootBtn { font-size: .9rem; padding: 16px 34px; animation: glow 1.8s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 0 26px rgba(var(--c), .8); } }
+  #boot.fade { transition: opacity .8s; opacity: 0; pointer-events: none; }
+
+  /* ---------- Modo agente ---------- */
+  .entry.step .meta { color: var(--amber); opacity: .8; }
+  .entry.step .txt { color: #d7e9f2; font-size: .92rem; border-left: 2px solid rgba(255,180,60,.4); padding-left: 10px; }
+  .entry.step.kind-action .txt { color: var(--amber); }
+  .entry.step.kind-error .txt { color: #ff7a7a; }
+  .btn.agent-on { background: var(--amber); color: var(--bg); box-shadow: 0 0 18px rgba(255,180,60,.6); border-color: var(--amber); }
+
+  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,12,.82); display: none; align-items: center; justify-content: center; }
+  .modal.show { display: flex; }
+  .modal-box { width: min(520px, 92vw); border: 1px solid var(--amber); background: linear-gradient(160deg, rgba(60,40,10,.4), rgba(2,10,20,.9));
+               padding: 24px; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+  .modal-box h3 { font-family: var(--head); font-size: .9rem; letter-spacing: .25em; color: var(--amber); margin: 0 0 14px; }
+  .modal-box p { opacity: .8; margin: 0 0 10px; }
+  .action { font-family: var(--head); font-size: .95rem; color: #fff; background: rgba(255,180,60,.1); border: 1px solid rgba(255,180,60,.4);
+            padding: 14px; word-break: break-word; margin-bottom: 20px; }
+  .modal-btns { display: flex; gap: 12px; justify-content: flex-end; }
+  .modal-btns .btn { padding: 12px 22px; }
+
+  /* ---------- Comprobante de venta ---------- */
+  .modal-box.receipt { border-color: var(--cyan); background: linear-gradient(160deg, rgba(10,40,70,.55), rgba(2,10,20,.95)); }
+  .modal-box.receipt h3 { color: var(--cyan); }
+  .rc-head { text-align: center; margin-bottom: 14px; }
+  .rc-head b { display: block; font-family: var(--head); font-size: 1rem; letter-spacing: .12em; color: #fff; }
+  .rc-head span { display: block; font-size: .85rem; opacity: .7; }
+  .rc-meta { display: flex; justify-content: space-between; gap: 10px; font-size: .9rem; padding: 8px 0;
+             border-top: 1px dashed var(--dim); border-bottom: 1px dashed var(--dim); }
+  .rc-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .95rem; }
+  .rc-table th { font-family: var(--head); font-size: .6rem; letter-spacing: .2em; font-weight: 600; color: var(--cyan); text-align: left; padding: 4px 0; }
+  .rc-table td { padding: 6px 0; vertical-align: top; }
+  .rc-table .n { text-align: right; white-space: nowrap; padding-left: 10px; }
+  .rc-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0 16px; border-top: 1px solid var(--dim);
+              font-family: var(--head); letter-spacing: .15em; }
+  .rc-total b { font-size: 1.3rem; color: #fff; text-shadow: 0 0 10px rgba(var(--c), .6); }
+  .rc-foot { text-align: center; font-size: .8rem; opacity: .6; margin-bottom: 18px; }
+  .entry .rc-link { margin-top: 6px; }
+  .cart { border: 1px solid var(--dim); background: rgba(var(--c), .05); padding: 0 12px 10px; margin-top: 14px; }
+  .cart .rc-table { margin: 0; font-size: .88rem; }
+  .cart .rc-total { padding: 8px 0 4px; }
+  .cart .rc-total b { font-size: 1.1rem; }
+  .cart .chips { margin-top: 6px; }
+  .cart-empty { opacity: .6; font-size: .88rem; margin: 0 0 8px; }
+  .inv-price { display: block; opacity: .75; letter-spacing: .05em; text-transform: none; font-size: .78rem; color: var(--text); }
+
+  /* ---------- Celular / ventana angosta ---------- */
+  @media (max-width: 1000px) {
+    body { overflow: auto; }
+    .hud { height: auto; min-height: 100vh; padding: 12px; }
+    main { grid-template-columns: 1fr; }
+    .core { order: -1; }
+    #reactor { width: min(78vw, 360px); }
+    .log-panel { height: 45vh; }
+    .brand h1 { font-size: 1.1rem; letter-spacing: .3em; }
+    .brand small { display: none; }
+    .clock .t { font-size: 1.1rem; }
+    footer { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0; flex-wrap: wrap; }
+    .cmd { flex-basis: 100%; }
+    .btn { flex: 1; padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Pantalla de arranque (también da el permiso que el navegador exige para hablar) -->
+<div id="boot">
+  <h1>J.A.R.V.I.S.</h1>
+  <p>Just A Rather Very Intelligent System</p>
+  <div id="bootLines"></div>
+  <button class="btn" id="bootBtn">INICIAR SISTEMAS</button>
+</div>
+
+<div class="hud">
+  <header>
+    <div class="brand">
+      <h1>J.A.R.V.I.S.</h1>
+      <small>Just A Rather Very Intelligent System</small>
+    </div>
+    <div class="clock"><div class="t" id="clockT">--:--:--</div><div class="d" id="clockD"></div></div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>SISTEMA</h2>
+      <div class="gauges">
+        <div class="gauge" id="g-cpu"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>CPU</span></div>
+        <div class="gauge" id="g-ram"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>RAM</span></div>
+        <div class="gauge" id="g-disk"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>DISCO</span></div>
+        <div class="gauge" id="g-bat"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>BATERÍA</span></div>
+      </div>
+      <ul class="info">
+        <li><span>Sistema</span><span id="i-os">—</span></li>
+        <li><span>Núcleos</span><span id="i-cores">—</span></li>
+        <li><span>Memoria</span><span id="i-ram">—</span></li>
+        <li><span>Disco libre</span><span id="i-disk">—</span></li>
+        <li><span>Equipo</span><span id="i-host">—</span></li>
+        <li><span>Acceso móvil</span><span id="i-ip">—</span></li>
+        <li><span>En línea</span><span id="i-up">—</span></li>
+      </ul>
+
+      <div id="cart" class="cart" hidden>
+        <h2 style="margin-top:18px">🛒 VENTA EN CURSO</h2>
+        <div id="cartBody"></div>
+        <div class="rc-total"><span>TOTAL</span><b id="cartTotal">S/ 0.00</b></div>
+        <div class="chips">
+          <button class="chip">Cobrar</button>
+          <button class="chip">Cancelar venta</button>
+        </div>
+      </div>
+
+      <h2 style="margin-top:18px">INVENTARIO</h2>
+      <ul class="info" id="inv-list"><li><span>Cargando…</span><span></span></li></ul>
+    </section>
+
+    <section class="core">
+      <canvas id="reactor" title="Toque para hablar"></canvas>
+      <div class="state" id="state">EN ESPERA</div>
+      <div id="transcript"></div>
+    </section>
+
+    <section class="panel log-panel">
+      <h2>REGISTRO</h2>
+      <div id="log"></div>
+      <div class="chips">
+        <button class="chip">Estado del sistema</button>
+        <button class="chip">¿Qué hora es?</button>
+        <button class="chip">Abre YouTube</button>
+        <button class="chip">Lee mis notas</button>
+        <button class="chip">Nueva venta</button>
+        <button class="chip">Lista de precios</button>
+        <button class="chip">Último comprobante</button>
+        <button class="chip">Cierre de caja</button>
+        <button class="chip">Ayuda</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <label class="cmd"><input id="input" placeholder="Escriba una orden, señor…" autocomplete="off"></label>
+    <button class="btn" id="micBtn" title="Hablar una vez">🎙 HABLAR</button>
+    <button class="btn" id="hfBtn" title="Escucha continua: diga “Jarvis, …”">MANOS LIBRES</button>
+    <button class="btn" id="agentBtn" title="Modo agente: hace tareas en segundo plano">🧠 AGENTE</button>
+    <button class="btn" id="gear" title="Cambiar clave">⚙</button>
+  </footer>
+</div>
+
+<!-- Ventana de confirmación para acciones riesgosas -->
+<div id="confirm" class="modal">
+  <div class="modal-box">
+    <h3>⚠ CONFIRMACIÓN REQUERIDA</h3>
+    <p>JARVIS quiere realizar esta acción:</p>
+    <div class="action" id="confirmAction">—</div>
+    <div class="modal-btns">
+      <button class="btn" id="denyBtn">RECHAZAR</button>
+      <button class="btn on" id="approveBtn">AUTORIZAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Comprobante de pago de la última venta -->
+<div id="receipt" class="modal">
+  <div class="modal-box receipt">
+    <h3>🧾 COMPROBANTE DE VENTA</h3>
+    <div id="receiptBody"></div>
+    <div class="modal-btns">
+      <button class="btn" id="receiptClose">CERRAR</button>
+      <button class="btn on" id="receiptPrint">IMPRIMIR</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const stateEl = $('state'), logEl = $('log'), transcriptEl = $('transcript');
+
+/* =================== Clave de acceso =================== */
+function saveToken(t) { try { localStorage.setItem('jarvisToken', t); } catch (e) {} }
+function loadToken() { try { return localStorage.getItem('jarvisToken'); } catch (e) { return null; } }
+(function () {   // la ventana de escritorio trae la clave en la URL (#t=...)
+  const m = location.hash.match(/^#t=(.*)$/);
+  if (m) { saveToken(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname); }
+})();
+function getToken() {
+  let t = loadToken();
+  if (!t) { t = prompt('Clave de JARVIS (jarvis.token en application.properties):') || ''; saveToken(t); }
+  return t;
+}
+$('gear').onclick = () => { saveToken(''); getToken(); refreshSystem(); };
+
+/* =================== Reloj =================== */
+function tickClock() {
+  const d = new Date();
+  $('clockT').textContent = d.toLocaleTimeString('es-PE', { hour12: false });
+  $('clockD').textContent = d.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+setInterval(tickClock, 1000); tickClock();
+
+/* =================== Estado =================== */
+let state = 'idle';
+const LABELS = { idle: 'EN ESPERA', listening: 'ESCUCHANDO', thinking: 'PROCESANDO', speaking: 'RESPONDIENDO', wake: 'DIGA "JARVIS"' };
+function setState(s) {
+  state = s;
+  const label = (s === 'idle' && handsFree) ? LABELS.wake : LABELS[s];
+  stateEl.textContent = label;
+  stateEl.className = 'state ' + s;
+}
+
+/* =================== Registro =================== */
+const hhmm = () => new Date().toLocaleTimeString('es-PE', { hour12: false });
+function addEntry(who, text, typewriter) {
+  const e = document.createElement('div');
+  e.className = 'entry ' + who;
+  const name = who === 'me' ? 'USTED' : who === 'bot' ? 'JARVIS' : 'SISTEMA';
+  e.innerHTML = `<div class="meta">[${hhmm()}] ${name}</div><div class="txt"></div>`;
+  logEl.appendChild(e);
+  const box = e.querySelector('.txt');
+  if (!typewriter) { box.textContent = text; logEl.scrollTop = logEl.scrollHeight; return; }
+  let i = 0;
+  const step = () => {
+    i = Math.min(text.length, i + 2);
+    box.textContent = text.slice(0, i);
+    logEl.scrollTop = logEl.scrollHeight;
+    if (i < text.length) setTimeout(step, 14);
+  };
+  step();
+}
+
+/* =================== Voz de JARVIS =================== */
+let voice = null, speakKick = 0;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('es'));
+  const score = v => (/natural|online/i.test(v.name) ? 4 : 0)
+                   + (/alex|jorge|alvaro|álvaro|tomas|tomás|pablo|raul|raúl|diego|gonzalo|male|hombre/i.test(v.name) ? 3 : 0)
+                   + (/pe|419|mx|us/i.test(v.lang) ? 1 : 0);
+  voice = vs.sort((a, b) => score(b) - score(a))[0] || null;
+}
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+function speak(text, then) {
+  if (!('speechSynthesis' in window)) { then && then(); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/[•\n]+/g, '. '));
+  u.lang = voice ? voice.lang : 'es-ES';
+  if (voice) u.voice = voice;
+  u.rate = 1.04; u.pitch = 0.85;
+  u.onstart = () => setState('speaking');
+  u.onboundary = () => { speakKick = 0.35; };
+  u.onend = u.onerror = () => { then ? then() : resumeIdle(); };
+  speechSynthesis.speak(u);
+}
+
+/* =================== Servidor =================== */
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(), ...(opts.headers || {}) } });
+  if (r.status === 401) { saveToken(''); }
+  return r;
+}
+
+async function send(text, silentUser) {
+  text = (text || '').trim();
+  if (!text) return;
+  stopRec();
+  transcriptEl.textContent = '';
+  if (!silentUser) addEntry('me', text);
+  if (agentMode) { runAgent(text); return; }
+  setState('thinking');
+  try {
+    const r = await api('/api/command', { method: 'POST', body: JSON.stringify({ text }) });
+    const data = await r.json();
+    addEntry('bot', data.reply, true);
+    speak(data.reply);
+    if (data.recibo) { showReceipt(data.recibo); addReceiptLink(data.recibo); }
+    renderCart(data.carrito);
+    if (/estado del sistema|diagnostico|diagnóstico/i.test(text)) refreshSystem();
+    refreshInventory();   // el stock pudo cambiar
+  } catch (e) {
+    addEntry('sys', 'Sin conexión con el núcleo de JARVIS.');
+    resumeIdle();
+  }
+}
+
+/* =================== Comprobante de venta =================== */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const soles = n => 'S/ ' + Number(n || 0).toFixed(2);
+const nroComp = n => String(n).padStart(6, '0');
+let lastReceipt = null;
+
+const itemRows = items => items.map(v => `<tr>
+    <td>${v.cantidad}</td>
+    <td>${esc(v.producto)}<br><small style="opacity:.6">${esc(v.unidad)}</small></td>
+    <td class="n">${soles(v.precioUnitario)}</td>
+    <td class="n">${soles(v.monto)}</td>
+  </tr>`).join('');
+
+function receiptHtml(r) {
+  const c = r.comprobante, n = r.negocio || {};
+  const fecha = (c.fecha || '').split('-').reverse().join('/');
+  const unidades = c.items.reduce((s, v) => s + v.cantidad, 0);
+  return `
+    <div class="rc-head">
+      <b>${esc(n.nombre)}</b>
+      ${n.ruc ? `<span>RUC ${esc(n.ruc)}</span>` : ''}
+      ${n.direccion ? `<span>${esc(n.direccion)}</span>` : ''}
+    </div>
+    <div class="rc-meta"><span>N° ${nroComp(c.numero)}</span><span>${esc(fecha)} ${esc(c.hora)}</span></div>
+    <table class="rc-table">
+      <thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th class="n">P. UNIT.</th><th class="n">IMPORTE</th></tr></thead>
+      <tbody>${itemRows(c.items)}</tbody>
+    </table>
+    <div class="rc-total"><span>TOTAL · ${c.items.length} ${c.items.length === 1 ? 'producto' : 'productos'} (${unidades} u.)</span><b>${soles(c.total)}</b></div>
+    <div class="rc-foot">¡Gracias por su compra!<br>Comprobante interno de venta</div>`;
+}
+
+/* Venta con varios productos en curso (panel izquierdo) */
+function renderCart(c) {
+  const box = $('cart');
+  if (!c) { box.hidden = true; return; }
+  box.hidden = false;
+  $('cartBody').innerHTML = c.items.length
+    ? `<table class="rc-table"><tbody>${itemRows(c.items)}</tbody></table>`
+    : '<p class="cart-empty">Dicte los productos: “2 bolsas de cemento”, “3 focos”…</p>';
+  $('cartTotal').textContent = soles(c.total);
+}
+async function refreshCart() {
+  try {
+    const r = await api('/api/inventory/venta');
+    if (r.ok) { const t = await r.text(); renderCart(t ? JSON.parse(t) : null); }
+  } catch (e) {}
+}
+
+function showReceipt(r) {
+  lastReceipt = r;
+  $('receiptBody').innerHTML = receiptHtml(r);
+  $('receipt').classList.add('show');
+}
+
+function addReceiptLink(r) {
+  const e = logEl.lastElementChild; if (!e) return;
+  const b = document.createElement('button');
+  b.className = 'chip rc-link';
+  b.textContent = '🧾 Ver comprobante N° ' + nroComp(r.comprobante.numero);
+  b.onclick = () => showReceipt(r);
+  e.appendChild(b);
+}
+
+/* Imprime en formato ticket (80 mm) en una ventana aparte, en blanco y negro. */
+function printReceipt() {
+  if (!lastReceipt) return;
+  const w = window.open('', '_blank', 'width=420,height=640');
+  if (!w) return;
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Comprobante ${nroComp(lastReceipt.comprobante.numero)}</title>
+    <style>
+      @page { size: 80mm auto; margin: 4mm; }
+      body { font: 13px/1.35 "Courier New", monospace; color: #000; background: #fff; width: 72mm; margin: 0 auto; }
+      .rc-head { text-align: center; margin-bottom: 8px; } .rc-head b { display: block; font-size: 15px; } .rc-head span { display: block; }
+      .rc-meta { display: flex; justify-content: space-between; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; }
+      table { width: 100%; border-collapse: collapse; margin: 6px 0; } th { text-align: left; font-size: 11px; border-bottom: 1px solid #000; }
+      td { vertical-align: top; padding: 3px 0; } .n { text-align: right; white-space: nowrap; padding-left: 6px; }
+      .rc-total { display: flex; justify-content: space-between; border-top: 1px solid #000; padding: 6px 0; font-weight: bold; font-size: 15px; }
+      .rc-foot { text-align: center; margin-top: 8px; }
+    </style></head><body>${receiptHtml(lastReceipt)}</body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 300);   // deja que la ventana dibuje antes
+}
+
+$('receiptClose').onclick = () => $('receipt').classList.remove('show');
+$('receiptPrint').onclick = printReceipt;
+
+/* =================== Paneles de sistema =================== */
+function setGauge(id, pct, label) {
+  const g = $(id); if (!g) return;
+  const v = Math.max(0, Math.min(100, pct || 0));
+  const c = g.querySelector('.val');
+  c.style.strokeDashoffset = 213.6 * (1 - v / 100);
+  c.classList.toggle('hot', id === 'g-bat' ? v < 20 : v > 85);
+  g.querySelector('b').textContent = label ?? (Math.round(v) + '%');
+}
+async function refreshInventory() {
+  try {
+    const r = await api('/api/inventory');
+    if (!r.ok) return;
+    const items = await r.json();
+    const ul = $('inv-list');
+    if (!items.length) { ul.innerHTML = '<li><span>Sin productos</span><span></span></li>'; return; }
+    ul.innerHTML = items.map(p => {
+      const bajo = p.stock <= p.stockMin;
+      const col = bajo ? 'var(--amber)' : 'var(--cyan)';
+      return `<li><span>${esc(p.nombre)}${bajo ? ' ⚠' : ''}<small class="inv-price">${soles(p.precio)}</small></span>`
+           + `<span style="color:${col}">${p.stock} ${esc(p.unidad)}</span></li>`;
+    }).join('');
+  } catch (e) {}
+}
+
+async function refreshSystem() {
+  try {
+    const r = await api('/api/system');
+    if (!r.ok) return;
+    const s = await r.json();
+    setGauge('g-cpu', s.cpu); setGauge('g-ram', s.ram); setGauge('g-disk', s.disk);
+    $('i-os').textContent = s.os;
+    $('i-cores').textContent = s.cores;
+    $('i-ram').textContent = s.ramTotalGb ? s.ramTotalGb + ' GB' : '—';
+    $('i-disk').textContent = s.diskFreeGb + ' GB';
+    $('i-host').textContent = s.host;
+    $('i-ip').textContent = s.ip + ':' + s.port;
+    const m = s.uptimeMin;
+    $('i-up').textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+  } catch (e) {}
+}
+if (navigator.getBattery) {
+  navigator.getBattery().then(b => {
+    const upd = () => setGauge('g-bat', b.level * 100, Math.round(b.level * 100) + (b.charging ? '%⚡' : '%'));
+    upd(); b.onlevelchange = upd; b.onchargingchange = upd;
+  });
+} else { setGauge('g-bat', 0, 'N/D'); }
+
+/* =================== Micrófono (nivel de audio para el reactor) =================== */
+let analyser = null, freq = new Uint8Array(64), micLevel = 0;
+async function initMicMeter() {
+  if (analyser || !navigator.mediaDevices?.getUserMedia) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = ctx.createAnalyser(); analyser.fftSize = 128;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    freq = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) {}
+}
+
+/* =================== Reconocimiento de voz =================== */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceOK = !!SR && window.isSecureContext;
+let rec = null, recMode = null, handsFree = false, awaitingCommand = false;
+const WAKE = /\b(jarvis|yarvis|harvis|jarbis|yarbis|charvis)\b/i;
+
+function startRec(mode) {
+  if (!voiceOK) return;
+  stopRec();
+  initMicMeter();
+  rec = new SR();
+  rec.lang = 'es-PE';
+  rec.continuous = mode === 'wake';
+  rec.interimResults = true;
+  recMode = mode;
+  rec.onresult = e => {
+    let fin = '', interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      (r.isFinal ? (fin += r[0].transcript) : (interim += r[0].transcript));
+    }
+    if (mode === 'single' || awaitingCommand || WAKE.test(interim + fin)) transcriptEl.textContent = interim || fin;
+    if (!fin) return;
+    if (mode === 'single' || awaitingCommand) { awaitingCommand = false; send(fin); return; }
+    const m = fin.match(WAKE);
+    if (!m) return;
+    const rest = fin.slice(m.index + m[0].length).replace(/^[\s,.:;]+/, '').trim();
+    if (rest.length > 1) send(rest);
+    else {
+      awaitingCommand = true;
+      stopRec();
+      speak('¿Sí, señor?', () => { startRec('wake'); awaitingCommand = true; setState('listening'); });
+    }
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      handsFree = false; $('hfBtn').classList.remove('on');
+      addEntry('sys', 'Permiso de micrófono denegado.');
+    }
+  };
+  rec.onend = () => {
+    const wasMode = recMode; rec = null;
+    if (handsFree && (state === 'idle' || state === 'listening')) {
+      setTimeout(() => { if (!rec && handsFree && (state === 'idle' || state === 'listening')) startRec('wake'); }, 250);
+    } else if (wasMode === 'single' && state === 'listening') {
+      setState('idle'); transcriptEl.textContent = '';
+    }
+  };
+  try { rec.start(); } catch (e) {}
+  if (mode === 'single') setState('listening');
+}
+function stopRec() {
+  if (!rec) return;
+  rec.onend = rec.onresult = rec.onerror = null;
+  try { rec.abort(); } catch (e) {}
+  rec = null;
+}
+function resumeIdle() {
+  setState('idle');
+  if (handsFree) startRec('wake');
+}
+
+function listenOnce() {
+  if (!voiceOK) { noVoiceHint(); return; }
+  speechSynthesis.cancel();
+  awaitingCommand = false;
+  startRec('single');
+}
+function noVoiceHint() {
+  addEntry('sys', window.isSecureContext
+    ? 'Este navegador no reconoce voz. Use Chrome o Edge, o escriba la orden.'
+    : 'El micrófono requiere HTTPS en este dispositivo (vea el README). Puede escribir la orden.');
+  $('input').focus();
+}
+$('reactor').onclick = listenOnce;
+$('micBtn').onclick = listenOnce;
+$('hfBtn').onclick = () => {
+  if (!voiceOK) { noVoiceHint(); return; }
+  handsFree = !handsFree;
+  $('hfBtn').classList.toggle('on', handsFree);
+  if (handsFree) { addEntry('sys', 'Modo manos libres activado. Diga "Jarvis" seguido de su orden.'); if (state === 'idle') startRec('wake'); setState(state); }
+  else { stopRec(); awaitingCommand = false; setState('idle'); }
+};
+
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { send($('input').value); $('input').value = ''; }
+});
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => send(c.textContent));
+
+/* =================== Modo agente =================== */
+let agentMode = false;
+$('agentBtn').onclick = () => {
+  agentMode = !agentMode;
+  $('agentBtn').classList.toggle('agent-on', agentMode);
+  $('input').placeholder = agentMode ? 'Dele una tarea a JARVIS, señor…' : 'Escriba una orden, señor…';
+  addEntry('sys', agentMode
+    ? 'Modo agente activado. Puede darme tareas de varios pasos; las haré en segundo plano y le pediré permiso para acciones delicadas.'
+    : 'Modo agente desactivado.');
+};
+
+const seenSteps = {};           // id -> cuántos pasos ya mostré
+let activeConfirm = null;       // id de la tarea esperando confirmación
+
+async function runAgent(text) {
+  setState('thinking');
+  try {
+    const r = await api('/api/agent', { method: 'POST', body: JSON.stringify({ text }) });
+    const data = await r.json();
+    if (data.error) { addEntry('sys', data.error); resumeIdle(); return; }
+    seenSteps[data.id] = 0;
+    pollTask(data.id);
+  } catch (e) {
+    addEntry('sys', 'No pude lanzar la tarea.'); resumeIdle();
+  }
+}
+
+async function pollTask(id) {
+  let task;
+  try {
+    const r = await api('/api/agent/' + id);
+    if (!r.ok) return;
+    task = await r.json();
+  } catch (e) { setTimeout(() => pollTask(id), 1500); return; }
+
+  // Mostrar pasos nuevos
+  const steps = task.steps || [];
+  for (let i = seenSteps[id] || 0; i < steps.length; i++) {
+    const s = steps[i];
+    const e = document.createElement('div');
+    e.className = 'entry step kind-' + s.kind;
+    const label = { think: 'JARVIS PIENSA', action: 'ACCIÓN', result: 'RESULTADO', error: 'ERROR' }[s.kind] || s.kind;
+    e.innerHTML = `<div class="meta">[${hhmm()}] ${label}</div><div class="txt"></div>`;
+    e.querySelector('.txt').textContent = s.text;
+    logEl.appendChild(e); logEl.scrollTop = logEl.scrollHeight;
+  }
+  seenSteps[id] = steps.length;
+
+  if (task.status === 'WAITING' && task.pending) {
+    showConfirm(id, task.pending.description);
+    return;   // se reanuda al responder
+  }
+  if (task.status === 'DONE') {
+    addEntry('bot', task.result, true); speak(task.result); refreshSystem(); refreshInventory(); return;
+  }
+  if (task.status === 'ERROR') { addEntry('sys', task.result); resumeIdle(); return; }
+
+  setTimeout(() => pollTask(id), 1200);   // sigue en marcha
+}
+
+function showConfirm(id, desc) {
+  activeConfirm = id;
+  $('confirmAction').textContent = desc;
+  $('confirm').classList.add('show');
+  setState('idle');
+}
+async function answerConfirm(approve) {
+  const id = activeConfirm; activeConfirm = null;
+  $('confirm').classList.remove('show');
+  if (!id) return;
+  try { await api('/api/agent/' + id + '/confirm', { method: 'POST', body: JSON.stringify({ approve }) }); } catch (e) {}
+  setState('thinking');
+  pollTask(id);
+}
+$('approveBtn').onclick = () => answerConfirm(true);
+$('denyBtn').onclick = () => answerConfirm(false);
+
+/* =================== Reactor (canvas) =================== */
+const cv = $('reactor');
+let level = 0.05;
+function frame(t) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth || 300;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = cv.height = Math.round(w * dpr); }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, w);
+
+  if (analyser) {
+    analyser.getByteFrequencyData(freq);
+    let sum = 0; for (let i = 0; i < freq.length; i++) sum += freq[i];
+    micLevel = sum / freq.length / 255;
+  }
+  let target = 0.06 + Math.sin(t / 900) * 0.02;
+  if (state === 'listening') target = 0.12 + micLevel * 2.4;
+  else if (state === 'speaking') target = 0.3 + 0.22 * Math.abs(Math.sin(t / 85)) + speakKick;
+  else if (state === 'thinking') target = 0.22;
+  speakKick *= 0.88;
+  level += (Math.min(target, 1) - level) * 0.15;
+
+  const col = state === 'thinking' ? '255,180,60' : '79,216,255';
+  const spd = state === 'thinking' ? 5 : state === 'speaking' ? 1.8 : 1;
+  const c = w / 2, R = w / 2 - 4, TAU = Math.PI * 2;
+
+  const arcs = (r, width, segs, rot, alpha) => {
+    ctx.save(); ctx.translate(c, c); ctx.rotate(rot);
+    ctx.strokeStyle = `rgba(${col},${alpha})`; ctx.lineWidth = width;
+    for (const [a, b] of segs) { ctx.beginPath(); ctx.arc(0, 0, r, a, b); ctx.stroke(); }
+    ctx.restore();
+  };
+
+  // 1. regla exterior
+  ctx.save(); ctx.translate(c, c); ctx.rotate(t * 0.00005 * spd);
+  for (let i = 0; i < 180; i++) {
+    const a = i / 180 * TAU, big = i % 15 === 0, len = big ? R * 0.05 : R * 0.022;
+    ctx.strokeStyle = `rgba(${col},${big ? 0.9 : 0.3})`; ctx.lineWidth = big ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * R, Math.sin(a) * R); ctx.lineTo(Math.cos(a) * (R - len), Math.sin(a) * (R - len)); ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. anillos segmentados
+  arcs(R * 0.89, R * 0.02, [[0, 1.1], [1.4, 2.2], [2.5, 3.9], [4.2, 4.6], [4.9, 6.0]], t * 0.0003 * spd, 0.85);
+  arcs(R * 0.83, 1, [[0, TAU]], 0, 0.25);
+  arcs(R * 0.76, R * 0.07, [[0.2, 0.9], [2.3, 3.0], [4.4, 5.1]], -t * 0.0005 * spd, 0.28);
+  ctx.save(); ctx.translate(c, c); ctx.rotate(t * 0.0008 * spd); ctx.setLineDash([3, 7]);
+  ctx.strokeStyle = `rgba(${col},.55)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, R * 0.66, 0, TAU); ctx.stroke(); ctx.restore();
+
+  // 3. ecualizador circular (reacciona a la voz)
+  ctx.save(); ctx.translate(c, c);
+  const N = 72;
+  for (let i = 0; i < N; i++) {
+    const a = i / N * TAU - t * 0.0002;
+    const f = state === 'listening' && analyser ? freq[i % freq.length] / 255 : 0.5 + 0.5 * Math.sin(i * 1.7 + t / 140);
+    const v = level * (0.35 + f);
+    const r0 = R * 0.52, r1 = r0 + R * 0.015 + v * R * 0.13;
+    ctx.strokeStyle = `rgba(${col},${0.3 + Math.min(level, 1) * 0.7})`; ctx.lineWidth = Math.max(1.5, R * 0.012);
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
+  }
+  ctx.restore();
+
+  // 4. reactor interior
+  arcs(R * 0.46, 2, [[0, TAU]], 0, 0.5);
+  const seg = []; for (let k = 0; k < 10; k++) seg.push([k * TAU / 10 + 0.06, (k + 1) * TAU / 10 - 0.06]);
+  arcs(R * 0.40, R * 0.06, seg, -t * 0.0009 * spd, 0.75);
+  arcs(R * 0.32, 1.5, [[0, TAU]], 0, 0.6);
+
+  // 5. núcleo brillante
+  const cr = R * (0.2 + level * 0.09);
+  const g = ctx.createRadialGradient(c, c, 0, c, c, cr * 1.7);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, `rgba(${col},0.95)`);
+  g.addColorStop(0.6, `rgba(${col},0.25)`);
+  g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, cr * 1.7, 0, TAU); ctx.fill();
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* =================== Secuencia de arranque =================== */
+const BOOT = ['NÚCLEO DE IA', 'MÓDULO DE VOZ', 'RECONOCIMIENTO DE HABLA', 'ENLACE CON SISTEMA LOCAL', 'RED INALÁMBRICA', 'PROTOCOLOS DE SEGURIDAD'];
+async function boot() {
+  $('bootBtn').style.display = 'none';
+  const box = $('bootLines');
+  for (const name of BOOT) {
+    const d = document.createElement('div');
+    d.innerHTML = 'INICIALIZANDO ' + name + '… <b></b>';
+    box.appendChild(d);
+    await new Promise(r => setTimeout(r, 260));
+    d.querySelector('b').textContent = (name === 'RECONOCIMIENTO DE HABLA' && !voiceOK) ? 'TEXTO' : 'OK';
+  }
+  await new Promise(r => setTimeout(r, 350));
+  $('boot').classList.add('fade');
+  setTimeout(() => $('boot').remove(), 900);
+  refreshSystem(); setInterval(refreshSystem, 3000);
+  refreshInventory(); refreshCart();
+  setState('idle');
+  send('hola jarvis', true);
+}
+$('bootBtn').onclick = () => { getToken(); boot(); };
+</script>
+</body>
+</html>
