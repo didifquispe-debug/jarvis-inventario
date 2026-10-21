@@ -12,15 +12,13 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 /**
  * Las "manos" del agente: las herramientas que puede usar sobre tu laptop.
  * Aquí viven también los frenos de seguridad.
  */
 @Component
-public class  AgentTools {
+public class AgentTools {
 
     /** Herramientas que modifican el sistema: piden tu permiso salvo que actives auto-approve. */
     public static final Set<String> DELICADAS = Set.of("ejecutar_comando", "escribir_archivo");
@@ -28,22 +26,18 @@ public class  AgentTools {
     private final ObjectMapper json = new ObjectMapper();
     private final LaptopActions laptop;
 
-    private final boolean allowDangerous;
+    private final CommandRunner runner;   // el único camino para ejecutar comandos
     private final int maxOutput;
     private final Path workdir;
-
-    // Comandos que pueden destruir datos: bloqueados salvo que actives allow-dangerous.
-    private static final Pattern PELIGROSO = Pattern.compile(
-            "(?i)\\b(format|mkfs|diskpart|fdisk|shutdown|reboot|rmdir\\s+/s|rd\\s+/s|" +
-            "del\\s+/[sfq]|rm\\s+-\\w*[rf]|reg\\s+delete|cipher\\s+/w|sfc|bcdedit)\\b" +
-            "|:\\s*\\)\\s*\\{.*\\|.*&\\s*\\}");  // fork bomb
 
     public AgentTools(LaptopActions laptop,
                       @Value("${jarvis.agent.allow-dangerous:false}") boolean allowDangerous,
                       @Value("${jarvis.agent.max-output:6000}") int maxOutput,
-                      @Value("${jarvis.agent.workdir:}") String workdir) {
+                      @Value("${jarvis.agent.workdir:}") String workdir,
+                      @Value("${jarvis.agent.command-timeout-seconds:90}") int timeoutSeconds,
+                      @Value("${jarvis.agent.console-charset:}") String consoleCharset) {
         this.laptop = laptop;
-        this.allowDangerous = allowDangerous;
+        this.runner = new CommandRunner(allowDangerous, maxOutput, timeoutSeconds * 1000L, consoleCharset);
         this.maxOutput = maxOutput;
         String home = System.getProperty("user.home");
         this.workdir = Paths.get(workdir == null || workdir.isBlank() ? home : workdir);
@@ -96,11 +90,9 @@ public class  AgentTools {
         return t;
     }
 
-    /** ¿Este comando está prohibido por ser destructivo? */
+    /** ¿Este comando está prohibido por ser destructivo? (el ejecutor vuelve a comprobarlo) */
     public boolean esPeligroso(String name, JsonNode input) {
-        if (allowDangerous) return false;
-        if (!name.equals("ejecutar_comando")) return false;
-        return PELIGROSO.matcher(input.path("comando").asText("")).find();
+        return name.equals("ejecutar_comando") && runner.esPeligroso(input.path("comando").asText(""));
     }
 
     /** Ejecuta una herramienta y devuelve el texto de resultado (lo que ve Claude). */
@@ -127,19 +119,9 @@ public class  AgentTools {
     }
 
     private String ejecutar(String comando) throws Exception {
-        if (comando.isBlank()) return "ERROR: comando vacío.";
-        boolean win = System.getProperty("os.name").toLowerCase().contains("win");
-        ProcessBuilder pb = win
-                ? new ProcessBuilder("cmd.exe", "/c", comando)
-                : new ProcessBuilder("sh", "-c", comando);
-        pb.directory(workdir.toFile());
-        pb.redirectErrorStream(true);
-        Process proc = pb.start();
-        String out = new String(proc.getInputStream().readAllBytes(),
-                win ? java.nio.charset.Charset.forName("Cp850") : StandardCharsets.UTF_8);
-        boolean fin = proc.waitFor(90, TimeUnit.SECONDS);
-        if (!fin) { proc.destroyForcibly(); return "ERROR: el comando tardó demasiado (más de 90 s) y se canceló.\n" + clip(out); }
-        return "Código de salida: " + proc.exitValue() + "\n" + clip(out.isBlank() ? "(sin salida)" : out);
+        CommandRunner.Resultado r = runner.ejecutar(comando, workdir);
+        if (r.bloqueado() || r.timeout() || r.codigo() < 0) return r.salida();
+        return "Código de salida: " + r.codigo() + "\n" + r.salida();
     }
 
     private String leer(String ruta) throws Exception {
