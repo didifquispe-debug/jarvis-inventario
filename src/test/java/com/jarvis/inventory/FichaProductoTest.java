@@ -14,7 +14,7 @@ class FichaProductoTest {
 
     @TempDir Path dir;
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString(), 90); }
+    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
 
     private static Producto producto(InventoryService inv, String nombre) {
         return inv.productos().stream().filter(p -> p.nombre.equals(nombre)).findFirst().orElse(null);

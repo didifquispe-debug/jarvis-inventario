@@ -157,12 +157,23 @@ JARVIS administra el inventario de cualquier negocio (tienda de ropa, zapatería
 ferretería…) por **pantalla**, voz o texto, con respuestas cortas pensadas para escucharse en voz alta.
 Todo funciona sin Internet y sin claves de API.
 
-El stock se guarda en `C:\Users\<tú>\jarvis-inventario.json` y cada cambio queda en el historial.
+### Dónde se guarda (base de datos)
+Todo se guarda en una base de datos SQLite, un solo archivo: `C:\Users\<tú>\jarvis-inventario.db`. No hay que
+instalar nada.
+- **Cada operación se guarda entera o no se guarda:** un corte de luz a mitad de una venta nunca deja el stock
+  descontado sin su comprobante. Si algo no se pudo guardar, JARVIS lo dice y vuelve a lo que estaba guardado.
+- **Respaldo diario automático:** `jarvis-inventario.db.respaldo-AAAAMMDD`, junto a la base; se conservan los
+  últimos 7. Si al arrancar la base está dañada, JARVIS la aparta (`.danado-<fecha>`) y vuelve al último respaldo.
+- **Historial:** cada cambio (ventas, entradas, ajustes, precios, altas, bajas) queda en la base con fecha y
+  dispositivo. Se consulta con `GET /api/inventory/movimientos`.
+- **Si venía de una versión anterior** (inventario en `jarvis-inventario.json`): la primera vez se importa todo
+  solo, incluidas las ventas archivadas y el historial de la carpeta `jarvis-inventario-historial`. El JSON queda
+  renombrado como `jarvis-inventario.json.migrado` y no se borra nada.
+- Para copiar el inventario a otra PC, copie `jarvis-inventario.db` con JARVIS apagado.
 
 ### Arranca vacío
-La primera vez el inventario **no trae ningún producto**: el archivo se crea vacío y el panel dice
-*"Aún no tienes productos. Agrega el primero."* (Si ya tenías un `jarvis-inventario.json`, se conserva tal cual;
-para empezar de cero, bórralo con JARVIS apagado.)
+La primera vez el inventario **no trae ningún producto** y el panel dice *"Aún no tienes productos. Agrega el
+primero."* Para empezar de cero más adelante, diga *"nuevo inventario"* (guarda una copia antes).
 
 ### Agregar y editar productos por pantalla
 En el panel **INVENTARIO** (a la izquierda; en el celular, debajo del reactor):
@@ -220,7 +231,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123
 - Las líneas con errores (precio vacío o que no es número, negativos, decimales en un producto por unidades…)
   **no se registran**; el resto sí. Al terminar verá cuántos se agregaron, cuántos se omitieron y cada error con su
   número de línea. Corrija esas líneas y vuelva a tocar CARGAR: los que ya se agregaron se omiten solos.
-- Todo se guarda de una vez (con el mismo respaldo `.bak` de siempre) y cada alta queda en el historial.
+- Todo se guarda de una vez, en una sola operación, y cada alta queda en el historial.
 - Archivos de Excel: use *Guardar como → CSV*. Se aceptan tanto UTF-8 como el "ANSI" de Windows (tildes incluidas).
 
 #### Dictar la lista con el micrófono (🎙 DICTAR)
@@ -332,7 +343,7 @@ seguridad, la API la reintenta con otro modelo).
 
 **Sin IA también puede empezar de cero:** diga *"nuevo inventario"*, *"empezar el inventario de cero"* o
 *"vaciar el inventario"*; pregunta y solo vacía con un sí. La copia queda junto al inventario, como
-`jarvis-inventario.json.antes-de-nuevo-<fecha>`. Los números de comprobante no se reinician.
+`jarvis-inventario.db.antes-de-nuevo-<fecha>`. Los números de comprobante no se reinician.
 
 ## Reconocimiento de intenciones local (offline, DJL)
 

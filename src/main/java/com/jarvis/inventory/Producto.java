@@ -17,6 +17,7 @@ public class Producto {
     public String codigo = "";         // código interno o SKU, ej. "ZAP-NK-40" (único; "" = sin código)
     public String codigoBarras = "";   // EAN/UPC que lee el escáner, ej. "7750182000123" (único; "" = sin código)
     public BigDecimal costo;           // lo que le cuesta al negocio cada unidad (null = no registrado)
+    Long id;                           // en la base de datos (null hasta que se guarda; no sale en la API)
 
     /** Unidades que se pueden fraccionar: aceptan cantidades como 2.5. El resto se vende entero. */
     private static final Set<String> FRACCIONABLES = Set.of(
