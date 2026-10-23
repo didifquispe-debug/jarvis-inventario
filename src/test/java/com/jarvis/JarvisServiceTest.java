@@ -15,5 +15,5 @@ class JarvisServiceTest {
     @Test void hora() { assertTrue(jarvis.process("JARVIS, ¿qué hora es?").startsWith("Son las")); }
     @Test void calculo() { assertTrue(jarvis.process("cuánto es 25 por 4 más 10").contains("110")); }
     @Test void saludo() { assertTrue(jarvis.process("Hola JARVIS").contains("en línea")); }
-    @Test void ayuda() { assertTrue(jarvis.process("ayuda").contains("Calculadora")); }
+    @Test void ayuda() { assertTrue(jarvis.process("ayuda").contains("cálculos")); }
 }

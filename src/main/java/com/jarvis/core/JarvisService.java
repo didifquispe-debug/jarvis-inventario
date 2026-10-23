@@ -36,10 +36,11 @@ public class JarvisService {
     private final DiccionarioSkill ensenar;
     private final InventoryService inventarioDatos;
     private final AsistenteIA asistente;
+    private final AcercaDeJarvis acercaDe;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
                          Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
-                         AsistenteIA asistente) {
+                         AsistenteIA asistente, AcercaDeJarvis acercaDe) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
@@ -47,10 +48,15 @@ public class JarvisService {
         this.ensenar = ensenar;
         this.inventarioDatos = inventarioDatos;
         this.asistente = asistente;
+        this.acercaDe = acercaDe;
     }
 
     public String process(String original) {
         if (original == null || original.isBlank()) return "No escuché nada, señor.";
+        // Preguntas sobre JARVIS ("qué eres", "qué puedes hacer", "cómo registro una compra"): respuesta fija, al instante
+        Optional<String> sobreJarvis = inventario.esperandoConfirmacion() ? Optional.empty()
+                : acercaDe.responder(normalize(original), asistente.disponible());
+        if (sobreJarvis.isPresent()) return sobreJarvis.get();
         // El "sí/no" de una pregunta de las reglas y los productos de una venta con carrito van directo a las
         // reglas: son respuestas cortas de caja y así no esperan a la IA.
         if (asistente.disponible() && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()) {
@@ -73,7 +79,8 @@ public class JarvisService {
         // "vendí 2 7750182000123": el código (escrito o escaneado) se cambia por el nombre, si no se leería como cantidad
         cmd = inventarioDatos.codigosANombres(cmd);
 
-        if (cmd.contains("ayuda") || cmd.contains("que puedes hacer")) return help();
+        if (cmd.contains("ayuda") || cmd.contains("que puedes hacer"))
+            return acercaDe.responder("que puedes hacer", asistente.disponible()).orElseGet(this::help);
 
         // 1) Modelo local de intenciones (DJL), solo para frases sin palabras clave claras
         //    y nunca si hay un "sí/no" pendiente o una venta con varios productos abierta.
