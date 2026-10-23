@@ -12,9 +12,12 @@ import java.util.Optional;
 public class GreetingSkill implements Skill {
 
     private final String owner;
+    private final String negocio;
 
-    public GreetingSkill(@Value("${jarvis.owner:señor}") String owner) {
+    public GreetingSkill(@Value("${jarvis.owner:señor}") String owner,
+                         @Value("${jarvis.negocio:}") String negocio) {
         this.owner = owner;
+        this.negocio = negocio == null ? "" : negocio.trim();
     }
 
     @Override public String name() { return "Saludo"; }
@@ -26,7 +29,8 @@ public class GreetingSkill implements Skill {
                 && cmd.split("\\s+").length <= 4) {
             int h = LocalTime.now().getHour();
             String parte = h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
-            return Optional.of(parte + ", " + owner + ". Todos los sistemas en línea. ¿En qué le ayudo?");
+            String bienvenida = negocio.isEmpty() ? "" : " Bienvenido a " + negocio + ".";
+            return Optional.of(parte + ", " + owner + "." + bienvenida + " Todos los sistemas en línea. ¿En qué le ayudo?");
         }
         return Optional.empty();
     }

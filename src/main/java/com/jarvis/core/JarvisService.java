@@ -3,6 +3,7 @@ package com.jarvis.core;
 import com.jarvis.ai.AiBrain;
 import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
+import com.jarvis.skills.DiccionarioSkill;
 import com.jarvis.skills.InventorySkill;
 import com.jarvis.skills.Skill;
 import org.slf4j.Logger;
@@ -20,19 +21,32 @@ public class JarvisService {
 
     private static final Logger log = LoggerFactory.getLogger(JarvisService.class);
 
+    public static final String NO_ENTENDI = "No entendí la orden. Diga 'ayuda' para ver lo que puedo hacer.";
+
     private final List<Skill> skills;   // Spring inyecta todas las @Component que implementen Skill, en orden @Order
     private final AiBrain brain;
     private final InventorySkill inventario;
+    private final Diccionario diccionario;
+    private final DiccionarioSkill ensenar;
 
-    public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario) {
+    public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
+                         Diccionario diccionario, DiccionarioSkill ensenar) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
+        this.diccionario = diccionario;
+        this.ensenar = ensenar;
     }
 
     public String process(String original) {
         if (original == null || original.isBlank()) return "No escuché nada, señor.";
         String cmd = normalize(original);
+
+        // 0) "aprende que chompa significa polera" va antes del diccionario (si no, se traduciría a sí misma);
+        //    luego el diccionario cambia las palabras del usuario por las que JARVIS entiende
+        Optional<String> aprendido = ensenar.handle(cmd, original.trim());
+        if (aprendido.isPresent()) return aprendido.get();
+        cmd = diccionario.aplicar(cmd);
 
         if (cmd.contains("ayuda") || cmd.contains("que puedes hacer")) return help();
 
@@ -52,28 +66,27 @@ public class JarvisService {
 
         // 2) Respaldo: procesador de reglas clásico de cada habilidad
         for (Skill s : skills) {
+            if (s == ensenar) continue;   // ya se consultó en el paso 0
             Optional<String> r = s.handle(cmd, original.trim());
             if (r.isPresent()) return r.get();
         }
 
-        if (brain.enabled()) return brain.ask(original.trim());
-        return "Aún no sé hacer eso. Diga \"ayuda\" para ver mis comandos, "
-                + "o configure ANTHROPIC_API_KEY para que pueda conversar de cualquier tema.";
+        // 3) Nadie la entendió: todo es local, no hay respaldo en la nube
+        return NO_ENTENDI;
     }
 
     public String help() {
         return "Puedo hacer esto:\n" + skills.stream()
                 .map(s -> "• " + s.name() + ": " + s.example())
                 .collect(Collectors.joining("\n"))
-                + (brain.intencionesLocales() ? "\n• Entiendo órdenes de inventario dichas con sus propias palabras (modelo local)." : "")
-                + (brain.enabled() ? "\n• Y conversar de cualquier tema con IA." : "");
+                + (brain.intencionesLocales() ? "\n• Entiendo órdenes de inventario dichas con sus propias palabras (modelo local)." : "");
     }
 
-    /** minúsculas, sin tildes, sin "jarvis" al inicio, sin signos ¿¡ */
+    /** minúsculas, sin tildes, sin "jarvis" al inicio, sin signos ¿¡ (el punto decimal "2.5" se conserva) */
     static String normalize(String s) {
         String n = Normalizer.normalize(s.toLowerCase().trim(), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
-                .replaceAll("[¿¡!.]", "")
+                .replaceAll("[¿¡!]|(?<!\\d)\\.|\\.(?!\\d)", "")
                 .replaceFirst("^(oye |hey )?jarvis,?\\s*", "")
                 .replaceAll("\\s+", " ")
                 .trim();

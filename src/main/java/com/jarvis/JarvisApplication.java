@@ -2,6 +2,7 @@ package com.jarvis;
 
 import com.jarvis.desktop.AppWindow;
 import com.jarvis.desktop.DesktopShell;
+import com.jarvis.security.AccessToken;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 
@@ -10,22 +11,28 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Properties;
 
 @SpringBootApplication
 public class JarvisApplication {
 
+    /** Puerto por defecto si application.properties no dice otro (debe coincidir con server.port). */
+    public static final int PUERTO_POR_DEFECTO = 8081;
+
     public static void main(String[] args) {
         Properties cfg = loadConfig();
-        int port = Integer.parseInt(cfg.getProperty("server.port", "8080").trim());
-        String token = cfg.getProperty("jarvis.token", "").trim();
+        int port = Integer.parseInt(cfg.getProperty("server.port", String.valueOf(PUERTO_POR_DEFECTO)).trim());
+        String archivoClave = cfg.getProperty("jarvis.token-file", AccessToken.ARCHIVO_POR_DEFECTO)
+                .replace("${user.home}", System.getProperty("user.home"));
+        String token = AccessToken.resolverSinGenerar(cfg.getProperty("jarvis.token", ""), archivoClave);
 
         // Navegador en el que se abre la ventana de escritorio (chrome | edge | auto)
         AppWindow.setPreferred(cfg.getProperty("jarvis.browser", "chrome"));
 
         // Si JARVIS ya está encendido (por ejemplo, le diste doble clic otra vez),
-        // solo abre su ventana en lugar de fallar con "Port 8080 was already in use".
+        // solo abre su ventana en lugar de fallar con "Port ... was already in use".
         if (alreadyRunning(port)) {
             AppWindow.open(DesktopShell.localUrl(port, token));
             System.exit(0);
@@ -36,10 +43,14 @@ public class JarvisApplication {
                 .run(args);
     }
 
-    private static Properties loadConfig() {
+    /**
+     * Lee application.properties igual que Spring: como ISO-8859-1 (por eso la ñ va como ñ).
+     * Si se leyera como UTF-8, una ñ escrita a mano valdría distinto aquí que en Spring.
+     */
+    static Properties loadConfig() {
         Properties p = new Properties();
         try (InputStream in = JarvisApplication.class.getResourceAsStream("/application.properties")) {
-            if (in != null) p.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+            if (in != null) p.load(new java.io.InputStreamReader(in, StandardCharsets.ISO_8859_1));
         } catch (Exception ignored) { }
         return p;
     }

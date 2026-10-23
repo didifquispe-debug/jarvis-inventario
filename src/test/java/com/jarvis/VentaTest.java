@@ -1,6 +1,7 @@
 package com.jarvis;
 
 import com.jarvis.core.JarvisService;
+import com.jarvis.inventory.Ejemplos;
 import com.jarvis.inventory.InventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,10 +20,10 @@ class VentaTest {
     @Autowired JarvisService jarvis;
     @Autowired InventoryService inv;
 
-    @BeforeEach void limpiar() { inv.cancelarVenta(); inv.tomarComprobanteNuevo(); }
+    @BeforeEach void limpiar() { Ejemplos.sembrar(inv); inv.cancelarVenta(); inv.tomarComprobanteNuevo(); }
 
     private int stockCemento() {
-        return inv.productos().stream().filter(p -> p.nombre.startsWith("Cemento")).findFirst().orElseThrow().stock;
+        return inv.productos().stream().filter(p -> p.nombre.startsWith("Cemento")).findFirst().orElseThrow().stock.intValueExact();
     }
 
     @ParameterizedTest
@@ -39,8 +40,8 @@ class VentaTest {
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertNotNull(c, "debe emitir comprobante");
         assertEquals(1, c.items.size());
-        assertEquals(2, c.items.get(0).cantidad);
-        assertEquals(56.0, c.total, 0.001);   // 2 x 28 soles
+        assertEquals(new java.math.BigDecimal("2"), c.items.get(0).cantidad);
+        assertEquals(new java.math.BigDecimal("56.00"), c.total);   // 2 x 28 soles
     }
 
     @Test void entradaSigueSumando() {
@@ -60,7 +61,7 @@ class VentaTest {
     }
 
     private int stock(String prefijo) {
-        return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow().stock;
+        return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow().stock.intValueExact();
     }
 
     @Test void variosProductosEnUnaFrase() {
@@ -71,7 +72,7 @@ class VentaTest {
         assertEquals(focos - 3, stock("Foco"));
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(2, c.items.size());
-        assertEquals(2 * 28.0 + 3 * 7.5, c.total, 0.001);
+        assertEquals(new java.math.BigDecimal("78.50"), c.total);   // 2 x 28 + 3 x 7.50
         assertTrue(c.items.stream().allMatch(v -> v.numero == c.numero), "todas las líneas, un comprobante");
     }
 

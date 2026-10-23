@@ -1,0 +1,40 @@
+# Diccionario que trae JARVIS de fábrica: "lo que se dice = lo que JARVIS entiende".
+# Se aplica a palabras o frases completas, sin importar mayúsculas ni tildes.
+# Las palabras propias de cada negocio van en ~/jarvis-diccionario.txt (esas mandan sobre estas).
+
+# --- Eliminar ---
+suprime = elimina
+suprimir = eliminar
+remueve = elimina
+remover = eliminar
+descarta = elimina
+descartar = eliminar
+
+# --- Entradas de mercadería ---
+trajeron = llegaron
+me trajeron = llegaron
+nos trajeron = llegaron
+trajo = llego
+repon = llegaron
+reponer = llegaron
+anade = agrega
+anadir = agregar
+
+# --- Ventas ---
+vendele = vende
+despachale = vende
+compraron = vende
+
+# --- Precios ---
+a cuanto = a como
+cuanto sale = cuanto cuesta
+cuanto esta = cuanto cuesta
+
+# --- Tallas dichas en voz alta (el micrófono escribe "eme" en vez de "M") ---
+talla eme = talla m
+talla ese = talla s
+talla ele = talla l
+talla equis ese = talla xs
+talla equis ele = talla xl
+talla doble equis ele = talla xxl
+talla equis equis ele = talla xxl
