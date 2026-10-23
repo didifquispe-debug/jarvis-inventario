@@ -3,6 +3,7 @@ package com.jarvis.core;
 import com.jarvis.ai.AiBrain;
 import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
+import com.jarvis.ia.AsistenteIA;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.skills.DiccionarioSkill;
 import com.jarvis.skills.InventorySkill;
@@ -16,7 +17,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/** El "núcleo": recibe un comando de cualquier dispositivo y decide quién lo responde. */
+/**
+ * El "núcleo": recibe un comando de cualquier dispositivo y decide quién lo responde.
+ * Con clave e internet lo atiende el asistente con IA ({@link AsistenteIA}), que entiende frases libres y usa
+ * las mismas órdenes por debajo; si no, o si la IA falla, las reglas de siempre.
+ */
 @Service
 public class JarvisService {
 
@@ -30,18 +35,33 @@ public class JarvisService {
     private final Diccionario diccionario;
     private final DiccionarioSkill ensenar;
     private final InventoryService inventarioDatos;
+    private final AsistenteIA asistente;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
-                         Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos) {
+                         Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
+                         AsistenteIA asistente) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
         this.diccionario = diccionario;
         this.ensenar = ensenar;
         this.inventarioDatos = inventarioDatos;
+        this.asistente = asistente;
     }
 
     public String process(String original) {
+        if (original == null || original.isBlank()) return "No escuché nada, señor.";
+        // El "sí/no" de una pregunta de las reglas y los productos de una venta con carrito van directo a las
+        // reglas: son respuestas cortas de caja y así no esperan a la IA.
+        if (asistente.disponible() && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()) {
+            Optional<String> r = asistente.responder(original.trim(), this::procesarConReglas);
+            if (r.isPresent()) return r.get();
+        }
+        return procesarConReglas(original);
+    }
+
+    /** Las reglas de siempre (sin IA). También las usa la IA, con la herramienta ejecutar_orden. */
+    public String procesarConReglas(String original) {
         if (original == null || original.isBlank()) return "No escuché nada, señor.";
         String cmd = normalize(original);
 

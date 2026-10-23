@@ -77,6 +77,9 @@ public class InventorySkill implements Skill {
             "\\b(" + VERBOS_ELIMINAR + ")\\b.*\\b(producto|del inventario)\\b|\\bda(r)? de baja\\b");
     // "elimina la polera roja m" (sin decir "producto"): "elimina…" siempre es eliminar; "borra…" solo si
     // lo que sigue es un producto que existe, así "borra mis notas" sigue llegando a las notas
+    private static final Pattern NUEVO_INVENTARIO = Pattern.compile(
+            "\\b(nuevo inventario|inventario (nuevo|de cero|desde cero)|empezar (el inventario )?de cero"
+            + "|vaciar (el |todo el )?inventario|borrar todo el inventario|borra todo el inventario)\\b");
     private static final Pattern ELIMINAR_SUELTO = Pattern.compile("^(elimina|eliminar|eliminame|suprime|suprimir|borra|borrar|borrame)\\b");
     private static final Set<String> PALABRAS_CORRECCION = Set.of("corrige", "corregir", "corrigeme", "edita", "editar",
             "modifica", "modificar", "cambia", "cambiar", "arregla", "arreglar", "ultima", "ultimo", "venta", "comprobante",
@@ -185,6 +188,7 @@ public class InventorySkill implements Skill {
     /** Anular/corregir la última venta, stock mínimo, unidad y eliminar producto. Vacío si no es una corrección. */
     private Optional<String> correcciones(String cmd, List<String> palabras) {
         if (ANULAR_ULTIMA.matcher(cmd).find()) return Optional.of(inv.pedirAnularUltimaVenta());
+        if (NUEVO_INVENTARIO.matcher(cmd).find()) return Optional.of(inv.pedirNuevoInventario());
 
         if (CORREGIR_ULTIMA.matcher(cmd).find()) {
             List<String> resto = palabras.stream().filter(w -> !PALABRAS_CORRECCION.contains(w)).toList();
@@ -318,7 +322,7 @@ public class InventorySkill implements Skill {
         String cmd = Palabras.norm(cmdRaw);
         if (ES_CALCULO.matcher(cmd).find()) return false;
         return Set.of(RECIBO, CIERRE, LISTA, LISTA_PRECIOS, PRECIO, NUEVA_VENTA, ENTRADA, SALIDA, CONSULTA,
-                        ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO)
+                        ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO, NUEVO_INVENTARIO)
                 .stream().anyMatch(p -> p.matcher(cmd).find());
     }
 

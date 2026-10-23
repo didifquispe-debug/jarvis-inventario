@@ -299,6 +299,41 @@ o con la lista en texto (`Content-Type: text/plain`, el mismo formato de *Cargar
 `{ ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }`
 (400 si la lista está vacía o tiene más de 5000 productos).
 
+## Asistente con IA (entiende lo que le diga)
+
+Con una clave de Anthropic e internet, JARVIS entiende frases libres y las ejecuta, como un asistente:
+
+| Usted dice | JARVIS hace |
+|---|---|
+| "Vamos a hacer un nuevo inventario" | Pregunta si confirma; con un sí guarda una copia y empieza vacío |
+| "Sube 10% el precio de todo el calzado" | Revisa los productos de Calzado, cambia cada precio y resume |
+| "Registra unas zapatillas Adidas 41 a 220, me llegaron 6 pares" | Crea el producto con sus datos |
+| "¿Qué me conviene reponer?" | Revisa el stock bajo y responde |
+| "Despacha dos poleras rojas talla M" | Hace la venta con su comprobante |
+
+**Cómo activarlo:**
+1. Cree una clave en [console.anthropic.com](https://console.anthropic.com) (*API Keys*). Se paga por uso.
+2. Abra el Bloc de notas, pegue la clave en la primera línea y guárdelo como `C:\Users\<tú>\jarvis-ia-clave.txt`.
+   (También sirve la variable de entorno `ANTHROPIC_API_KEY`.) No la escriba en `application.properties` ni la comparta.
+3. Reinicie JARVIS. En `jarvis.log` verá `Asistente con IA listo`.
+
+**Modo mixto:** sin clave, sin internet o si la IA falla, JARVIS responde con sus órdenes de siempre, sin que
+usted haga nada (tras un corte de internet espera un minuto antes de volver a intentar con la IA). Si la clave es
+rechazada, el log lo dice y se usan las reglas hasta reiniciar.
+
+**Seguridad:** la IA usa las mismas funciones que la pantalla, así que valen las mismas reglas (no vender más de lo
+que hay, códigos únicos…). **Eliminar un producto y empezar un inventario nuevo siempre piden su "sí"**, y esa
+regla está en el programa, no en la IA. Los "sí/no" de las órdenes de siempre y los productos de una venta con
+carrito van directo a las reglas, para que la caja sea rápida.
+
+Ajustes en `application.properties`: `jarvis.ia.enabled` (false = nunca usar IA), `jarvis.ia.modelo`,
+`jarvis.ia.clave-archivo` y `jarvis.ia.fallback-servidor` (si el modelo declina una petición por sus filtros de
+seguridad, la API la reintenta con otro modelo).
+
+**Sin IA también puede empezar de cero:** diga *"nuevo inventario"*, *"empezar el inventario de cero"* o
+*"vaciar el inventario"*; pregunta y solo vacía con un sí. La copia queda junto al inventario, como
+`jarvis-inventario.json.antes-de-nuevo-<fecha>`. Los números de comprobante no se reinician.
+
 ## Reconocimiento de intenciones local (offline, DJL)
 
 Además de las reglas, JARVIS puede entender órdenes de inventario dichas **con sus propias palabras**

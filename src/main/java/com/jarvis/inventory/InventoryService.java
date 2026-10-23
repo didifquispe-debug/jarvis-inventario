@@ -39,7 +39,7 @@ public class InventoryService {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
-    public enum Tipo { ENTRADA, SALIDA, ANULAR, ELIMINAR }
+    public enum Tipo { ENTRADA, SALIDA, ANULAR, ELIMINAR, NUEVO_INVENTARIO }
 
     /** Operación que quedó esperando un "sí/no" del usuario. */
     public static class Pendiente {
@@ -1060,6 +1060,43 @@ public class InventoryService {
         return Resultado.ok(persistir("Eliminé " + p.nombre + " del inventario, señor."));
     }
 
+    /** Voz: pregunta antes de vaciar el inventario para empezar uno nuevo (se responde con sí/no). */
+    public synchronized String pedirNuevoInventario() {
+        if (productos.isEmpty() && ventas.isEmpty()) return "El inventario ya está vacío, señor. Puede agregar productos cuando quiera.";
+        return preguntar(pend(Tipo.NUEVO_INVENTARIO, null, null, null, resumenAntesDeVaciar() + " Diga sí o no."));
+    }
+
+    /** "¿Confirma empezar un inventario nuevo? Se quitarán N productos y M ventas…" (la usa también el asistente con IA). */
+    public synchronized String resumenAntesDeVaciar() {
+        return "¿Confirma empezar un inventario nuevo desde cero? Se quitarán " + productos.size()
+                + (productos.size() == 1 ? " producto" : " productos") + " y " + ventas.size()
+                + (ventas.size() == 1 ? " línea de venta" : " líneas de venta") + ". Antes guardaré una copia del inventario actual.";
+    }
+
+    /**
+     * Empieza un inventario nuevo: quita todos los productos y las ventas, y cancela las ventas en curso.
+     * Antes copia el archivo actual a {@code jarvis-inventario.json.antes-de-nuevo-<fecha>}; si esa copia falla, no borra nada.
+     * Se conserva el correlativo de comprobantes (no se repiten números) y el historial de movimientos.
+     */
+    public synchronized Resultado empezarDeCero() {
+        Path copia = file.resolveSibling(file.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
+        try {
+            if (!guardar()) throw new IOException("no pude guardar el estado actual");
+            Files.copy(file, copia, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.error("No empecé el inventario nuevo: falló la copia de respaldo {}: {}", copia, e.getMessage());
+            return Resultado.error("No pude guardar la copia del inventario actual, así que no borré nada, señor.");
+        }
+        int n = productos.size();
+        porRegistrar.add(new Movimiento(LocalDateTime.now().withNano(0).toString(), "NUEVO_INVENTARIO", "(todos)", null,
+                n + " productos y " + ventas.size() + " líneas de venta; copia en " + copia.getFileName(), ClientSession.usuario()));
+        productos = new ArrayList<>();
+        ventas = new ArrayList<>();
+        for (Sesion s : sesiones.values()) { s.carrito = null; s.comprobanteNuevo = null; }
+        return Resultado.ok(persistir("Listo, señor: empecé un inventario nuevo, vacío. La copia del anterior (" + n
+                + (n == 1 ? " producto" : " productos") + ") quedó en " + copia.getFileName() + "."));
+    }
+
     /** Últimos movimientos del historial, del más reciente al más antiguo. */
     public List<Movimiento> movimientos(int n) {
         synchronized (this) { return historial.ultimos(Math.min(Math.max(n, 1), 1000)); }
@@ -1104,6 +1141,7 @@ public class InventoryService {
             case ANULAR -> anular(p.numero).mensaje();
             case ELIMINAR -> productos.contains(p.producto)
                     ? eliminarProducto(p.producto.nombre, true).mensaje() : "Ese producto ya no existe, señor.";
+            case NUEVO_INVENTARIO -> empezarDeCero().mensaje();
         };
     }
 

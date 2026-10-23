@@ -53,6 +53,13 @@
             <artifactId>onnxruntime-engine</artifactId>
         </dependency>
 
+        <!-- ===== Asistente con IA (Claude) cuando hay internet y clave; sin ellos se usan las reglas ===== -->
+        <dependency>
+            <groupId>com.anthropic</groupId>
+            <artifactId>anthropic-java</artifactId>
+            <version>2.34.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
