@@ -59,6 +59,13 @@
             <artifactId>sqlite-jdbc</artifactId>
         </dependency>
 
+        <!-- ===== Comprobantes en PDF (la misma librería que el sistema de referencia) ===== -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.43</version>
+        </dependency>
+
         <!-- ===== Asistente con IA (Claude) cuando hay internet y clave; sin ellos se usan las reglas ===== -->
         <dependency>
             <groupId>com.anthropic</groupId>

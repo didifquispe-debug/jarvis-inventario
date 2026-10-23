@@ -1,6 +1,10 @@
 package com.jarvis.api;
 
+import com.jarvis.inventory.ComprobantePdf;
+import com.jarvis.inventory.Igv;
 import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.TipoComprobante;
+import org.springframework.beans.factory.annotation.Value;
 import com.jarvis.inventory.ListaProductos;
 import com.jarvis.inventory.Movimiento;
 import com.jarvis.inventory.Producto;
@@ -43,6 +47,13 @@ import java.util.Map;
  *                              [Código de barras]  (ver ListaProductos)
  *          -> { ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }
  *   DELETE /api/inventory/productos?nombre=Polera roja M
+ *   POST   /api/inventory/ventas                   { "items": [ { "nombre": "Polera roja M", "cantidad": 2 } ],
+ *                                                    "tipo": "boleta" | "nota de venta", "cliente": "12345678",
+ *                                                    "igv": "incluido" | "agregado" | "exonerado" }  (solo items es obligatorio)
+ *          -> { ok, reply, recibo }  (nombres exactos; 404 si un producto no existe)
+ *   PUT    /api/inventory/venta/opciones           { "tipo": "boleta", "cliente": "12345678" }  comprobante y cliente de la venta en curso
+ *   GET    /api/inventory/comprobantes/{numero}     -> comprobante (numero = el número interno de la venta, el de "recibo")
+ *   GET    /api/inventory/comprobantes/{numero}/pdf -> el comprobante en PDF (A4)
  *
  * Las altas y correcciones responden { ok, reply } (200, 400 si falta algo o no se pudo, 404 si no existe). Aquí los nombres
  * de producto deben ser exactos (sin búsqueda difusa): un programa no debe borrar "el más parecido".
@@ -53,9 +64,18 @@ import java.util.Map;
 public class InventoryController {
 
     private final InventoryService inv;
+    private final ComprobantePdf.Emisor emisor;
+    private final Map<String, String> negocio;
 
-    public InventoryController(InventoryService inv) {
+    public InventoryController(InventoryService inv,
+                               @Value("${jarvis.negocio:}") String nombre,
+                               @Value("${jarvis.negocio.ruc:}") String ruc,
+                               @Value("${jarvis.negocio.direccion:}") String direccion,
+                               @Value("${jarvis.negocio.telefono:}") String telefono,
+                               @Value("${jarvis.negocio.email:}") String email) {
         this.inv = inv;
+        this.emisor = new ComprobantePdf.Emisor(nombre.trim(), ruc.trim(), direccion.trim(), telefono.trim(), email.trim());
+        this.negocio = Map.of("nombre", nombre.isBlank() ? "Mi Negocio" : nombre.trim(), "ruc", ruc.trim(), "direccion", direccion.trim());
     }
 
     public record CorreccionVenta(String producto, BigDecimal cantidad) {}
@@ -67,6 +87,8 @@ public class InventoryController {
                                   String unidad, List<String> alias, String categoria, String codigo, String codigoBarras,
                                   BigDecimal costo, Boolean quitarCosto) {}
     public record AjusteStock(String nombre, BigDecimal cantidad) {}
+    public record NuevaVenta(List<InventoryService.Pedido> items, String tipo, String cliente, String igv) {}
+    public record OpcionesVenta(String tipo, String cliente) {}
 
     @GetMapping
     public List<Producto> list() {
@@ -160,6 +182,47 @@ public class InventoryController {
         }
     }
 
+    @PostMapping("/ventas")
+    public ResponseEntity<Map<String, Object>> vender(@RequestBody NuevaVenta req) {
+        TipoComprobante tipo = req.tipo() == null || req.tipo().isBlank() ? null : TipoComprobante.de(req.tipo());
+        if (req.tipo() != null && !req.tipo().isBlank() && tipo == null)
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "reply", "El tipo de comprobante es boleta o nota de venta."));
+        InventoryService.Resultado r = inv.vender(req.items(), new InventoryService.Opciones(tipo, req.cliente(),
+                req.igv() == null || req.igv().isBlank() ? null : Igv.Modo.de(req.igv())));
+        ResponseEntity<Map<String, Object>> res = responder(r);
+        InventoryService.Comprobante c = r.ok() ? inv.tomarComprobanteNuevo() : null;
+        if (c == null) return res;
+        Map<String, Object> body = new LinkedHashMap<>(res.getBody());
+        body.put("recibo", Map.of("comprobante", c, "negocio", negocio));
+        return ResponseEntity.ok(body);
+    }
+
+    @PutMapping("/venta/opciones")
+    public ResponseEntity<Map<String, Object>> opcionesVenta(@RequestBody OpcionesVenta req) {
+        TipoComprobante tipo = req.tipo() == null || req.tipo().isBlank() ? null : TipoComprobante.de(req.tipo());
+        String msg = inv.opcionesVenta(new InventoryService.Opciones(tipo, req.cliente(), null));
+        boolean ok = !msg.startsWith("No tengo");
+        return ResponseEntity.status(ok ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(Map.of("ok", ok, "reply", msg));
+    }
+
+    @GetMapping("/comprobantes/{numero}")
+    public ResponseEntity<?> comprobante(@PathVariable int numero) {
+        InventoryService.Comprobante c = inv.comprobantePorNumero(numero);
+        return c != null ? ResponseEntity.ok(c)
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "reply", "No existe esa venta."));
+    }
+
+    @GetMapping("/comprobantes/{numero}/pdf")
+    public ResponseEntity<?> pdf(@PathVariable int numero) {
+        InventoryService.Comprobante c = inv.comprobantePorNumero(numero);
+        if (c == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "reply", "No existe esa venta."));
+        String archivo = (c.codigo.isEmpty() ? "venta-" + numero : c.codigo) + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "inline; filename=\"" + archivo + "\"")
+                .body(ComprobantePdf.generar(c, emisor));
+    }
+
     @DeleteMapping("/productos")
     public ResponseEntity<Map<String, Object>> eliminar(@RequestParam String nombre) {
         return responder(inv.eliminarProducto(nombre, true));
@@ -172,7 +235,7 @@ public class InventoryController {
                 "reply", "Datos inválidos: revise que el precio y el stock sean números (use punto para decimales)."));
     }
 
-    private static ResponseEntity<Map<String, Object>> responder(InventoryService.Resultado r) {
+    static ResponseEntity<Map<String, Object>> responder(InventoryService.Resultado r) {
         HttpStatus status = switch (r.estado()) {
             case OK -> HttpStatus.OK;
             case ERROR -> HttpStatus.BAD_REQUEST;

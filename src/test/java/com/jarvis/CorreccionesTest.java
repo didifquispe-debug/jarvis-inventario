@@ -65,7 +65,7 @@ class CorreccionesTest {
         BigDecimal antes = stock("Foco");
         jarvis.process("vendí 2 focos");
         String r = jarvis.process("corrige la última venta, eran 3 focos");
-        assertTrue(r.startsWith("Corregí el comprobante número"), r);
+        assertTrue(r.startsWith("Corregí la boleta número"), r);
         assertTrue(r.contains("Nuevo total: 22.50 soles"), r);
         assertEquals(antes.subtract(new BigDecimal("3")), stock("Foco"));
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
@@ -87,7 +87,8 @@ class CorreccionesTest {
         assertTrue(jarvis.process("pon el stock mínimo del cemento en 15").startsWith("Stock mínimo de Cemento Yura 42.5kg: 15"));
         assertEquals(new BigDecimal("15"), producto("Cemento").stockMin);
         assertTrue(jarvis.process("cuál es el stock mínimo del cemento").contains("es 15 bolsas"));
-        assertTrue(jarvis.process("cambia la unidad del cable a rollos").contains("ahora se maneja en rollos"));
+        String unidad = jarvis.process("cambia la unidad del cable a rollos");
+        assertTrue(unidad.contains("ahora se maneja en rollos"), unidad);
         assertEquals("rollos", producto("Cable").unidad);
         assertTrue(jarvis.process("el cable se vende en metros").contains("ahora se maneja en metros"));
         assertEquals("metros", producto("Cable").unidad);
@@ -142,7 +143,7 @@ class CorreccionesTest {
         BigDecimal tras = stock("Cable");
         mvc.perform(put("/api/inventory/ventas/ultima").header("X-Jarvis-Token", CLAVE).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"cantidad\":2.5}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.reply").value(startsWith("Corregí el comprobante")));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reply").value(startsWith("Corregí la boleta")));
         assertEquals(tras.add(new BigDecimal("1.5")), stock("Cable"));
         mvc.perform(post("/api/inventory/ventas/ultima/anular").header("X-Jarvis-Token", CLAVE)).andExpect(status().isOk());
         assertEquals(tras.add(new BigDecimal("4")), stock("Cable"));

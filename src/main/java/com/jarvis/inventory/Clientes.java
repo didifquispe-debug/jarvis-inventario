@@ -1,5 +1,7 @@
 package com.jarvis.inventory;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +16,7 @@ public class Clientes {
 
     /** Un cliente. {@code documento}: DNI (8 dígitos) o RUC (11). */
     public record Cliente(long id, String documento, String nombre, String email, String telefono, String direccion) {
+        @JsonProperty("tipoDocumento")
         public String tipoDocumento() { return documento.length() == 11 ? "RUC" : "DNI"; }
     }
 
