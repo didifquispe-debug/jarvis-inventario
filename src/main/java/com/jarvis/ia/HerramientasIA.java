@@ -58,7 +58,10 @@ public class HerramientasIA {
                         "agrega 10 polera roja M a 25 soles", "cuántas tengo de zapatilla nike 40", "nueva venta", "cobrar", \
                         "último comprobante", "anula la última venta", "cierre de caja", "lista de precios", "abre youtube", \
                         "anota llamar al proveedor", "aprende que chompa significa polera". Usa el nombre exacto del producto \
-                        cuando lo conozcas. Si la respuesta es una pregunta de sí o no, pásasela al usuario tal cual.""",
+                        cuando lo conozcas. Las ventas se emiten con boleta salvo que se pida otra cosa; para elegir el \
+                        comprobante o el cliente (registrado) añade "con nota de venta", "con boleta" o "para el DNI 12345678" \
+                        (o "para el RUC …"), por ejemplo "vendí 2 polera roja M con boleta para el DNI 12345678". \
+                        Si la respuesta es una pregunta de sí o no, pásasela al usuario tal cual.""",
                         props(Map.of("orden", prop("string", "La orden, en español, como la diría el usuario."))), List.of("orden")),
                 tool("ver_productos", """
                         Lista los productos con todos sus datos (stock, unidad, precio, costo, stock mínimo, categoría, \

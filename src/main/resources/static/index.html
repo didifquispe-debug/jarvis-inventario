@@ -146,6 +146,17 @@
               font-family: var(--head); letter-spacing: .15em; }
   .rc-total b { font-size: 1.3rem; color: #fff; text-shadow: 0 0 10px rgba(var(--c), .6); }
   .rc-foot { text-align: center; font-size: .8rem; opacity: .6; margin-bottom: 18px; }
+  .rc-doc { text-align: center; border: 1px solid var(--cyan); padding: 6px; margin-bottom: 10px; }
+  .rc-doc b { display: block; font-family: var(--head); font-size: .7rem; letter-spacing: .18em; color: var(--cyan); }
+  .rc-doc span { font-size: 1.05rem; color: #fff; letter-spacing: .08em; }
+  .rc-anulado { color: #ff7a7a; font-family: var(--head); letter-spacing: .3em; font-size: .8rem; }
+  .rc-cliente { font-size: .9rem; padding: 6px 0; border-bottom: 1px dashed var(--dim); }
+  .rc-sub { display: flex; justify-content: space-between; font-size: .88rem; opacity: .85; padding: 2px 0; }
+  .rc-letras { font-size: .78rem; opacity: .75; padding: 6px 0 2px; }
+  .cart-opc { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
+  .cart-opc select { flex: 0 0 auto; width: auto; }
+  .cart-opc input { flex: 1 1 120px; min-width: 0; }
+  .cart-cliente { font-size: .85rem; opacity: .8; min-height: 1.1em; margin: 0 0 6px; }
   .entry .rc-link { margin-top: 6px; }
   .cart { border: 1px solid var(--dim); background: rgba(var(--c), .05); padding: 0 12px 10px; margin-top: 14px; }
   .cart .rc-table { margin: 0; font-size: .88rem; }
@@ -286,6 +297,14 @@
 
       <div id="cart" class="cart" hidden>
         <h2 style="margin-top:18px">🛒 VENTA EN CURSO</h2>
+        <div class="cart-opc">
+          <select class="field" id="cartTipo" title="Tipo de comprobante">
+            <option value="boleta">Boleta</option><option value="nota de venta">Nota de venta</option>
+          </select>
+          <input class="field" id="cartDni" inputmode="numeric" maxlength="11" autocomplete="off"
+                 placeholder="DNI o RUC del cliente (opcional)" title="Cliente registrado (Enter para aplicar)">
+        </div>
+        <p class="cart-cliente" id="cartCliente"></p>
         <div id="cartBody"></div>
         <div class="rc-total"><span>TOTAL</span><b id="cartTotal">S/ 0.00</b></div>
         <div class="chips">
@@ -429,7 +448,8 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
     <div id="receiptBody"></div>
     <div class="modal-btns">
       <button class="btn" id="receiptClose">CERRAR</button>
-      <button class="btn on" id="receiptPrint">IMPRIMIR</button>
+      <button class="btn" id="receiptPdf" title="Comprobante A4 en PDF">PDF</button>
+      <button class="btn on" id="receiptPrint" title="Ticket de 80 mm">IMPRIMIR</button>
     </div>
   </div>
 </div>
@@ -569,23 +589,34 @@ const itemRows = items => items.map(v => `<tr>
     <td class="n">${soles(v.monto)}</td>
   </tr>`).join('');
 
+/* "B001-00000012" (o el número interno en ventas muy antiguas sin serie) */
+const codigoDe = c => c.codigo || ('N° ' + nroComp(c.numero));
+
 function receiptHtml(r) {
   const c = r.comprobante, n = r.negocio || {};
   const fecha = (c.fecha || '').split('-').reverse().join('/');
-  const unidades = c.items.reduce((s, v) => s + v.cantidad, 0);
+  const conIgv = Number(c.tasaIgv) > 0;
+  const cliente = c.cliente
+    ? `${esc(c.cliente.nombre)} · ${esc(c.cliente.tipoDocumento)} ${esc(c.cliente.documento)}` : 'CLIENTES VARIOS';
   return `
     <div class="rc-head">
       <b>${esc(n.nombre)}</b>
       ${n.ruc ? `<span>RUC ${esc(n.ruc)}</span>` : ''}
       ${n.direccion ? `<span>${esc(n.direccion)}</span>` : ''}
     </div>
-    <div class="rc-meta"><span>N° ${nroComp(c.numero)}</span><span>${esc(fecha)} ${esc(c.hora)}</span></div>
+    <div class="rc-doc"><b>${esc((c.tipoDescripcion || 'Comprobante').toUpperCase())}</b><span>${esc(codigoDe(c))}</span>
+      ${c.anulado ? '<div class="rc-anulado">ANULADO</div>' : ''}</div>
+    <div class="rc-meta"><span>${esc(fecha)} ${esc(c.hora)}</span><span>SOLES · CONTADO</span></div>
+    <div class="rc-cliente">Cliente: ${cliente}</div>
     <table class="rc-table">
       <thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th class="n">P. UNIT.</th><th class="n">IMPORTE</th></tr></thead>
       <tbody>${itemRows(c.items)}</tbody>
     </table>
-    <div class="rc-total"><span>TOTAL · ${c.items.length} ${c.items.length === 1 ? 'producto' : 'productos'} (${unidades} u.)</span><b>${soles(c.total)}</b></div>
-    <div class="rc-foot">¡Gracias por su compra!<br>Comprobante interno de venta</div>`;
+    <div class="rc-sub"><span>${conIgv ? 'OP. GRAVADA' : 'OP. EXONERADA'}</span><span>${soles(c.base)}</span></div>
+    <div class="rc-sub"><span>IGV (${Math.round(Number(c.tasaIgv || 0) * 100)}%)</span><span>${soles(c.igv)}</span></div>
+    <div class="rc-total"><span>TOTAL</span><b>${soles(c.total)}</b></div>
+    <div class="rc-letras">SON: ${esc(c.totalEnLetras || '')}</div>
+    <div class="rc-foot">${esc(c.leyendaIgv || '')}<br>¡Gracias por su compra!</div>`;
 }
 
 /* Venta con varios productos en curso (panel izquierdo) */
@@ -597,7 +628,23 @@ function renderCart(c) {
     ? `<table class="rc-table"><tbody>${itemRows(c.items)}</tbody></table>`
     : '<p class="cart-empty">Dicte los productos: “2 poleras M”, “1 zapatilla 40”…</p>';
   $('cartTotal').textContent = soles(c.total);
+  $('cartTipo').value = c.tipo === 'NOTA_VENTA' ? 'nota de venta' : 'boleta';
+  if (document.activeElement !== $('cartDni')) $('cartDni').value = c.cliente ? c.cliente.documento : '';
+  $('cartCliente').textContent = c.cliente ? 'Cliente: ' + c.cliente.nombre : '';
 }
+
+/* Tipo de comprobante y cliente de la venta en curso */
+async function opcionesCarrito(cambios) {
+  const res = await invCall('/api/inventory/venta/opciones', 'PUT', cambios);
+  if (!res.ok) addEntry('sys', res.reply);
+  refreshCart();
+}
+$('cartTipo').addEventListener('change', () => opcionesCarrito({ tipo: $('cartTipo').value }));
+$('cartDni').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  opcionesCarrito({ cliente: $('cartDni').value.trim() });
+});
 async function refreshCart() {
   try {
     const r = await api('/api/inventory/venta');
@@ -615,7 +662,7 @@ function addReceiptLink(r) {
   const e = logEl.lastElementChild; if (!e) return;
   const b = document.createElement('button');
   b.className = 'chip rc-link';
-  b.textContent = '🧾 Ver comprobante N° ' + nroComp(r.comprobante.numero);
+  b.textContent = '🧾 Ver ' + (r.comprobante.tipo === 'NOTA_VENTA' ? 'nota de venta ' : 'boleta ') + codigoDe(r.comprobante);
   b.onclick = () => showReceipt(r);
   e.appendChild(b);
 }
@@ -625,7 +672,7 @@ function printReceipt() {
   if (!lastReceipt) return;
   const w = window.open('', '_blank', 'width=420,height=640');
   if (!w) return;
-  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Comprobante ${nroComp(lastReceipt.comprobante.numero)}</title>
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(codigoDe(lastReceipt.comprobante))}</title>
     <style>
       @page { size: 80mm auto; margin: 4mm; }
       body { font: 13px/1.35 "Courier New", monospace; color: #000; background: #fff; width: 72mm; margin: 0 auto; }
@@ -635,6 +682,9 @@ function printReceipt() {
       td { vertical-align: top; padding: 3px 0; } .n { text-align: right; white-space: nowrap; padding-left: 6px; }
       .rc-total { display: flex; justify-content: space-between; border-top: 1px solid #000; padding: 6px 0; font-weight: bold; font-size: 15px; }
       .rc-foot { text-align: center; margin-top: 8px; }
+      .rc-doc { text-align: center; border: 1px solid #000; padding: 4px; margin-bottom: 6px; } .rc-doc b, .rc-doc span { display: block; }
+      .rc-cliente { padding: 4px 0; border-bottom: 1px dashed #000; } .rc-sub { display: flex; justify-content: space-between; }
+      .rc-letras { font-size: 11px; padding-top: 4px; } .rc-anulado { font-weight: bold; letter-spacing: 4px; }
     </style></head><body>${receiptHtml(lastReceipt)}</body></html>`);
   w.document.close();
   w.focus();
@@ -643,6 +693,21 @@ function printReceipt() {
 
 $('receiptClose').onclick = () => $('receipt').classList.remove('show');
 $('receiptPrint').onclick = printReceipt;
+
+/* Comprobante A4 en PDF: se pide con la clave y se abre en una ventana aparte */
+async function openReceiptPdf() {
+  if (!lastReceipt) return;
+  try {
+    const r = await api('/api/inventory/comprobantes/' + lastReceipt.comprobante.numero + '/pdf');
+    if (!r.ok) { addEntry('sys', 'No pude generar el PDF del comprobante.'); return; }
+    const url = URL.createObjectURL(await r.blob());
+    if (!window.open(url, '_blank')) location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    addEntry('sys', 'Sin conexión con el núcleo de JARVIS.');
+  }
+}
+$('receiptPdf').onclick = openReceiptPdf;
 
 /* =================== Paneles de sistema =================== */
 function setGauge(id, pct, label) {

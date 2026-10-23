@@ -171,6 +171,28 @@ instalar nada.
   renombrado como `jarvis-inventario.json.migrado` y no se borra nada.
 - Para copiar el inventario a otra PC, copie `jarvis-inventario.db` con JARVIS apagado.
 
+### Comprobantes: boleta y nota de venta, con IGV
+Cada venta emite un comprobante con su **serie y correlativo**: boleta `B001-00000001` o nota de venta
+`NV01-00000001`. Cada serie lleva su propia numeración, que nunca se repite (ni al empezar un inventario nuevo).
+- **Por defecto, boleta.** Se cambia en `application.properties` (`jarvis.comprobante.tipo=nota de venta`) o al vender:
+  *"vendí 2 poleras M **con nota de venta**"*, *"nueva venta **con boleta**"*.
+- **IGV 18%** (`jarvis.igv`): `incluido` (los precios ya lo tienen: el total no cambia y el comprobante muestra
+  base e IGV por separado), `agregado` (se suma al precio) o `exonerado`. Las ventas hechas antes de esta versión
+  quedan como notas de venta sin IGV (no se sabe si el negocio lo cobraba; no se inventan impuestos).
+- **Cliente:** sin cliente, el comprobante dice *CLIENTES VARIOS*. Con un cliente registrado:
+  *"vendí 2 poleras M con boleta **para el DNI 12345678**"*, o en una venta con carrito *"cliente DNI 12345678"*
+  (también hay un selector de comprobante y un campo de DNI en el panel de la venta en curso). Si una boleta llega a
+  700 soles o más sin cliente, JARVIS avisa: la SUNAT pide identificar al cliente desde ese monto.
+- **PDF:** en la ventana del comprobante, el botón **PDF** abre la representación impresa en A4 (con el importe en
+  letras y la marca *ANULADO* si se anuló); **IMPRIMIR** sigue sacando el ticket de 80 mm. Los datos del negocio
+  salen de `jarvis.negocio`, `.ruc`, `.direccion`, `.telefono` y `.email`.
+- Nota: JARVIS no envía los comprobantes a la SUNAT; son la representación interna del negocio.
+
+### Clientes
+Se registran por la API (`/api/clientes`, ver abajo): DNI de 8 dígitos o RUC de 11 (que empiece con 10, 15, 17 o
+20), nombre, y opcionalmente correo, teléfono (6 a 9 dígitos) y dirección. No se repite el documento, y un cliente
+con comprobantes no se puede eliminar. El comprobante guarda el nombre con el que se emitió.
+
 ### Arranca vacío
 La primera vez el inventario **no trae ningún producto** y el panel dice *"Aún no tienes productos. Agrega el
 primero."* Para empezar de cero más adelante, diga *"nuevo inventario"* (guarda una copia antes).
@@ -303,6 +325,13 @@ Todas piden la cabecera `X-Jarvis-Token` y responden `{ ok, reply }` (400 si fal
 `DELETE /api/inventory/productos?nombre=...`. Detalles en `InventoryController.java`.
 Al crear o editar también se aceptan `categoria`, `codigo`, `codigoBarras` y `costo`; al editar, un texto `""`
 borra ese dato y `"quitarCosto": true` borra el costo.
+
+Ventas y comprobantes: `POST /api/inventory/ventas` con
+`{"items": [{"nombre": "Polera roja M", "cantidad": 2}], "tipo": "boleta", "cliente": "12345678", "igv": "incluido"}`
+(solo `items` es obligatorio; nombres exactos), `GET /api/inventory/comprobantes/{numero}` y
+`GET /api/inventory/comprobantes/{numero}/pdf`, y `PUT /api/inventory/venta/opciones` (`{"tipo", "cliente"}`) para la
+venta en curso. Clientes: `GET /api/clientes?q=…`, `GET/PATCH/DELETE /api/clientes/{documento}`, `POST /api/clientes`
+(`{"documento", "nombre", "email", "telefono", "direccion"}`).
 
 Alta masiva: `POST /api/inventory/productos/lote`, con un arreglo JSON
 (`Content-Type: application/json`, `[{"nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2}, …]`)

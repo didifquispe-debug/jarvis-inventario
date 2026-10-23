@@ -5,6 +5,7 @@ import com.jarvis.ai.IntentResult;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.inventory.Num;
 import com.jarvis.inventory.Palabras;
+import com.jarvis.inventory.TipoComprobante;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -93,6 +94,13 @@ public class InventorySkill implements Skill {
             "cambiale", "actualiza", "actualizar", "pon", "ponle", "nuevo", "como", "esta", "estan", "en", "cual", "es", "dime", "dame");
 
     // venta con varios productos
+    // tipo de comprobante y cliente de una venta: "con boleta", "con nota de venta", "para el DNI 12345678".
+    // El documento solo cuenta con la palabra DNI/RUC/cliente delante: así nunca se confunde con una cantidad.
+    private static final Pattern TIPO_DICHO = Pattern.compile("\\b(?:con |en |por )?(?:una |la )?(boleta|nota de venta)\\b|\\bcon nota\\b");
+    private static final Pattern DOCUMENTO_DICHO = Pattern.compile(
+            "\\b(?:para |a |al )?(?:el |la )?(?:cliente )?(?:con )?(?:dni|ruc|documento|cliente)(?: numero)? (\\d{11}|\\d{8})\\b");
+    private static final Set<String> RELLENO_OPCIONES = Set.of("con", "para", "el", "la", "a", "al", "de", "del", "cliente",
+            "venta", "y", "que", "sea", "una", "un", "por", "en", "ponle", "pon", "hazla", "haz", "esta", "es", "mejor");
     private static final Pattern NUEVA_VENTA = Pattern.compile("\\b(nueva venta|otra venta|nuevo cliente|(abre|abrir|inicia|iniciar|empieza|empezar) (una )?venta)\\b");
     private static final Pattern COBRAR = Pattern.compile("\\b(cobra|cobrar|cobrale|cobre|cobramos|eso es todo|es todo|seria todo|listo|termina|terminar|finaliza|finalizar|cierra la venta|cerrar (la )?venta)\\b");
     private static final Pattern CANCELAR_VENTA = Pattern.compile("\\b(cancela|cancelar|anula|anular|borra)\\b.*\\bventa\\b");
@@ -125,9 +133,26 @@ public class InventorySkill implements Skill {
         Optional<String> correccion = correcciones(cmd, palabras);
         if (correccion.isPresent()) return correccion;
 
-        // 3) Venta con varios productos: abrir, y mientras está abierta, ver / cancelar / cobrar
-        if (NUEVA_VENTA.matcher(cmd).find()) return Optional.of(inv.abrirVenta());
+        // 3) Comprobante y cliente de esta venta ("con boleta para el DNI 12345678"): se quitan de la frase
+        //    antes de buscar cantidad y producto.
+        InventoryService.Opciones op = InventoryService.Opciones.POR_DEFECTO;
+        if (SALIDA.matcher(cmd).find() || NUEVA_VENTA.matcher(cmd).find() || inv.ventaAbierta()) {
+            Dichas d = opcionesDichas(cmd);
+            if (!d.opciones().vacia()) {
+                op = d.opciones();
+                cmd = d.resto();
+                palabras = new ArrayList<>(Arrays.asList(cmd.split(" ")));
+                qty = Palabras.buscarCantidad(palabras);
+            }
+        }
+
+        // 4) Venta con varios productos: abrir, y mientras está abierta, ver / cancelar / cobrar
+        if (NUEVA_VENTA.matcher(cmd).find()) return Optional.of(inv.abrirVenta(op));
         if (inv.ventaAbierta()) {
+            if (!op.vacia()) {
+                String r = inv.opcionesVenta(op);
+                if (soloOpciones(cmd) || r.startsWith("No tengo")) return Optional.of(r);
+            }
             if (CANCELAR_VENTA.matcher(cmd).find()) return Optional.of(inv.cancelarVenta());
             if (VER_VENTA.matcher(cmd).find()) return Optional.of(inv.verCarrito());
             if (COBRAR.matcher(cmd).find() && !qty.hay()) return Optional.of(inv.cobrar());
@@ -174,10 +199,10 @@ public class InventorySkill implements Skill {
         }
         if (esSalida) {
             List<List<String>> partes = dividirProductos(palabras);
-            if (partes.size() > 1) return Optional.of(venderVarios(partes));
+            if (partes.size() > 1) return Optional.of(venderVarios(partes, op));
             if (!qty.hay() || producto.isBlank())
                 return Optional.of("No logré identificar la cantidad ni el producto, señor. Por favor repita la orden.");
-            return Optional.of(registrarSalida(cantidad(qty, producto, palabras), producto));
+            return Optional.of(inv.salida(cantidad(qty, producto, palabras), producto, false, op));
         }
         // consulta: aquí no hay cantidad, así que un número es la talla ("cuántas zapatillas 40 quedan")
         producto = EntityExtractor.producto(palabras, Palabras.Cantidad.NINGUNA);
@@ -273,7 +298,7 @@ public class InventorySkill implements Skill {
         return partes;
     }
 
-    private String venderVarios(List<List<String>> partes) {
+    private String venderVarios(List<List<String>> partes, InventoryService.Opciones op) {
         List<BigDecimal> cantidades = new ArrayList<>();
         List<String> productos = new ArrayList<>();
         for (List<String> p : partes) {
@@ -284,7 +309,32 @@ public class InventorySkill implements Skill {
             cantidades.add(cantidad(q, prod, p));
             productos.add(prod);
         }
-        return inv.venderVarios(cantidades, productos);
+        return inv.venderVarios(cantidades, productos, op);
+    }
+
+    /** El tipo de comprobante y el documento del cliente dichos en la frase, y la frase sin ellos. */
+    record Dichas(InventoryService.Opciones opciones, String resto) {}
+
+    static Dichas opcionesDichas(String cmd) {
+        TipoComprobante tipo = null;
+        String doc = null, resto = cmd;
+        Matcher m = TIPO_DICHO.matcher(resto);
+        if (m.find()) {
+            tipo = "boleta".equals(m.group(1)) ? TipoComprobante.BOLETA : TipoComprobante.NOTA_VENTA;
+            resto = m.replaceAll(" ");
+        }
+        m = DOCUMENTO_DICHO.matcher(resto);
+        if (m.find()) {
+            doc = m.group(1);
+            resto = m.replaceAll(" ");
+        }
+        return new Dichas(new InventoryService.Opciones(tipo, doc, null), resto.replaceAll("\\s+", " ").trim());
+    }
+
+    /** ¿Después de quitar el comprobante y el cliente no queda nada más que decir? ("con boleta", "para el cliente…") */
+    private static boolean soloOpciones(String resto) {
+        for (String w : resto.split(" ")) if (!w.isBlank() && !RELLENO_OPCIONES.contains(w)) return false;
+        return true;
     }
 
     private String agregarAlCarrito(List<String> palabras) {

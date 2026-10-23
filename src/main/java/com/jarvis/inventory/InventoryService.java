@@ -446,6 +446,32 @@ public class InventoryService {
     }
 
     /** Vende varios productos dichos en una sola frase ("2 poleras y 3 gorras") con un solo comprobante. */
+    /** Una línea de una venta por API: nombre exacto del producto y cantidad. */
+    public record Pedido(String nombre, BigDecimal cantidad) {}
+
+    /**
+     * Venta desde la API o la pantalla: nombres exactos (sin búsqueda difusa: un programa no debe vender "el más
+     * parecido"). Mismas reglas que por voz: valida todo el stock antes de descontar nada.
+     */
+    public synchronized Resultado vender(List<Pedido> pedido, Opciones opciones) {
+        if (pedido == null || pedido.isEmpty()) return Resultado.error("La venta no tiene productos.");
+        List<Linea> lineas = new ArrayList<>();
+        for (Pedido x : pedido) {
+            if (x == null) return Resultado.error("Hay una línea vacía en la venta.");
+            Producto p = porNombre(x.nombre());
+            if (p == null) return Resultado.noEncontrado("No existe el producto " + x.nombre() + ". No registré la venta.");
+            if (cantidadInvalida(x.cantidad())) return Resultado.error("La cantidad de " + p.nombre + " debe ser mayor que cero.");
+            lineas.add(new Linea(p, Num.cantidad(x.cantidad())));
+        }
+        String msg = emitir(lineas, opciones);
+        return msg.startsWith("Venta registrada") ? Resultado.ok(msg) : Resultado.error(msg);
+    }
+
+    /** El comprobante con ese número interno de venta (el de {@code Comprobante.numero}), o null. */
+    public synchronized Comprobante comprobantePorNumero(int numero) {
+        return numero <= 0 ? null : comprobante(numero);
+    }
+
     public synchronized String venderVarios(List<BigDecimal> cantidades, List<String> textos) {
         return venderVarios(cantidades, textos, Opciones.POR_DEFECTO);
     }
@@ -820,7 +846,7 @@ public class InventoryService {
         String error = errorDecimales(p, nueva);
         if (error != null) return Resultado.error(error);
         if (nueva.signum() == 0 && c.items.size() == 1)
-            return Resultado.error("Es el único producto del comprobante. Para quitarlo, anule la última venta, señor.");
+            return Resultado.error("Es el único producto de la " + c.hablado() + ". Para quitarlo, anule la última venta, señor.");
 
         BigDecimal antes = linea.cantidad;
         BigDecimal diferencia = nueva.subtract(antes);   // + = se vendió más, - = se devuelve al stock
@@ -838,8 +864,8 @@ public class InventoryService {
         Comprobante corregido = comprobante(c.numero);
         sesion().comprobanteNuevo = corregido;
         String que = nueva.signum() == 0 ? "quité " + p.nombre : p.nombre + " ahora es " + Num.txt(nueva) + " " + p.unidad;
-        return Resultado.ok(persistir(String.format("Corregí el comprobante número %d: %s. Nuevo total: %.2f soles. Stock actual: %s.",
-                c.numero, que, corregido.total, Num.txt(p.stock))));
+        return Resultado.ok(persistir(String.format("Corregí la %s: %s. Nuevo total: %.2f soles. Stock actual: %s.",
+                corregido.hablado(), que, corregido.total, Num.txt(p.stock))));
     }
 
     /**
