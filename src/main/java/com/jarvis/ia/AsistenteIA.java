@@ -61,7 +61,7 @@ public class AsistenteIA {
     private volatile long sinRedHasta;
     private volatile boolean claveRechazada;
 
-    public AsistenteIA(InventoryService inv,
+    public AsistenteIA(InventoryService inv, com.jarvis.core.AcercaDeJarvis acercaDe,
                        @Value("${jarvis.ia.enabled:true}") boolean enabled,
                        @Value("${jarvis.ia.modelo:claude-opus-5-5}") String modelo,
                        @Value("${jarvis.ia.clave-archivo:${user.home}/jarvis-ia-clave.txt}") String archivoClave,
@@ -72,7 +72,8 @@ public class AsistenteIA {
         this.herramientasApi = herramientas.definiciones();
         this.modelo = modelo;
         this.fallbackServidor = fallbackServidor;
-        this.sistema = sistema(owner, negocio);
+        this.sistema = sistema(owner, negocio) + "\n\nSobre ti mismo (úsalo cuando te pregunten qué eres, qué puedes hacer o "
+                + "cómo se usa algo; responde en pocas frases):\n" + acercaDe.conocimiento();
         String clave = enabled ? clave(archivoClave) : null;
         this.client = clave == null ? null : AnthropicOkHttpClient.builder()
                 .apiKey(clave)
