@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jarvis.security.ClientSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +42,7 @@ public class InventoryService {
     public static class Pendiente {
         public Tipo tipo; public Producto producto; public BigDecimal cantidad; public BigDecimal precio; public String unidad;
         public int numero;                 // comprobante a anular
+        public Opciones opciones;          // tipo de comprobante y cliente de la venta que espera el "sí"
         public String pregunta;
     }
 
@@ -69,18 +71,65 @@ public class InventoryService {
         }
     }
 
-    /** Comprobante de pago: una o varias líneas con su total. numero = 0 si es la venta en curso (aún sin cobrar). */
+    /**
+     * Comprobante de pago (boleta o nota de venta): una o varias líneas con su base, IGV y total.
+     * numero = 0 si es la venta en curso (aún sin cobrar). {@code numero} es el número interno de la venta;
+     * lo que ve el cliente es {@code codigo} (serie y correlativo, p. ej. B001-00000012).
+     */
     public static class Comprobante {
         public int numero; public String fecha; public String hora;
+        public String tipo;                // BOLETA o NOTA_VENTA
+        public String tipoDescripcion;     // "Boleta de venta electrónica"
+        public String serie; public int correlativo;
+        public String codigo;              // "B001-00000012" ("" en la venta en curso)
+        public ClienteResumen cliente;     // null = clientes varios
+        public String modoIgv; public String leyendaIgv;
+        public BigDecimal base; public BigDecimal igv; public BigDecimal tasaIgv;
         public List<Venta> items = new ArrayList<>();
         public BigDecimal total;
+        public String totalEnLetras;
         public boolean anulado;
 
-        Comprobante(int numero, String fecha, String hora, List<Venta> items) {
+        Comprobante(int numero, String fecha, String hora, List<Venta> items, Cabecera cab) {
             this.numero = numero; this.fecha = fecha; this.hora = hora; this.items = items;
-            this.total = items.stream().map(v -> v.monto).reduce(Num.dinero(BigDecimal.ZERO), BigDecimal::add);
+            TipoComprobante t = cab.tipo();
+            this.tipo = t.name(); this.tipoDescripcion = t.descripcion; this.serie = t.serie;
+            this.correlativo = cab.correlativo();
+            this.codigo = cab.correlativo() > 0 ? t.codigo(cab.correlativo()) : "";
+            this.cliente = cab.clienteDoc() == null || cab.clienteDoc().isBlank() ? null
+                    : new ClienteResumen(cab.clienteDoc(), Clientes.tipo(cab.clienteDoc()), cab.clienteNombre());
+            this.modoIgv = cab.modo().name(); this.leyendaIgv = cab.modo().leyenda;
+            Igv.Totales tot = Igv.calcular(items.stream().map(v -> v.monto).toList(), cab.modo());
+            this.base = tot.base(); this.igv = tot.igv(); this.tasaIgv = tot.tasa(); this.total = tot.total();
+            this.totalEnLetras = NumeroALetras.importe(total);
             this.anulado = !items.isEmpty() && items.stream().allMatch(v -> v.anulada);
         }
+
+        /** Cómo se dice: "boleta número 12". (No es un getter: no sale en la API.) */
+        public String hablado() { return TipoComprobante.valueOf(tipo).hablado + " número " + correlativo; }
+    }
+
+    /** Cliente tal como quedó en el comprobante (si después cambia su nombre, el comprobante no cambia). */
+    public record ClienteResumen(String documento, String tipoDocumento, String nombre) {}
+
+    /** Datos del comprobante que no están en sus líneas: tipo y correlativo, cliente (copiado al emitir) y modalidad de IGV. */
+    record Cabecera(TipoComprobante tipo, int correlativo, Long clienteId, String clienteDoc, String clienteNombre, Igv.Modo modo) {}
+
+    /**
+     * Cómo emitir una venta. Un campo null = lo de siempre: el tipo de comprobante y el IGV configurados, sin cliente.
+     * {@code clienteDoc}: DNI o RUC de un cliente registrado.
+     */
+    public record Opciones(TipoComprobante tipo, String clienteDoc, Igv.Modo modo) {
+        public static final Opciones POR_DEFECTO = new Opciones(null, null, null);
+
+        /** Estas opciones con lo que trae {@code otras} encima (lo que no trae se conserva). */
+        public Opciones con(Opciones otras) {
+            if (otras == null) return this;
+            return new Opciones(otras.tipo != null ? otras.tipo : tipo,
+                    otras.clienteDoc != null ? otras.clienteDoc : clienteDoc, otras.modo != null ? otras.modo : modo);
+        }
+
+        public boolean vacia() { return tipo == null && (clienteDoc == null || clienteDoc.isBlank()) && modo == null; }
     }
 
     /** Producto y cantidad a vender (en el carrito o en una frase con varios productos). */
@@ -99,12 +148,15 @@ public class InventoryService {
     private static class Sesion {
         Pendiente pendiente;
         List<Linea> carrito;              // venta en curso con varios productos (null = no hay)
+        Opciones opciones = Opciones.POR_DEFECTO;   // tipo de comprobante y cliente de la venta en curso
         Comprobante comprobanteNuevo;     // comprobante que la pantalla aún no mostró
         long usado;
     }
 
     private static final long SESION_INACTIVA_MS = 4 * 60 * 60 * 1000L;
     private static final BigDecimal CONFIRMAR_DESDE = BigDecimal.valueOf(100);
+    /** Desde este total la SUNAT pide identificar al cliente en una boleta. */
+    private static final BigDecimal BOLETA_CON_DNI_DESDE = BigDecimal.valueOf(700);
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     private final ObjectMapper json = new ObjectMapper()
@@ -116,7 +168,12 @@ public class InventoryService {
 
     private List<Producto> productos = new ArrayList<>();
     private List<Venta> ventas = new ArrayList<>();
-    private int ultimoNumero;                       // último comprobante emitido
+    private int ultimoNumero;                       // número interno de la última venta
+    private Map<Integer, Cabecera> cabeceras = new HashMap<>();   // por número de venta
+    private final Map<TipoComprobante, Integer> correlativos = new EnumMap<>(TipoComprobante.class);
+    private final TipoComprobante tipoPorDefecto;
+    private final Igv.Modo igvPorDefecto;
+    private final Clientes clientes;
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
@@ -124,12 +181,26 @@ public class InventoryService {
      * @param archivo la base de datos ({@code .db}) o, como en versiones anteriores, el inventario {@code .json}:
      *                entonces la base es el mismo nombre con {@code .db}, y el JSON se importa si la base está vacía.
      */
-    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo) {
+    public InventoryService(String archivo) {
+        this(archivo, TipoComprobante.BOLETA.name(), Igv.Modo.INCLUIDO.name());
+    }
+
+    /**
+     * @param tipo comprobante que se emite si no se pide otro: boleta (como el sistema de referencia) o nota de venta
+     * @param igv  incluido (los precios ya tienen IGV), agregado (se suma al precio) o exonerado
+     */
+    @Autowired
+    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
+                            @Value("${jarvis.comprobante.tipo:boleta}") String tipo,
+                            @Value("${jarvis.igv:incluido}") String igv) {
+        this.tipoPorDefecto = Objects.requireNonNullElse(TipoComprobante.de(tipo), TipoComprobante.BOLETA);
+        this.igvPorDefecto = Igv.Modo.de(igv);
         Path ruta = Paths.get(archivo);
         String nombre = ruta.getFileName().toString();
         boolean esBase = nombre.endsWith(".db");
         this.archivoJson = esBase ? ruta.resolveSibling(nombre.replaceFirst("\\.db$", ".json")) : ruta;
         this.almacen = new Almacen(esBase ? ruta : ruta.resolveSibling(nombre.replaceFirst("\\.json$", "") + ".db"));
+        this.clientes = new Clientes(almacen.baseDatos());
         cargar();
     }
 
@@ -139,6 +210,12 @@ public class InventoryService {
 
     /** El archivo de la base de datos del inventario. */
     public Path archivoBaseDatos() { return almacen.archivo(); }
+
+    public Clientes clientes() { return clientes; }
+
+    public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
+
+    public Igv.Modo igvPorDefecto() { return igvPorDefecto; }
 
     // ---------------------------------------------------------------- sesiones
 
@@ -168,7 +245,28 @@ public class InventoryService {
     private void usarEstado(Almacen.Estado e) {
         productos = new ArrayList<>(e.productos());
         ventas = new ArrayList<>(e.ventas());
-        ultimoNumero = e.ultimoNumero();
+        cabeceras = new HashMap<>(e.cabeceras());
+        recalcularContadores(e.contadores());
+    }
+
+    /** Los últimos números usados: lo guardado como contador o lo que hay en las ventas, lo mayor. */
+    private void recalcularContadores(Map<String, Integer> guardados) {
+        ultimoNumero = Math.max(guardados.getOrDefault(Almacen.ULTIMO_COMPROBANTE, 0),
+                ventas.stream().mapToInt(v -> v.numero).max().orElse(0));
+        correlativos.clear();
+        for (TipoComprobante t : TipoComprobante.values()) correlativos.put(t, guardados.getOrDefault("serie:" + t.serie, 0));
+        for (Venta v : ventas) {
+            if (v.numero <= 0) continue;
+            Cabecera c = Almacen.cabecera(cabeceras, v.numero);
+            correlativos.merge(c.tipo(), c.correlativo(), Math::max);
+        }
+    }
+
+    private Map<String, Integer> contadores() {
+        Map<String, Integer> m = new HashMap<>();
+        m.put(Almacen.ULTIMO_COMPROBANTE, ultimoNumero);
+        correlativos.forEach((t, n) -> m.put("serie:" + t.serie, n));
+        return m;
     }
 
     /**
@@ -195,9 +293,11 @@ public class InventoryService {
         if (d.ventas != null) todas.addAll(d.ventas);
         d.ventas = todas;
         usar(d);
+        cabeceras = new HashMap<>();
+        recalcularContadores(Map.of());
         List<Almacen.Pendiente> movimientos = h.movimientos().stream().map(m -> new Almacen.Pendiente(m, null)).toList();
         try {
-            almacen.guardar(productos, ventas, ultimoNumero, movimientos);
+            almacen.guardar(productos, ventas, cabeceras, contadores(), movimientos);
         } catch (SQLException e) {
             throw new IllegalStateException("No pude importar el inventario antiguo a la base de datos: " + e.getMessage(), e);
         }
@@ -242,7 +342,7 @@ public class InventoryService {
     private String persistir(String msg) {
         almacen.respaldoDiario();   // el primero del día copia el estado de antes de este cambio
         try {
-            almacen.guardar(productos, ventas, ultimoNumero, porRegistrar);
+            almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar);
             return msg;
         } catch (SQLException | RuntimeException e) {
             log.error("No pude guardar en la base de datos {}: {}", almacen.archivo(), e.toString());
@@ -321,8 +421,12 @@ public class InventoryService {
                 + ". Stock actual: " + Num.txt(p.stock) + ".");
     }
 
-    /** Registrar salida/venta. Valida stock. */
     public synchronized String salida(BigDecimal cantidad, String textoProducto, boolean confirmado) {
+        return salida(cantidad, textoProducto, confirmado, Opciones.POR_DEFECTO);
+    }
+
+    /** Registrar salida/venta con su comprobante. Valida stock. */
+    public synchronized String salida(BigDecimal cantidad, String textoProducto, boolean confirmado, Opciones opciones) {
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor. Por favor repita la orden.";
         cantidad = Num.cantidad(cantidad);
         Match m = buscar(textoProducto);
@@ -331,15 +435,22 @@ public class InventoryService {
         String error = errorDecimales(m.producto, cantidad);
         if (error != null) return error;
 
-        if ((m.ambiguo || cantidad.compareTo(CONFIRMAR_DESDE) > 0) && !confirmado)
-            return preguntar(pend(Tipo.SALIDA, m.producto, cantidad, null,
-                    "¿Confirma la salida de " + Num.txt(cantidad) + " " + m.producto.unidad + " de " + m.producto.nombre + "? Diga sí o no."));
+        if ((m.ambiguo || cantidad.compareTo(CONFIRMAR_DESDE) > 0) && !confirmado) {
+            Pendiente p = pend(Tipo.SALIDA, m.producto, cantidad, null,
+                    "¿Confirma la salida de " + Num.txt(cantidad) + " " + m.producto.unidad + " de " + m.producto.nombre + "? Diga sí o no.");
+            p.opciones = opciones;
+            return preguntar(p);
+        }
 
-        return emitir(List.of(new Linea(m.producto, cantidad)));
+        return emitir(List.of(new Linea(m.producto, cantidad)), opciones);
     }
 
     /** Vende varios productos dichos en una sola frase ("2 poleras y 3 gorras") con un solo comprobante. */
     public synchronized String venderVarios(List<BigDecimal> cantidades, List<String> textos) {
+        return venderVarios(cantidades, textos, Opciones.POR_DEFECTO);
+    }
+
+    public synchronized String venderVarios(List<BigDecimal> cantidades, List<String> textos, Opciones opciones) {
         List<Linea> lineas = new ArrayList<>();
         for (int i = 0; i < textos.size(); i++) {
             BigDecimal c = cantidades.get(i);
@@ -349,14 +460,25 @@ public class InventoryService {
             if (m.empate()) return cualDe(m) + " No registré la venta.";
             lineas.add(new Linea(m.producto, Num.cantidad(c)));
         }
-        return emitir(lineas);
+        return emitir(lineas, opciones);
     }
 
     /**
      * Registra la venta de todas las líneas con un único comprobante: valida el stock de todo
      * antes de descontar nada, así una venta nunca queda a medias.
      */
-    private String emitir(List<Linea> lineas) {
+    private String emitir(List<Linea> lineas, Opciones opciones) {
+        Opciones op = opciones == null ? Opciones.POR_DEFECTO : opciones;
+        TipoComprobante tipo = op.tipo() != null ? op.tipo() : tipoPorDefecto;
+        Igv.Modo modo = op.modo() != null ? op.modo() : igvPorDefecto;
+        Clientes.Cliente cliente = null;
+        if (op.clienteDoc() != null && !op.clienteDoc().isBlank()) {
+            String doc = op.clienteDoc().trim();
+            cliente = clientes.porDocumento(doc).orElse(null);
+            if (cliente == null)
+                return "No tengo registrado al cliente con " + Clientes.tipo(doc) + " " + doc
+                        + ", señor. Regístrelo primero o haga la venta sin documento. No registré la venta.";
+        }
         Map<Producto, BigDecimal> pedido = new LinkedHashMap<>();
         for (Linea l : lineas) pedido.merge(l.producto(), l.cantidad(), BigDecimal::add);
         for (Map.Entry<Producto, BigDecimal> e : pedido.entrySet()) {
@@ -369,16 +491,19 @@ public class InventoryService {
         }
 
         int numero = ++ultimoNumero;
+        Cabecera cab = new Cabecera(tipo, correlativos.merge(tipo, 1, Integer::sum), cliente == null ? null : cliente.id(),
+                cliente == null ? "" : cliente.documento(), cliente == null ? "" : cliente.nombre(), modo);
+        cabeceras.put(numero, cab);
         String fecha = LocalDate.now().toString(), hora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
         List<Venta> items = new ArrayList<>();
         for (Linea l : lineas) {
             Producto p = l.producto();
             p.stock = Num.cantidad(p.stock.subtract(l.cantidad()));
             items.add(new Venta(numero, fecha, hora, p, l.cantidad()));
-            registrar("VENTA", p, l.cantidad(), "comprobante " + numero + ", stock " + Num.txt(p.stock));
+            registrar("VENTA", p, l.cantidad(), tipo.codigo(cab.correlativo()) + ", stock " + Num.txt(p.stock));
         }
         ventas.addAll(items);
-        Comprobante c = new Comprobante(numero, fecha, hora, items);
+        Comprobante c = new Comprobante(numero, fecha, hora, items, cab);
         sesion().comprobanteNuevo = c;
 
         String msg;
@@ -386,10 +511,13 @@ public class InventoryService {
             Venta v = items.get(0);
             Producto p = lineas.get(0).producto();
             msg = "Venta registrada: " + Num.txt(v.cantidad) + " " + v.unidad + " de " + v.producto
-                    + String.format(". Total: %.2f soles. Comprobante número %d. Stock actual: %s.", v.monto, numero, Num.txt(p.stock));
+                    + String.format(". Total: %.2f soles. %s. Stock actual: %s.", c.total, capitaliza(c.hablado()), Num.txt(p.stock));
         } else {
-            msg = String.format("Venta registrada: %d productos. Total: %.2f soles. Comprobante número %d.", items.size(), c.total, numero);
+            msg = String.format("Venta registrada: %d productos. Total: %.2f soles. %s.", items.size(), c.total, capitaliza(c.hablado()));
         }
+        if (cliente != null) msg += " Cliente: " + cliente.nombre() + ".";
+        else if (tipo == TipoComprobante.BOLETA && c.total.compareTo(BOLETA_CON_DNI_DESDE) >= 0)
+            msg += " Atención: en boletas de 700 soles o más se debe identificar al cliente con su DNI.";
         for (Producto p : pedido.keySet()) {
             String quien = items.size() == 1 ? "el producto" : p.nombre;
             if (p.precio.signum() <= 0) msg += " Atención: " + quien + " no tiene precio registrado.";
@@ -408,6 +536,31 @@ public class InventoryService {
             return "Ya hay una venta en curso con " + s.carrito.size() + " productos. Diga cobrar o cancelar venta.";
         s.carrito = new ArrayList<>();
         return "Venta nueva, señor. Dígame los productos y, al terminar, diga cobrar.";
+    }
+
+    /** Venta nueva con su tipo de comprobante y/o cliente ("nueva venta con boleta para el DNI 12345678"). */
+    public synchronized String abrirVenta(Opciones opciones) {
+        String msg = abrirVenta();
+        if (opciones == null || opciones.vacia() || !msg.startsWith("Venta nueva")) return msg;
+        String r = opcionesVenta(opciones);
+        return r.startsWith("No tengo") ? r : msg + " " + r;
+    }
+
+    /** Cambia el tipo de comprobante y/o el cliente de la venta en curso. */
+    public synchronized String opcionesVenta(Opciones opciones) {
+        Sesion s = sesion();
+        Opciones nuevas = s.opciones.con(opciones);
+        String doc = nuevas.clienteDoc();
+        Clientes.Cliente cliente = null;
+        if (doc != null && !doc.isBlank()) {
+            cliente = clientes.porDocumento(doc.trim()).orElse(null);
+            if (cliente == null)
+                return "No tengo registrado al cliente con " + Clientes.tipo(doc.trim()) + " " + doc.trim() + ", señor. Regístrelo primero.";
+        }
+        if (s.carrito == null) s.carrito = new ArrayList<>();
+        s.opciones = nuevas;
+        TipoComprobante tipo = nuevas.tipo() != null ? nuevas.tipo() : tipoPorDefecto;
+        return "La venta será " + tipo.hablado + (cliente != null ? " para " + cliente.nombre() : "") + ".";
     }
 
     public synchronized String agregarAlCarrito(BigDecimal cantidad, String textoProducto) {
@@ -454,8 +607,8 @@ public class InventoryService {
     public synchronized String cobrar() {
         Sesion s = sesion();
         if (s.carrito == null || s.carrito.isEmpty()) return "La venta está vacía, señor. Dígame qué productos lleva el cliente.";
-        String msg = emitir(s.carrito);
-        if (msg.startsWith("Venta registrada")) s.carrito = null;   // si faltó stock, la venta sigue abierta para corregir
+        String msg = emitir(s.carrito, s.opciones);
+        if (msg.startsWith("Venta registrada")) { s.carrito = null; s.opciones = Opciones.POR_DEFECTO; }   // si faltó stock, sigue abierta
         return msg;
     }
 
@@ -463,6 +616,7 @@ public class InventoryService {
         Sesion s = sesion();
         if (s.carrito == null) return "No hay ninguna venta en curso, señor.";
         s.carrito = null;
+        s.opciones = Opciones.POR_DEFECTO;
         return "Venta cancelada, señor. No se descontó nada del inventario.";
     }
 
@@ -471,7 +625,11 @@ public class InventoryService {
         Sesion s = sesion();
         if (s.carrito == null) return null;
         List<Venta> items = s.carrito.stream().map(l -> new Venta(0, null, null, l.producto(), l.cantidad())).toList();
-        return new Comprobante(0, null, null, new ArrayList<>(items));
+        String doc = s.opciones.clienteDoc() == null ? "" : s.opciones.clienteDoc().trim();
+        String nombre = doc.isEmpty() ? "" : clientes.porDocumento(doc).map(Clientes.Cliente::nombre).orElse("");
+        return new Comprobante(0, null, null, new ArrayList<>(items), new Cabecera(
+                s.opciones.tipo() != null ? s.opciones.tipo() : tipoPorDefecto, 0, null, doc, nombre,
+                s.opciones.modo() != null ? s.opciones.modo() : igvPorDefecto));
     }
 
     private BigDecimal totalCarrito(Sesion s) {
@@ -543,7 +701,10 @@ public class InventoryService {
         long anuladas = delDia.stream().filter(v -> v.anulada && v.numero > 0).map(v -> v.numero).distinct().count();
         if (validas.isEmpty())
             return "Cierre del día: no se registraron ventas hoy, señor." + (anuladas > 0 ? " Ventas anuladas: " + anuladas + "." : "");
-        BigDecimal total = validas.stream().map(v -> v.monto).reduce(Num.dinero(BigDecimal.ZERO), BigDecimal::add);
+        // el total de cada comprobante (con el IGV si se agregó al precio); las ventas antiguas sin número, por línea
+        BigDecimal total = validas.stream().filter(v -> v.numero > 0).map(v -> v.numero).distinct()
+                .map(n -> comprobante(n).total).reduce(Num.dinero(BigDecimal.ZERO), BigDecimal::add)
+                .add(validas.stream().filter(v -> v.numero == 0).map(v -> v.monto).reduce(BigDecimal.ZERO, BigDecimal::add));
         // un comprobante = una venta (las ventas antiguas sin número cuentan una por línea)
         long n = validas.stream().filter(v -> v.numero > 0).map(v -> v.numero).distinct().count()
                 + validas.stream().filter(v -> v.numero == 0).count();
@@ -578,7 +739,7 @@ public class InventoryService {
         Comprobante c = ultimo();
         if (c == null) return "Aún no se ha emitido ningún comprobante, señor.";
         sesion().comprobanteNuevo = c;
-        return String.format("Mostrando el comprobante número %d%s. Total: %.2f soles.", c.numero, c.anulado ? " (ANULADO)" : "", c.total);
+        return String.format("Mostrando la %s%s. Total: %.2f soles.", c.hablado(), c.anulado ? " (ANULADA)" : "", c.total);
     }
 
     /** El comprobante con el número más alto que sigue en el archivo, o null. */
@@ -590,7 +751,7 @@ public class InventoryService {
     private Comprobante comprobante(int numero) {
         List<Venta> items = new ArrayList<>(ventas.stream().filter(v -> v.numero == numero).toList());
         if (items.isEmpty()) return null;
-        return new Comprobante(numero, items.get(0).fecha, items.get(0).hora, items);
+        return new Comprobante(numero, items.get(0).fecha, items.get(0).hora, items, Almacen.cabecera(cabeceras, numero));
     }
 
     // ---------------------------------------------------------------- correcciones
@@ -599,10 +760,10 @@ public class InventoryService {
     public synchronized String pedirAnularUltimaVenta() {
         Comprobante c = ultimo();
         if (c == null) return "No hay ventas para anular, señor.";
-        if (c.anulado) return "El comprobante número " + c.numero + " ya está anulado, señor.";
+        if (c.anulado) return "La " + c.hablado() + " ya está anulada, señor.";
         Pendiente p = new Pendiente();
         p.tipo = Tipo.ANULAR; p.numero = c.numero;
-        p.pregunta = String.format("¿Confirma anular el comprobante número %d por %.2f soles? Diga sí o no.", c.numero, c.total);
+        p.pregunta = String.format("¿Confirma anular la %s por %.2f soles? Diga sí o no.", c.hablado(), c.total);
         return preguntar(p);
     }
 
@@ -614,17 +775,17 @@ public class InventoryService {
 
     private Resultado anular(int numero) {
         Comprobante c = comprobante(numero);
-        if (c == null) return Resultado.noEncontrado("No encontré el comprobante número " + numero + ", señor.");
-        if (c.anulado) return Resultado.error("El comprobante número " + numero + " ya está anulado, señor.");
+        if (c == null) return Resultado.noEncontrado("No encontré esa venta, señor.");
+        if (c.anulado) return Resultado.error("La " + c.hablado() + " ya está anulada, señor.");
         List<String> sinProducto = new ArrayList<>();
         for (Venta v : c.items) {
             v.anulada = true;
             Producto p = porNombre(v.producto);
             if (p == null) { sinProducto.add(v.producto); continue; }
             p.stock = Num.cantidad(p.stock.add(v.cantidad));
-            registrar("ANULACION", p, v.cantidad, "comprobante " + numero + ", stock " + Num.txt(p.stock));
+            registrar("ANULACION", p, v.cantidad, (c.codigo.isEmpty() ? "venta " + numero : c.codigo) + ", stock " + Num.txt(p.stock));
         }
-        String msg = String.format("Venta anulada: comprobante número %d por %.2f soles. Devolví los productos al stock.", numero, c.total);
+        String msg = String.format("Venta anulada: %s por %.2f soles. Devolví los productos al stock.", c.hablado(), c.total);
         if (!sinProducto.isEmpty()) msg += " Ojo: " + String.join(", ", sinProducto) + " ya no existe, no se devolvió.";
         return Resultado.ok(persistir(msg));
     }
@@ -641,18 +802,18 @@ public class InventoryService {
         nueva = Num.cantidad(nueva);
         Comprobante c = ultimo();
         if (c == null) return Resultado.noEncontrado("No hay ventas para corregir, señor.");
-        if (c.anulado) return Resultado.error("El comprobante número " + c.numero + " está anulado, señor. No se puede corregir.");
+        if (c.anulado) return Resultado.error("La " + c.hablado() + " está anulada, señor. No se puede corregir.");
 
         Venta linea;
         if (textoProducto == null || textoProducto.isBlank()) {
             if (c.items.size() != 1)
-                return Resultado.error("El comprobante número " + c.numero + " tiene varios productos. Dígame cuál corrijo, señor.");
+                return Resultado.error("La " + c.hablado() + " tiene varios productos. Dígame cuál corrijo, señor.");
             linea = c.items.get(0);
         } else {
             Producto buscado = exacto ? porNombre(textoProducto) : Optional.ofNullable(buscar(textoProducto)).map(x -> x.producto).orElse(null);
             linea = buscado == null ? null : c.items.stream().filter(v -> v.producto.equals(buscado.nombre)).findFirst().orElse(null);
             if (linea == null)
-                return Resultado.noEncontrado("Ese producto no está en el comprobante número " + c.numero + ", señor.");
+                return Resultado.noEncontrado("Ese producto no está en la " + c.hablado() + ", señor.");
         }
         Producto p = porNombre(linea.producto);
         if (p == null) return Resultado.error(linea.producto + " ya no existe en el inventario, señor. No puedo corregir su stock.");
@@ -673,7 +834,7 @@ public class InventoryService {
             linea.cantidad = nueva;
             linea.monto = Num.monto(linea.precioUnitario, nueva);
         }
-        registrar("CORRECCION_VENTA", p, nueva, "comprobante " + c.numero + ": antes " + Num.txt(antes) + ", stock " + Num.txt(p.stock));
+        registrar("CORRECCION_VENTA", p, nueva, c.codigo + ": antes " + Num.txt(antes) + ", stock " + Num.txt(p.stock));
         Comprobante corregido = comprobante(c.numero);
         sesion().comprobanteNuevo = corregido;
         String que = nueva.signum() == 0 ? "quité " + p.nombre : p.nombre + " ahora es " + Num.txt(nueva) + " " + p.unidad;
@@ -1059,7 +1220,8 @@ public class InventoryService {
                 ClientSession.usuario()), null));
         productos = new ArrayList<>();
         ventas = new ArrayList<>();
-        for (Sesion s : sesiones.values()) { s.carrito = null; s.comprobanteNuevo = null; }
+        cabeceras = new HashMap<>();   // los correlativos siguen: nunca se repite un número de boleta
+        for (Sesion s : sesiones.values()) { s.carrito = null; s.comprobanteNuevo = null; s.opciones = Opciones.POR_DEFECTO; }
         return Resultado.ok(persistir("Listo, señor: empecé un inventario nuevo, vacío. La copia del anterior (" + n
                 + (n == 1 ? " producto" : " productos") + ") quedó en " + copia.getFileName() + "."));
     }
@@ -1104,7 +1266,7 @@ public class InventoryService {
             case ENTRADA -> productos.contains(p.producto)
                     ? entrada(p.cantidad, p.producto.nombre, p.precio, p.unidad, true) : "Ese producto ya no existe, señor.";
             case SALIDA -> productos.contains(p.producto)
-                    ? salida(p.cantidad, p.producto.nombre, true) : "Ese producto ya no existe, señor.";
+                    ? salida(p.cantidad, p.producto.nombre, true, p.opciones) : "Ese producto ya no existe, señor.";
             case ANULAR -> anular(p.numero).mensaje();
             case ELIMINAR -> productos.contains(p.producto)
                     ? eliminarProducto(p.producto.nombre, true).mensaje() : "Ese producto ya no existe, señor.";

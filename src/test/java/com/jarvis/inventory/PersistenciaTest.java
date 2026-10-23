@@ -61,7 +61,7 @@ class PersistenciaTest {
         assertEquals(new BigDecimal("8.10"), foco.precio);
         assertEquals(List.of("foco", "foco led", "led", "bombilla", "foco led 9w").stream().sorted().toList(),
                 foco.alias.stream().sorted().toList(), "los otros nombres también");
-        assertTrue(releido.salida(BigDecimal.ONE, "foco", false).contains("Comprobante número 3"), "la numeración sigue");
+        assertTrue(releido.salida(BigDecimal.ONE, "foco", false).contains("Boleta número 3"), "la numeración sigue");
         assertTrue(releido.ultimoComprobante().contains("número 3"));
     }
 
@@ -74,7 +74,7 @@ class PersistenciaTest {
         InventoryService releido = nuevo();
         assertEquals(new BigDecimal("50"), stock(releido, "Cemento"), "la anulación devolvió el stock");
         assertEquals(new BigDecimal("30"), stock(releido, "Foco"));
-        assertTrue(releido.ultimoComprobante().contains("ANULADO"));
+        assertTrue(releido.ultimoComprobante().contains("ANULADA"));
         assertEquals("Cierre del día: no se registraron ventas hoy, señor. Ventas anuladas: 1.", releido.cierre());
     }
 
@@ -90,10 +90,13 @@ class PersistenciaTest {
         assertEquals(new BigDecimal("28.00"), p.precio);
         assertFalse(Files.exists(json()), "el JSON queda renombrado para no volver a importarlo");
         assertTrue(Files.exists(dir.resolve("inv.json.migrado")), "pero no se borra");
-        assertTrue(inv.salida(BigDecimal.ONE, "cemento", false).contains("Comprobante número 8"), "la numeración sigue");
+        InventoryService.Opciones nota = new InventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null);
+        assertTrue(inv.salida(BigDecimal.ONE, "cemento", false, nota).contains("Nota de venta número 8"),
+                "las ventas antiguas eran notas de venta: su numeración sigue");
+        assertTrue(inv.salida(BigDecimal.ONE, "cemento", false).contains("Boleta número 1"), "las boletas empiezan en 1");
 
         Files.copy(dir.resolve("inv.json.migrado"), json());   // aunque vuelva a aparecer el JSON…
-        assertEquals(new BigDecimal("9"), stock(nuevo(), "Cemento"), "…la base ya tiene datos y no se importa de nuevo");
+        assertEquals(new BigDecimal("8"), stock(nuevo(), "Cemento"), "…la base ya tiene datos y no se importa de nuevo");
     }
 
     @Test void siElJsonEstaDanadoImportaSuRespaldo() throws Exception {
@@ -119,7 +122,8 @@ class PersistenciaTest {
 
         InventoryService inv = nuevo();
         assertEquals("comprobante 41", inv.movimientos(10).get(0).detalle(), "el historial antiguo pasó a la base");
-        assertTrue(inv.salida(BigDecimal.ONE, "foco", false).contains("Comprobante número 43"));
+        assertTrue(inv.salida(BigDecimal.ONE, "foco", false, new InventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null))
+                .contains("Nota de venta número 43"));
         assertTrue(Files.exists(historial.resolve("ventas-" + viejo.substring(0, 7) + ".jsonl")), "los archivos se conservan");
     }
 

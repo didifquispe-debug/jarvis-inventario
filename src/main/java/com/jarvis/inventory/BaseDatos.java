@@ -35,7 +35,7 @@ final class BaseDatos {
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
 
     static final int RESPALDOS = 7;
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -177,7 +177,48 @@ final class BaseDatos {
             if (version > VERSION)
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
+            if (version < 2) {
+                cx.setAutoCommit(false);   // en SQLite los cambios de tablas también son transaccionales
+                try {
+                    migrarAVersion2(st);
+                    cx.commit();
+                } catch (SQLException e) {
+                    cx.rollback();
+                    throw e;
+                }
+            }
         }
+    }
+
+    /**
+     * Versión 2: clientes y comprobantes con tipo, serie, correlativo, cliente e IGV.
+     * Las ventas que ya existían quedan como notas de venta (NV01) con su mismo número y sin IGV
+     * (no se sabe si el negocio lo cobraba; no se inventan impuestos).
+     */
+    private static void migrarAVersion2(Statement st) throws SQLException {
+        st.execute("""
+                CREATE TABLE IF NOT EXISTS cliente (
+                    id         INTEGER PRIMARY KEY,
+                    documento  TEXT    NOT NULL UNIQUE,
+                    nombre     TEXT    NOT NULL,
+                    busqueda   TEXT    NOT NULL DEFAULT '',
+                    email      TEXT    NOT NULL DEFAULT '',
+                    telefono   TEXT    NOT NULL DEFAULT '',
+                    direccion  TEXT    NOT NULL DEFAULT ''
+                )""");
+        st.execute("ALTER TABLE comprobante ADD COLUMN tipo TEXT NOT NULL DEFAULT 'NOTA_VENTA'");
+        st.execute("ALTER TABLE comprobante ADD COLUMN serie TEXT NOT NULL DEFAULT 'NV01'");
+        st.execute("ALTER TABLE comprobante ADD COLUMN correlativo INTEGER");
+        st.execute("ALTER TABLE comprobante ADD COLUMN cliente_id INTEGER");
+        st.execute("ALTER TABLE comprobante ADD COLUMN cliente_doc TEXT NOT NULL DEFAULT ''");
+        st.execute("ALTER TABLE comprobante ADD COLUMN cliente_nombre TEXT NOT NULL DEFAULT ''");
+        st.execute("ALTER TABLE comprobante ADD COLUMN modo_igv TEXT NOT NULL DEFAULT 'EXONERADO'");
+        st.execute("ALTER TABLE comprobante ADD COLUMN base_cent INTEGER NOT NULL DEFAULT 0");
+        st.execute("ALTER TABLE comprobante ADD COLUMN igv_cent INTEGER NOT NULL DEFAULT 0");
+        st.execute("UPDATE comprobante SET correlativo = numero, base_cent = total_cent");
+        st.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_comprobante_serie ON comprobante(serie, correlativo)");
+        st.execute("CREATE INDEX IF NOT EXISTS ix_comprobante_cliente ON comprobante(cliente_id)");
+        st.execute("PRAGMA user_version = 2");
     }
 
     private static void crearVersion1(Statement st) throws SQLException {
