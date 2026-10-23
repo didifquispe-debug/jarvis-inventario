@@ -205,6 +205,18 @@ public class InventoryController {
         return ResponseEntity.status(ok ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(Map.of("ok", ok, "reply", msg));
     }
 
+    /** Cifras de la pantalla de inicio: ventas de hoy, stock bajo, valor del inventario… */
+    @GetMapping("/resumen")
+    public InventoryService.Resumen resumen() {
+        return inv.resumen();
+    }
+
+    /** Los últimos comprobantes, del más reciente al más antiguo. */
+    @GetMapping("/comprobantes")
+    public List<InventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite) {
+        return inv.comprobantes(limite);
+    }
+
     @GetMapping("/comprobantes/{numero}")
     public ResponseEntity<?> comprobante(@PathVariable int numero) {
         InventoryService.Comprobante c = inv.comprobantePorNumero(numero);

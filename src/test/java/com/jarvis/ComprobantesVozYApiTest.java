@@ -146,6 +146,21 @@ class ComprobantesVozYApiTest {
         json(put("/api/inventory/venta/opciones"), "{\"cliente\":\"11112222\"}").andExpect(status().isBadRequest());
     }
 
+    @Test void resumenYListaDeComprobantesParaLaPantalla() throws Exception {
+        json(post("/api/inventory/ventas"), "{\"items\":[{\"nombre\":\"Foco LED 9W\",\"cantidad\":1}],\"tipo\":\"nota de venta\"}")
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/inventory/comprobantes").param("limite", "1").header("X-Jarvis-Token", CLAVE))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].codigo").value(startsWith("NV01-")))
+                .andExpect(jsonPath("$[0].total").value(7.5));
+        mvc.perform(get("/api/inventory/resumen").header("X-Jarvis-Token", CLAVE))
+                .andExpect(jsonPath("$.ventasHoy").isNumber())
+                .andExpect(jsonPath("$.igv").value("INCLUIDO"))
+                .andExpect(jsonPath("$.tipoComprobante").value("BOLETA"))
+                .andExpect(jsonPath("$.clientes").value(1));
+        mvc.perform(get("/api/system").header("X-Jarvis-Token", CLAVE)).andExpect(jsonPath("$.negocioRuc").value("20601234567"));
+    }
+
     @Test void losProductosNoMuestranSuIdInterno() throws Exception {
         mvc.perform(get("/api/inventory").header("X-Jarvis-Token", CLAVE)).andExpect(jsonPath("$[0].id").doesNotExist());
         assertNotNull(inv.productos().stream().map((Producto p) -> p.nombre).findFirst().orElse(null));
