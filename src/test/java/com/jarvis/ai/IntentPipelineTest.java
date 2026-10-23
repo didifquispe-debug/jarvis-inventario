@@ -2,6 +2,7 @@ package com.jarvis.ai;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -13,26 +14,26 @@ class IntentPipelineTest {
 
     @Test void extraeCantidadProductoYPrecio() {
         EntityExtractor.Entidades e = EntityExtractor.extraer("llegaron 20 bolsas de cemento a 28 soles");
-        assertEquals(20, e.cantidad());
+        assertEquals(new BigDecimal("20"), e.cantidad());
         assertEquals("cemento", e.producto());
-        assertEquals(28.0, e.precio());
+        assertEquals(new BigDecimal("28.00"), e.precio());
     }
 
     @Test void cantidadEnPalabras() {
         EntityExtractor.Entidades e = EntityExtractor.extraer("vendi veinticinco metros de cable");
-        assertEquals(25, e.cantidad());
+        assertEquals(new BigDecimal("25"), e.cantidad());
         assertEquals("cable", e.producto());
         assertNull(e.precio());
     }
 
     @Test void articuloNoEsCantidad() {
-        assertEquals(10, EntityExtractor.extraer("registra una entrada de 10 focos").cantidad());
-        assertEquals(1, EntityExtractor.extraer("vendi una bolsa de cemento").cantidad());
+        assertEquals(new BigDecimal("10"), EntityExtractor.extraer("registra una entrada de 10 focos").cantidad());
+        assertEquals(BigDecimal.ONE, EntityExtractor.extraer("vendi una bolsa de cemento").cantidad());
     }
 
     @Test void sinCantidad() {
         EntityExtractor.Entidades e = EntityExtractor.extraer("cuantos focos quedan");
-        assertEquals(-1, e.cantidad());
+        assertNull(e.cantidad());
         assertEquals("focos", e.producto());
     }
 

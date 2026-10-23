@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de voz · JARVIS</title>
+<link rel="icon" href="icon.svg">
+<style>
+  :root {
+    --bg: #02060c; --panel: #071a2b; --line: rgba(79, 216, 255, .28); --cyan: #4fd8ff; --amber: #ffb43c;
+    --text: #d6f1ff; --muted: #8fb3c6; --ok: #6ee7a8; --bad: #ff8a8a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 60px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 18px; }
+  h1 { margin: 0; color: var(--cyan); letter-spacing: .08em; font-size: 1.7rem; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .tools a, .tools button { font: inherit; font-size: .9rem; color: var(--cyan); background: rgba(79,216,255,.08); border: 1px solid var(--line);
+                            padding: 7px 14px; text-decoration: none; cursor: pointer; }
+  nav { background: var(--panel); border: 1px solid var(--line); padding: 12px 18px; margin-bottom: 26px; }
+  nav b { color: var(--cyan); font-size: .85rem; letter-spacing: .12em; }
+  nav ol { margin: 8px 0 0; padding-left: 22px; columns: 2; column-gap: 30px; }
+  nav a { color: var(--text); }
+  h2 { color: var(--cyan); font-size: 1.25rem; margin: 34px 0 10px; padding-top: 6px; border-top: 1px solid var(--line); }
+  h3 { color: #fff; font-size: 1.02rem; margin: 20px 0 6px; }
+  code, kbd { background: rgba(79,216,255,.1); border: 1px solid var(--line); padding: 1px 6px; font-family: Consolas, monospace; font-size: .92em; }
+  .say { color: #fff; font-weight: 600; }
+  .say::before { content: "🎙 "; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: .95rem; }
+  th { text-align: left; color: var(--cyan); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; border-bottom: 1px solid var(--line); padding: 6px 8px; }
+  td { border-bottom: 1px dashed rgba(79,216,255,.15); padding: 7px 8px; vertical-align: top; }
+  td:first-child { color: #fff; width: 46%; }
+  .tip, .warn { border-left: 3px solid var(--cyan); background: rgba(79,216,255,.07); padding: 10px 14px; margin: 12px 0; }
+  .warn { border-color: var(--amber); background: rgba(255,180,60,.08); }
+  .tip b, .warn b { color: var(--cyan); } .warn b { color: var(--amber); }
+  pre { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; overflow-x: auto; font: 15px/1.5 Consolas, monospace; color: #e8f7ff; }
+  ol.steps li, ul li { margin: 4px 0; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    nav ol { columns: 1; }
+    table, thead, tbody, tr, th, td { display: block; width: 100% !important; }
+    thead { display: none; }
+    tr { border-bottom: 1px solid var(--line); padding: 6px 0; }
+    td { border: 0; padding: 3px 4px; }
+    td:first-child { font-weight: 600; }
+  }
+  @media print {
+    :root { --bg: #fff; --panel: #f4f4f4; --line: #bbb; --cyan: #000; --text: #000; --muted: #444; --amber: #000; }
+    body { font-size: 12pt; }
+    .tools, nav { display: none; }
+    h2 { page-break-after: avoid; } tr, .tip, .warn, pre { page-break-inside: avoid; }
+    code, kbd, .tip, .warn { background: none; }
+    .say, td:first-child, h3 { color: #000; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Manual de comandos de voz — JARVIS</h1>
+  <p>Cómo manejar todo el inventario hablando: vender, registrar mercadería, consultar, corregir, eliminar
+     y enseñarle sus propias palabras. Funciona sin Internet.</p>
+  <div class="tools">
+    <a href="/">← Volver a JARVIS</a>
+    <button onclick="window.print()">🖨 Imprimir manual</button>
+  </div>
+</header>
+
+<nav>
+  <b>CONTENIDO</b>
+  <ol>
+    <li><a href="#preparar">Preparar el micrófono</a></li>
+    <li><a href="#hablar">Cómo hablarle</a></li>
+    <li><a href="#confirmar">Confirmar con “sí” o “no”</a></li>
+    <li><a href="#productos">Productos: tallas y colores</a></li>
+    <li><a href="#entradas">Registrar mercadería</a></li>
+    <li><a href="#ventas">Vender</a></li>
+    <li><a href="#consultas">Consultar stock y precios</a></li>
+    <li><a href="#corregir">Corregir, cambiar y eliminar</a></li>
+    <li><a href="#caja">Comprobantes y cierre de caja</a></li>
+    <li><a href="#diccionario">El diccionario: enséñele sus palabras</a></li>
+    <li><a href="#otros">Otros comandos</a></li>
+    <li><a href="#problemas">Si no le entiende</a></li>
+  </ol>
+</nav>
+
+<h2 id="preparar">1. Preparar el micrófono</h2>
+<ol class="steps">
+  <li>Abra JARVIS en <b>Chrome</b> o <b>Edge</b> (Firefox no reconoce voz). En la laptop: <code>http://localhost:8081</code>.</li>
+  <li>Pulse <b>INICIAR SISTEMAS</b> y, cuando el navegador lo pregunte, <b>permita el micrófono</b>.</li>
+  <li>Elija cómo escuchar:
+    <ul>
+      <li><b>🎙 HABLAR</b> (o tocar el círculo del centro): escucha <b>una</b> orden y se detiene.</li>
+      <li><b>MANOS LIBRES</b>: escucha todo el tiempo. Diga <span class="say">Jarvis</span> y su orden en la misma frase
+          (<span class="say">Jarvis, vendí dos poleras M</span>), o solo <span class="say">Jarvis</span>, espere el
+          <i>“¿Sí, señor?”</i> y diga la orden.</li>
+    </ul>
+  </li>
+</ol>
+<div class="warn"><b>En el celular:</b> los navegadores solo prestan el micrófono en la propia laptop (<code>localhost</code>)
+  o con HTTPS. Desde el celular por <code>http://192.168…</code> puede <b>escribir</b> las órdenes pero no hablarlas.
+  Para usar la voz en Chrome Android: abra <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>,
+  escriba la dirección de JARVIS (ej. <code>http://192.168.1.35:8081</code>), actívelo y reinicie Chrome.</div>
+
+<h2 id="hablar">2. Cómo hablarle</h2>
+<ul>
+  <li>Hable normal, en <b>una sola frase</b>: <i>acción + cantidad + producto</i>. <span class="say">Vendí 3 gorras negras</span>.</li>
+  <li>Los números pueden ir en cifras o en palabras: <i>“veinticinco”</i>, <i>“dos y medio”</i>, <i>“medio kilo”</i>.</li>
+  <li>Diga el nombre del producto <b>como lo registró</b>, con talla o color si tiene varias. No hace falta decirlo
+      exacto: <i>“zapatillas nike 40”</i> encuentra <i>“Zapatilla Nike Air 40”</i>.</li>
+  <li>No importan mayúsculas, tildes, ni decir <i>“Jarvis”</i> al principio.</li>
+  <li>Lo que JARVIS escuchó aparece en la pantalla mientras habla: si ve que entendió mal, repita la orden.</li>
+</ul>
+
+<h2 id="confirmar">3. Confirmar con “sí” o “no”</h2>
+<p>Antes de algo delicado JARVIS pregunta y <b>no hace nada hasta que responda</b>:</p>
+<ul>
+  <li>Eliminar un producto o anular una venta.</li>
+  <li>Entradas o ventas de <b>más de 100</b> unidades.</li>
+  <li>Cuando no está seguro de qué producto dijo.</li>
+</ul>
+<table>
+  <thead><tr><th>Para aceptar</th><th>Para cancelar</th></tr></thead>
+  <tbody><tr><td>sí · claro · dale · confirmo · correcto · exacto · ok</td><td>no · cancela · negativo · mejor no</td></tr></tbody>
+</table>
+<p>Si dice otra cosa mientras espera, le recordará: <i>“Antes necesito que confirme. Diga sí o no.”</i></p>
+
+<h2 id="productos">4. Productos: tallas y colores</h2>
+<p>Registre cada talla y color como un producto aparte, con el botón <b>＋ Agregar</b> de la pantalla o por voz
+   (ver “Registrar mercadería”). Ejemplos de buenos nombres:</p>
+<pre>Zapatilla Nike Air 39      Polera roja M        Casaca jean azul L
+Zapatilla Nike Air 40      Polera azul M        Arroz Costeño 5 kg</pre>
+<ul>
+  <li><b>La talla y el color mandan:</b> <span class="say">vendí 2 zapatillas nike air 40</span> nunca descuenta la 39, y
+      <i>“polera verde M”</i> no vende la roja.</li>
+  <li>Si falta el dato, JARVIS <b>pregunta</b> en vez de adivinar:
+      <i>“Tengo varios parecidos: Zapatilla Nike Air 39 y Zapatilla Nike Air 40. ¿Cuál de ellos?”</i> Repita la orden completa.</li>
+  <li>Las tallas en letras se pueden decir como suenan: <span class="say">talla eme</span>, <span class="say">talla ese</span>,
+      <span class="say">talla equis ele</span>.</li>
+</ul>
+<div class="tip"><b>Truco:</b> en <b>✎ Editar → Otros nombres</b> ponga cómo piden ese producto sus clientes
+  (ej. para “Polera roja M”: <i>polo rojo, polera colorada</i>). Sirve solo para ese producto.</div>
+
+<h2 id="entradas">5. Registrar mercadería (entradas)</h2>
+<table>
+  <thead><tr><th>Diga</th><th>Qué hace</th></tr></thead>
+  <tbody>
+    <tr><td>Llegaron 20 pares de zapatillas nike air 40</td><td>Suma 20 al stock.</td></tr>
+    <tr><td>Agrega 10 poleras rojas talla M a 25 soles</td><td>Suma 10 y, de paso, fija el precio en S/ 25.</td></tr>
+    <tr><td>Recibí 5 cajas de galletas / Compré 8 paquetes de arroz / Nos trajeron 30 polos</td><td>Otras formas de decir entrada.</td></tr>
+    <tr><td>Llegaron 12 gorras azules <small>(producto que no existe)</small></td><td>Lo crea solo, con esa cantidad. Revise luego su precio en la pantalla.</td></tr>
+  </tbody>
+</table>
+<div class="warn"><b>Ojo:</b> <i>“compré”</i> = usted le compró al proveedor (entrada).
+  <i>“Me compraron”</i> / <i>“el cliente compró”</i> = venta.</div>
+
+<h2 id="ventas">6. Vender</h2>
+<h3>Venta rápida, en una frase</h3>
+<table>
+  <thead><tr><th>Diga</th><th>Qué hace</th></tr></thead>
+  <tbody>
+    <tr><td>Vendí 2 poleras rojas M</td><td>Descuenta, emite el comprobante y lo muestra en pantalla.</td></tr>
+    <tr><td>Vendí 2 poleras M y 1 zapatilla 40</td><td>Varios productos, <b>un solo comprobante</b>. Sepárelos con “y”, “más” o “también”.</td></tr>
+    <tr><td>Se llevaron 3 gorras / Me compraron 5 correas / Cobra 2 casacas</td><td>Otras formas de decir venta.</td></tr>
+  </tbody>
+</table>
+<h3>Venta tipo caja (cliente que va pidiendo de a uno)</h3>
+<table>
+  <tbody>
+    <tr><td>Nueva venta</td><td>Abre la venta (se ve en el panel izquierdo “🛒 VENTA EN CURSO”).</td></tr>
+    <tr><td>2 poleras M · 1 gorra negra · agrega 3 medias</td><td>Va sumando productos. Todavía no descuenta nada.</td></tr>
+    <tr><td>Quita la gorra / Elimina la gorra</td><td>La saca <b>de la venta</b> (no del inventario).</td></tr>
+    <tr><td>¿Cuánto va? / ¿Qué llevamos?</td><td>Dice el total parcial.</td></tr>
+    <tr><td>Cobrar / Eso es todo / Listo</td><td>Cierra la venta, descuenta todo y emite el comprobante.</td></tr>
+    <tr><td>Cancelar venta</td><td>La anula sin tocar el stock.</td></tr>
+  </tbody>
+</table>
+<p>JARVIS no deja vender más de lo que hay: <i>“Atención: stock insuficiente. Solo quedan 3…”</i>, y avisa cuando
+   un producto baja de su stock mínimo.</p>
+
+<h2 id="consultas">7. Consultar stock y precios</h2>
+<table>
+  <thead><tr><th>Diga</th><th>Respuesta</th></tr></thead>
+  <tbody>
+    <tr><td>¿Cuántas zapatillas nike air 40 quedan? / ¿Cuántas tengo de polera M?</td><td>Stock de ese producto.</td></tr>
+    <tr><td>¿Cuántas zapatillas nike quedan?</td><td>El stock de <b>cada talla</b>.</td></tr>
+    <tr><td>Inventario</td><td>Lista todo, marcando el stock bajo.</td></tr>
+    <tr><td>¿Cuánto cuesta la polera M? / ¿A cuánto está la gorra? / Precio de la casaca</td><td>Precio y stock.</td></tr>
+    <tr><td>Lista de precios</td><td>Todos los precios.</td></tr>
+    <tr><td>¿Cuál es el stock mínimo de la gorra negra?</td><td>El mínimo con el que avisa.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="corregir">8. Corregir, cambiar y eliminar</h2>
+<table>
+  <thead><tr><th>Diga</th><th>Qué hace</th></tr></thead>
+  <tbody>
+    <tr><td>Cambia el precio de la gorra negra a 18.50 / La gorra negra cuesta 18</td><td>Nuevo precio.</td></tr>
+    <tr><td>Pon el stock mínimo de la polera M en 5</td><td>Avisará cuando queden 5 o menos.</td></tr>
+    <tr><td>Cambia la unidad de la tela a metros / La tela se vende en metros</td><td>Cambia la unidad (metros y kilos aceptan decimales).</td></tr>
+    <tr><td>Elimina la gorra negra<br>Borra la polera roja M · Suprime la casaca<br>Elimina el producto gorra · Da de baja la gorra</td>
+        <td>Pregunta <i>“¿Confirma eliminar…? Diga sí o no.”</i> y solo la borra si dice <b>sí</b>. Sus ventas pasadas se conservan.</td></tr>
+    <tr><td>Anula la última venta</td><td>Pide confirmación, devuelve el stock y la deja fuera del cierre.</td></tr>
+    <tr><td>Corrige la última venta, eran 3 poleras / …fueron 1</td><td>Arregla la cantidad del último comprobante y ajusta el stock.</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>Eliminar durante una venta abierta</b> (<i>“nueva venta”</i>) quita el producto <b>de esa venta</b>.
+  Para borrarlo del inventario en ese momento diga <span class="say">elimina la gorra del inventario</span>,
+  o primero <i>cobre</i> o <i>cancele</i> la venta.</div>
+
+<h2 id="caja">9. Comprobantes y cierre de caja</h2>
+<table>
+  <tbody>
+    <tr><td>Último comprobante</td><td>Vuelve a mostrar el último comprobante (para imprimirlo).</td></tr>
+    <tr><td>Cierre de caja / Reporte del día / ¿Cuánto vendimos hoy?</td><td>Número de ventas, total en soles y producto más vendido.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="diccionario">10. El diccionario: enséñele sus palabras</h2>
+<p>Cada negocio tiene sus palabras: <i>chompa</i>, <i>zapas</i>, <i>polo</i>… El diccionario le dice a JARVIS
+   <b>“cuando escuches esto, entiende esto otro”</b>. Se aplica a todas las órdenes, antes de interpretarlas.</p>
+
+<h3>Por voz (lo más fácil)</h3>
+<table>
+  <thead><tr><th>Diga</th><th>Qué hace</th></tr></thead>
+  <tbody>
+    <tr><td>Aprende que chompa significa polera</td><td>Desde ahora <i>“vendí 2 chompas rojas M”</i> vende “Polera roja M”. Los plurales salen solos.</td></tr>
+    <tr><td>Cuando diga zapas entiende zapatillas</td><td>Otra forma de enseñar.</td></tr>
+    <tr><td>Aprende que jalé significa vendí</td><td>También sirve para verbos: luego <i>“jalé 2 gorras”</i> es una venta.
+        Enseñe la palabra <b>tal cual la dice</b> (“jalé”, no “jalar”).</td></tr>
+    <tr><td>¿Qué palabras aprendiste?</td><td>Lista las palabras que usted le enseñó.</td></tr>
+    <tr><td>Olvida la palabra chompa</td><td>La borra del diccionario.</td></tr>
+  </tbody>
+</table>
+
+<h3>Con el Bloc de notas (para cargar muchas de una vez)</h3>
+<p>El archivo es <code>C:\Users\&lt;usted&gt;\jarvis-diccionario.txt</code> (se crea solo la primera vez que arranca JARVIS).
+   Una línea por palabra, <b>lo que usted dice = lo que JARVIS entiende</b>; lo que va después de <code>#</code> es un comentario:</p>
+<pre># Mis palabras
+chompa = polera
+zapas = zapatillas
+tenis = zapatillas
+buzo = pantalón deportivo
+colorada = roja          # así le dicen algunos clientes</pre>
+<p>Guarde el archivo y listo: JARVIS lo vuelve a leer solo, <b>sin reiniciar</b>.</p>
+
+<h3>Qué trae de fábrica</h3>
+<p>Ya entiende, sin enseñarle: <i>suprime / remueve / descarta</i> (= elimina), <i>trajeron / repón / añade</i>
+   (= entrada), <i>véndele / despáchale</i> (= vende), <i>¿a cuánto está…? / ¿cuánto sale…?</i> (= precio) y las tallas habladas
+   (<i>talla eme, ese, ele, equis ele, doble equis ele</i>). Lo que usted escriba en su archivo manda sobre lo de fábrica.</p>
+
+<div class="warn"><b>Para que funcione bien:</b>
+  <ul style="margin:6px 0 0">
+    <li>Enseñe palabras <b>de su negocio</b>, no palabras comunes. Si enseña <i>“la = polera”</i>, todas las frases con “la” se rompen.</li>
+    <li>El diccionario cambia la palabra <b>en todas las órdenes</b>. Para algo de un solo producto, use mejor
+        <b>✎ Editar → Otros nombres</b> en la pantalla.</li>
+    <li>No se pueden redefinir <i>sí, no, ayuda, cancela, aprende, olvida</i> ni <i>jarvis</i>.</li>
+  </ul>
+</div>
+
+<h3>Si el micrófono escribe mal una palabra</h3>
+<p>Mire lo que aparece en pantalla mientras habla. Si su producto <i>“Gorra Puma”</i> siempre sale como <i>“gorra puna”</i>,
+   enséñeselo: <span class="say">aprende que puna significa puma</span>.</p>
+
+<h2 id="otros">11. Otros comandos</h2>
+<table>
+  <tbody>
+    <tr><td>Hola Jarvis</td><td>Saludo (con el nombre de su negocio si lo configuró en <code>jarvis.negocio</code>).</td></tr>
+    <tr><td>¿Qué hora es? / ¿Qué día es hoy?</td><td>Hora y fecha.</td></tr>
+    <tr><td>Cuánto es 25 por 4 más 10</td><td>Calculadora.</td></tr>
+    <tr><td>Anota comprar bolsas / Lee mis notas / Borra mis notas</td><td>Notas rápidas.</td></tr>
+    <tr><td>Abre YouTube · Busca proveedores de polos · Abre la calculadora</td><td>Abre páginas y programas en la laptop.</td></tr>
+    <tr><td>Estado del sistema</td><td>Diagnóstico de la laptop.</td></tr>
+    <tr><td>Ayuda</td><td>Lista corta de todo lo que sabe hacer.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="problemas">12. Si no le entiende</h2>
+<table>
+  <thead><tr><th>Lo que pasa</th><th>Qué hacer</th></tr></thead>
+  <tbody>
+    <tr><td>Responde <i>“No entendí la orden. Diga 'ayuda'…”</i></td><td>Use una de las frases de este manual, o enséñele su forma de decirlo con el diccionario.</td></tr>
+    <tr><td><i>“No encontré ese producto”</i></td><td>Mire en el panel INVENTARIO cómo se llama exactamente, o agréguele “Otros nombres”.</td></tr>
+    <tr><td><i>“Tengo varios parecidos…”</i></td><td>Repita con la talla o el color.</td></tr>
+    <tr><td>Siempre pide <i>“Diga sí o no”</i></td><td>Hay una pregunta pendiente: responda sí o no primero.</td></tr>
+    <tr><td>Tomó un número como cantidad (<i>“vendí zapatilla 40”</i> → 40 pares)</td><td>Diga siempre la cantidad primero: <span class="say">vendí 1 zapatilla 40</span>.</td></tr>
+    <tr><td>El botón 🎙 no hace nada</td><td>Use Chrome o Edge, revise el permiso del micrófono (candado junto a la dirección) y, en el celular, lea la sección 1.</td></tr>
+  </tbody>
+</table>
+<div class="tip"><b>Siempre puede escribir</b> la orden en la barra de abajo: JARVIS entiende lo mismo escrito que hablado.</div>
+
+</div>
+</body>
+</html>

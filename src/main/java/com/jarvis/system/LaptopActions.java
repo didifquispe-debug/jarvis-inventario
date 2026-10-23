@@ -30,17 +30,38 @@ public class LaptopActions {
             "intellij",       new String[]{"idea64",   "IntelliJ IDEA", "idea"}
     );
 
+    /**
+     * Abre una web. La URL viene de lo que dice el usuario, así que solo se aceptan http/https y
+     * NUNCA pasa por cmd.exe: con "cmd /c start <url>" un "&" en la URL ejecutaría otro comando
+     * en la laptop.
+     */
     public boolean openUrl(String url) {
+        URI uri = urlSegura(url);
+        if (uri == null) return false;
         try {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(new URI(url));
+                Desktop.getDesktop().browse(uri);
                 return true;
             }
-            run(WIN ? List.of("cmd", "/c", "start", "", url)
-                    : MAC ? List.of("open", url) : List.of("xdg-open", url));
+            String u = uri.toASCIIString();
+            run(WIN ? List.of("rundll32", "url.dll,FileProtocolHandler", u)
+                    : MAC ? List.of("open", u) : List.of("xdg-open", u));
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    /** La URL como URI si es http(s) con host y sin caracteres raros; si no, null. */
+    static URI urlSegura(String url) {
+        if (url == null || url.isBlank() || url.chars().anyMatch(c -> c < 0x21 || "\"<>^`{|}\\".indexOf(c) >= 0)) return null;
+        try {
+            URI uri = new URI(url.trim());
+            String esquema = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase();
+            if (!(esquema.equals("http") || esquema.equals("https")) || uri.getHost() == null) return null;
+            return uri;
+        } catch (Exception e) {
+            return null;
         }
     }
 

@@ -1,5 +1,6 @@
 package com.jarvis.desktop;
 
+import com.jarvis.security.AccessToken;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -24,16 +25,18 @@ public class DesktopShell {
     private final ConfigurableApplicationContext context;
     private final boolean enabled;
     private final String url;
+    private final AccessToken token;
     private TrayIcon trayIcon;
 
     public DesktopShell(ConfigurableApplicationContext context,
                         @Value("${jarvis.desktop.enabled:true}") boolean enabled,
-                        @Value("${server.port:8080}") int port,
-                        @Value("${jarvis.token}") String token,
+                        @Value("${server.port:8081}") int port,
+                        AccessToken token,
                         @Value("${jarvis.browser:chrome}") String browser) {
         this.context = context;
         this.enabled = enabled;
-        this.url = localUrl(port, token);
+        this.token = token;
+        this.url = localUrl(port, token.value());
         AppWindow.setPreferred(browser);
     }
 
@@ -67,7 +70,13 @@ public class DesktopShell {
         trayIcon.addActionListener(e -> AppWindow.open(url)); // doble clic
         try {
             SystemTray.getSystemTray().add(trayIcon);
-            trayIcon.displayMessage("J.A.R.V.I.S.", "Sistemas en linea.", TrayIcon.MessageType.INFO);
+            if (token.generada()) {
+                // Única vez que se muestra: la clave se acaba de crear (también quedó en jarvis.log)
+                trayIcon.displayMessage("J.A.R.V.I.S. - clave nueva",
+                        "Clave para el celular: " + token.value(), TrayIcon.MessageType.WARNING);
+            } else {
+                trayIcon.displayMessage("J.A.R.V.I.S.", "Sistemas en linea.", TrayIcon.MessageType.INFO);
+            }
         } catch (AWTException e) {
             System.err.println("No pude crear el icono de bandeja: " + e.getMessage());
         }

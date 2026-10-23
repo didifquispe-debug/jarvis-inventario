@@ -1,6 +1,7 @@
 # J.A.R.V.I.S. en Java
 
-Asistente personal con voz que corre en tu laptop y se controla desde **cualquier dispositivo**
+Asistente con voz e **inventario para cualquier negocio** (tienda de ropa, zapatería, bodega,
+ferretería…) que corre en tu laptop. Funciona **100% offline, sin claves de API**, y se controla desde **cualquier dispositivo**
 (la misma laptop, tu celular, una tablet u otra PC) a través del navegador.
 
 ## Cómo funciona
@@ -10,7 +11,7 @@ Asistente personal con voz que corre en tu laptop y se controla desde **cualquie
    - micrófono y voz                                 ├─ JarvisService  (decide quién responde)
    - se instala como app                             ├─ Skills         (hora, web, apps, notas, cálculo…)
                                                      ├─ LaptopActions  (abre programas/navegador en la laptop)
-                                                     └─ AiBrain        (IA opcional para conversar)
+                                                     └─ AiBrain        (entiende órdenes, modelo local)
 ```
 
 El cerebro vive en la laptop. Los demás dispositivos solo hablan con él por la API
@@ -77,6 +78,8 @@ Desde el celular por `http://192.168…` podrás **escribir** pero no hablar. So
 
 ## 4. Comandos incluidos
 
+**Manual completo de voz:** botón **📖 MANUAL** en la pantalla (o `http://localhost:8081/manual.html`); se puede imprimir.
+
 Di o escribe **"ayuda"**. Algunos ejemplos:
 
 | Orden | Qué hace |
@@ -90,55 +93,16 @@ Di o escribe **"ayuda"**. Algunos ejemplos:
 | Anota comprar leche / Lee mis notas / Borra mis notas | Notas guardadas en `~/jarvis-notas.txt` |
 | Cuánto es 25 por 4 más 10 | Calculadora |
 | Estado del sistema | Diagnóstico de la laptop |
-| Llegaron 20 bolsas de cemento a 28 soles | Entrada de mercadería (y precio) |
-| Vendí 2 bolsas de cemento y 3 focos | Venta de uno o varios productos con un solo comprobante |
-| Nueva venta → "2 bolsas de cemento", "3 focos", "quita los focos", "cuánto va" → Cobrar | Venta tipo tienda (carrito); "Cancelar venta" la anula |
-| Lista de precios / ¿Cuánto cuesta el cable? / Cambia el precio del foco a 8.50 | Precios |
-| ¿Cuántos focos quedan? / Inventario | Stock |
+| Agrega 10 poleras talla M a 25 soles | Entrada de mercadería (y precio) |
+| Vendí 2 poleras M y 1 zapatilla 40 | Venta de uno o varios productos con un solo comprobante |
+| Nueva venta → "2 poleras M", "1 gorra negra", "quita la gorra", "cuánto va" → Cobrar | Venta tipo tienda (carrito); "Cancelar venta" la anula |
+| Lista de precios / ¿Cuánto cuesta la polera M? / Cambia el precio de la gorra a 18.50 | Precios |
+| ¿Cuántas tengo de zapatilla 40? / Inventario | Stock |
 | Último comprobante / Cierre de caja | Comprobantes y reporte del día |
 
-## 4b. Modo agente (la JARVIS que hace tareas sola)
+Si JARVIS no entiende una orden responde: *"No entendí la orden. Diga 'ayuda' para ver lo que puedo hacer."*
 
-Con el botón **🧠 AGENTE** (abajo a la derecha), JARVIS deja de solo responder y empieza a
-**hacer tareas de varios pasos por su cuenta**, en segundo plano, mientras tú sigues en lo tuyo.
-
-Tú le das una orden en lenguaje normal y él la divide en pasos, pensando y usando herramientas
-reales de tu laptop:
-- **ejecutar comandos** en la terminal,
-- **crear, leer y listar archivos**,
-- **abrir programas y páginas web**.
-
-En el registro ves lo que piensa ("JARVIS PIENSA"), cada acción y su resultado, en vivo.
-
-**Ejemplos de tareas:**
-- "Crea una carpeta 'Informe' en el escritorio y dentro un archivo resumen.txt con un índice de 5 puntos."
-- "Dime qué programas se abren al iniciar Windows."
-- "Busca todos los PDF de la carpeta Descargas y haz una lista en un archivo."
-
-### Seguridad (importante)
-Darle a una IA acceso a tu sistema es potente y delicado, así que tiene frenos:
-1. Antes de **ejecutar un comando** o **escribir un archivo**, te muestra un cuadro
-   **AUTORIZAR / RECHAZAR**. Nada se ejecuta sin tu permiso.
-2. Los comandos que **borran o dañan** datos (`del`, `rm`, `format`…) están **bloqueados** siempre.
-3. Trabaja dentro de una carpeta propia (`C:\Users\<tú>\JARVIS`).
-
-En `application.properties` puedes ajustar:
-- `jarvis.agent.auto-approve=true` → hace todo sin pedir permiso (cómodo pero riesgoso).
-- `jarvis.agent.allow-dangerous=true` → quita el freno a comandos destructivos (**no recomendado**).
-- `jarvis.agent.workdir=...` → la carpeta donde trabaja.
-
-El modo agente **necesita** la clave `ANTHROPIC_API_KEY` (ver la sección 5).
-
-## 5. Darle inteligencia de verdad (opcional)
-
-Sin IA, JARVIS solo entiende los comandos de arriba. Para que converse de cualquier tema:
-
-1. Crea una clave en https://console.anthropic.com (la API tiene costo por uso).
-2. En IntelliJ: *Run → Edit Configurations → JarvisApplication → Environment variables* y agrega
-   `ANTHROPIC_API_KEY=tu-clave`.
-3. Reinicia. Ahora lo que no sea un comando lo responde la IA, recordando las últimas frases.
-
-## 6. Agregar tus propias habilidades
+## 5. Agregar tus propias habilidades
 
 Crea una clase en `com.jarvis.skills`:
 
@@ -162,7 +126,7 @@ Las acciones que tocan el sistema operativo van en `LaptopActions` (ahí puedes 
 - Palabra de activación ("Jarvis") escuchando todo el tiempo en la laptop con Vosk (reconocimiento offline en Java).
 - Clima con la API gratuita de Open-Meteo.
 - Recordatorios con `@Scheduled` de Spring.
-- Control de domótica (focos inteligentes) vía sus APIs HTTP.
+- Control de domótica (luces inteligentes) vía sus APIs HTTP.
 - Una app Android nativa que llame a la misma API `/api/command`.
 
 ## Estructura
@@ -177,7 +141,9 @@ jarvis/
    │  ├─ core/JarvisService.java     ← núcleo que enruta los comandos
    │  ├─ skills/…                    ← cada habilidad en su clase
    │  ├─ system/LaptopActions.java   ← acciones sobre Windows/Mac/Linux
-   │  └─ ai/AiBrain.java             ← IA opcional
+   │  ├─ api/InventoryController.java ← API del inventario (alta, edición, ajuste, borrado)
+   │  ├─ inventory/…                 ← inventario, búsqueda, ventas e historial
+   │  └─ ai/…                        ← entiende órdenes con el modelo local (sin Internet)
    └─ resources/
       ├─ application.properties      ← puerto, clave, configuración
       └─ static/                     ← interfaz web con voz (index.html) + app instalable
@@ -187,36 +153,136 @@ jarvis/
 
 ## Modo Inventario (asistente para negocios)
 
-JARVIS también administra el inventario de un negocio (ferretería, bodega, minimarket) por voz
-o texto, con respuestas cortas pensadas para escucharse en voz alta. Funciona **sin** clave de IA:
-los comandos de inventario están integrados.
+JARVIS administra el inventario de cualquier negocio (tienda de ropa, zapatería, bodega,
+ferretería…) por **pantalla**, voz o texto, con respuestas cortas pensadas para escucharse en voz alta.
+Todo funciona sin Internet y sin claves de API.
 
-El stock se guarda en `C:\Users\<tú>\jarvis-inventario.json` y se ve en el panel **INVENTARIO**
-de la pantalla (los productos con poco stock salen en ámbar con ⚠).
+El stock se guarda en `C:\Users\<tú>\jarvis-inventario.json` y cada cambio queda en el historial.
 
-**Qué entiende:**
+### Arranca vacío
+La primera vez el inventario **no trae ningún producto**: el archivo se crea vacío y el panel dice
+*"Aún no tienes productos. Agrega el primero."* (Si ya tenías un `jarvis-inventario.json`, se conserva tal cual;
+para empezar de cero, bórralo con JARVIS apagado.)
+
+### Agregar y editar productos por pantalla
+En el panel **INVENTARIO** (a la izquierda; en el celular, debajo del reactor):
+- **＋ Agregar**: abre un formulario con *nombre*, *precio*, *stock inicial*, *unidad* (unidades, pares,
+  metros, kilos…), *stock mínimo* y *otros nombres* (cómo lo piden los clientes). Nombre, precio y
+  unidad son obligatorios; no acepta precios ni stock negativos, ni dos productos con el mismo nombre
+  (da igual mayúsculas o tildes: "Pantalón" y "pantalon" son el mismo).
+- **✎ Editar**: cambia nombre, precio, stock, mínimo, unidad u otros nombres.
+- **－ / ＋**: ajuste rápido de stock de 1 en 1 (no es una venta: no emite comprobante; queda como AJUSTE en el historial).
+- **🗑 Eliminar**: pide confirmación. Las ventas pasadas se conservan.
+- **⬆ Cargar lista**: registra muchos productos de una vez (ver abajo).
+- Con 6 o más productos aparece un **buscador**. Los productos con poco stock salen en ámbar con ⚠.
+
+### Cargar muchos productos de una vez (⬆ Cargar lista)
+Toque **⬆ Cargar lista**, pegue su lista (o elija un archivo `.csv` / `.txt`) y toque **CARGAR**.
+Una línea por producto, en este orden:
+
+```
+Nombre, Precio, Stock, Unidad, Stock mínimo
+```
+
+```
+# mercadería de octubre
+Polo blanco M, 25, 10, unidades
+Zapatilla Nike 40; 180; 5; pares; 2
+Tela drill; 12,50; 30; metros
+Vela, 2
+```
+
+- **Separador:** coma o punto y coma. También puede copiar las columnas directamente desde Excel (van con tabulador).
+  Con coma como separador, los decimales van con punto (`12.50`); con punto y coma o desde Excel, puede usar `12,50`.
+  Si un nombre lleva coma, escríbalo entre comillas: `"Polo, rayas", 25, 3`.
+- **Obligatorios:** nombre y precio. Sin unidad se usa `unidades`; sin stock, `0`; el stock mínimo es opcional.
+- Se ignoran las líneas vacías, las que empiezan con `#` y una primera fila de títulos ("Nombre, Precio, …").
+- **No pisa nada:** si el producto ya existe (sin importar mayúsculas ni tildes) se **omite**; si un nombre se
+  repite dentro de la lista, se registra el primero y se omiten los demás.
+- Las líneas con errores (precio vacío o que no es número, negativos, decimales en un producto por unidades…)
+  **no se registran**; el resto sí. Al terminar verá cuántos se agregaron, cuántos se omitieron y cada error con su
+  número de línea. Corrija esas líneas y vuelva a tocar CARGAR: los que ya se agregaron se omiten solos.
+- Todo se guarda de una vez (con el mismo respaldo `.bak` de siempre) y cada alta queda en el historial.
+- Archivos de Excel: use *Guardar como → CSV*. Se aceptan tanto UTF-8 como el "ANSI" de Windows (tildes incluidas).
+
+#### Dictar la lista con el micrófono (🎙 DICTAR)
+Dentro de *Cargar lista*, toque **🎙 DICTAR** y diga **un producto por frase** (haga una pausa entre producto y producto).
+Cada frase se **escribe** como una línea nueva en el cuadro; **no se registra nada** hasta que usted toque **CARGAR**,
+así que puede seguir dictando, corregir a mano o borrar líneas. Toque **■ PARAR** para dejar de escuchar.
+
+| Usted dice | Se escribe |
+|---|---|
+| "polo blanco M **a** 25 **soles** 10 unidades" | `Polo blanco M; 25; 10; unidades` |
+| "zapatilla nike 40 **a** 180 **soles** 5 pares **mínimo** 2" | `Zapatilla nike 40; 180; 5; pares; 2` |
+| "polo blanco M **coma** 25 **coma** 10 **coma** unidades" | `Polo blanco M; 25; 10; unidades` |
+| "tela drill a 12 **con** 50 30 metros" | `Tela drill; 12,50; 30; metros` |
+| "chompa de lana" (sin precio) | `Chompa de lana` → complete el precio a mano antes de CARGAR |
+
+- Los campos se separan diciendo **"coma"** o **"punto y coma"**, o con las palabras clave **a / precio** (antes del precio),
+  **soles** (después del precio) y **mínimo** (antes del stock mínimo). Sin ninguna de ellas, el nombre llega hasta el primer número.
+- Los números pequeños dichos en palabras ("diez") se escriben con cifras.
+- Mientras dicta, el micrófono de *Manos libres* se pausa y vuelve solo al terminar.
+- **Internet:** el reconocimiento de voz lo hace el navegador (Chrome/Edge). Si el navegador tiene instalado el
+  reconocimiento de español *en el equipo*, la ventana dice **"🔒 Dictado en este equipo"** y no se usa la red.
+  Si no, avisa **"⚠ … necesita Internet"**: en ese caso el audio lo procesa el servicio de voz del navegador
+  (lo mismo que ya pasa con el botón 🎙 HABLAR). Sin conexión, escriba o pegue la lista: la carga en sí siempre es local.
+- En el celular, el micrófono requiere HTTPS (vea *Micrófono en el celular*).
+
+### Ropa y calzado (tallas y colores)
+Registra cada talla/color como un producto con nombre compuesto: `Zapatilla Nike Air 39`,
+`Zapatilla Nike Air 40`, `Polera roja M`, `Polera azul M`…
+- La talla y el color **deciden**: "vendí 2 zapatillas nike air 40" nunca descuenta la 39, y
+  "polera verde M" no vende la roja.
+- Si falta el dato ("vendí 1 zapatilla nike air"), JARVIS **pregunta cuál** y no vende nada:
+  *"Tengo varios parecidos: Zapatilla Nike Air 39 y Zapatilla Nike Air 40. ¿Cuál de ellos?"*
+- "¿Cuántas zapatillas nike quedan?" lista el stock de cada talla.
+
+### Diccionario: enséñele sus palabras
+Para que entienda las palabras de su negocio ("chompa" = polera, "zapas" = zapatillas):
+- Por voz: *"Jarvis, aprende que chompa significa polera"*, *"¿qué palabras aprendiste?"*, *"olvida la palabra chompa"*.
+- O edite `C:\Users\<tú>\jarvis-diccionario.txt` con el Bloc de notas (una línea `chompa = polera` por palabra);
+  se vuelve a leer solo al guardar. Lo que trae de fábrica está en `src/main/resources/diccionario-es.txt`.
+
+### Eliminar por voz
+*"Elimina la polera roja M"*, *"borra la gorra negra"* o *"da de baja la casaca"*: pregunta y solo borra si dice **sí**.
+
+### Nombre del negocio
+En `application.properties` ponga `jarvis.negocio=` con el nombre de su negocio (escriba la ñ como
+`\u00f1`, la í como `\u00ed`…). Sale en el saludo (*"…Bienvenido a Zapatería Mi Paso."*), en el título
+de la pantalla y en el comprobante. Vacío = no se muestra.
+
+### Qué entiende por voz
 | Dices | JARVIS hace |
 |---|---|
-| "Llegaron 20 bolsas de cemento Yura" | Suma al stock: *"Entrada registrada: 20 bolsas de Cemento Yura 42.5kg. Stock actual: 70."* |
-| "Vendí 5 metros de cable vulcanizado" | Resta del stock y valida: *"Salida registrada… Stock actual: 45."* |
-| "¿Cuántos focos quedan?" | Consulta: *"Quedan 27 unidades de Foco LED 9W."* (avisa si hay stock bajo) |
+| "Agrega 10 poleras talla M a 25 soles" | Suma al stock (si no existe, crea el producto) |
+| "Vendí 2 poleras M" | Resta del stock, valida y emite comprobante |
+| "¿Cuántas tengo de zapatilla 40?" | Consulta (avisa si hay stock bajo) |
 | "Cierre de caja" | Resumen del día: ventas, total en soles y producto más vendido |
 | "Inventario" | Lista todos los productos |
 
-**Cosas inteligentes que ya trae:**
-- **Búsqueda difusa:** "cemento" encuentra "Cemento Yura 42.5kg"; "clavos de dos" → "Clavo con cabeza 2 pulgadas".
-- **Números en palabras:** entiende "veinte", "doscientos", etc.
-- **Confirmación:** si la cantidad es mayor a 100 o el producto es ambiguo, pide un "sí/no".
-- **Validación:** no deja vender más de lo que hay, y avisa cuando el stock baja del mínimo.
-- **Productos nuevos:** si registras una entrada de algo que no existe, lo crea solo.
+- **Búsqueda difusa:** "zapatillas nike 40" encuentra "Zapatilla Nike Air 40".
+- **Números en palabras:** entiende "veinte", "doscientos", "dos y medio", etc., y también "una docena" (12),
+  "media docena" (6), "un par" (2), "dos pares" (4), "medio ciento" (50) y "un millar" (1000). Si el producto
+  ya se cuenta en *pares* (zapatillas), "un par" es 1 par.
+- **Confirmación:** si la cantidad es mayor a 100 o el producto es dudoso, pide un "sí/no".
+- **Validación:** no deja vender más de lo que hay y avisa cuando el stock baja del mínimo.
 
-Viene con 5 productos de ejemplo. Para partir de cero, borra el archivo `jarvis-inventario.json`
-(se vuelve a crear). Más adelante se puede añadir una pantalla para editar productos, precios y mínimos.
+### API del inventario (para otros programas)
+Todas piden la cabecera `X-Jarvis-Token` y responden `{ ok, reply }` (400 si falta algo, 404 si no existe):
+`POST /api/inventory/productos` (crear), `PATCH /api/inventory/productos` (editar),
+`POST /api/inventory/productos/ajuste` (`{"nombre": "...", "cantidad": -1}`),
+`DELETE /api/inventory/productos?nombre=...`. Detalles en `InventoryController.java`.
+
+Alta masiva: `POST /api/inventory/productos/lote`, con un arreglo JSON
+(`Content-Type: application/json`, `[{"nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2}, …]`)
+o con la lista en texto (`Content-Type: text/plain`, el mismo formato de *Cargar lista*). Responde
+`{ ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }`
+(400 si la lista está vacía o tiene más de 5000 productos).
 
 ## Reconocimiento de intenciones local (offline, DJL)
 
 Además de las reglas, JARVIS puede entender órdenes de inventario dichas **con sus propias palabras**
-("me dejaron 25 bolsas de cemento", "se fueron 12 metros de cable") usando un modelo que corre
+("me dejaron 25 pares de zapatillas", "se fueron 12 metros de tela") usando un modelo que corre
 en la laptop con [Deep Java Library](https://djl.ai) + ONNX Runtime, sin Internet.
 
 1. Crea la carpeta `C:\Users\<tú>\jarvis-models\intent\`.

@@ -3,3 +3,6 @@ dist/
 *.log
 .idea/
 *.iml
+
+# Datos que JARVIS crea al ejecutarse
+jarvis-diccionario.txt

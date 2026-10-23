@@ -3,10 +3,12 @@ package com.jarvis.skills;
 import com.jarvis.ai.EntityExtractor;
 import com.jarvis.ai.IntentResult;
 import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.Num;
 import com.jarvis.inventory.Palabras;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,8 +32,10 @@ public class InventorySkill implements Skill {
 
     @Override public String name() { return "Inventario"; }
     @Override public String example() {
-        return "Llegaron 20 bolsas de cemento / Vendí 2 bolsas de cemento y 3 focos / Nueva venta … cobrar"
-                + " / Lista de precios / ¿Cuánto cuesta el cable? / ¿Cuántos focos quedan? / Último comprobante / Cierre de caja";
+        return "Agrega 10 poleras talla M a 25 soles / Vendí 2 poleras M y 1 zapatilla 40 / Nueva venta … cobrar"
+                + " / Lista de precios / ¿Cuánto cuesta la polera M? / ¿Cuántas tengo de zapatilla 40? / Último comprobante / Cierre de caja"
+                + " / Anula la última venta / Corrige la última venta: eran 3 poleras / Stock mínimo de la polera M en 5"
+                + " / Cambia la unidad de la tela a metros / Elimina el producto polera M";
     }
 
     // palabras que indican cada acción.
@@ -42,8 +46,8 @@ public class InventorySkill implements Skill {
     // Consulta de stock. OJO: evita chocar con la calculadora ("cuanto es 25 por 4").
     private static final Pattern CONSULTA = Pattern.compile(
             "\\b(stock|quedan|queda|disponibles?)\\b" +            // palabras claras de inventario
-            "|\\b(cuantos|cuantas)\\b" +                            // plural: "cuantos focos"
-            "|\\bcuanto\\b.*\\b(hay|tengo)\\b");                    // "cuanto cable tengo"
+            "|\\b(cuantos|cuantas)\\b" +                            // plural: "cuantas poleras"
+            "|\\bcuanto\\b.*\\b(hay|tengo)\\b");                    // "cuanto arroz tengo"
     private static final Pattern ES_CALCULO = Pattern.compile("\\bcuanto es\\b|\\bcalcula\\b");
     private static final Pattern CIERRE = Pattern.compile("\\b(cierre|cierra|reporte|resumen)\\b.*\\b(caja|dia|diario|jornada|ventas)\\b|\\bcierre de caja\\b|\\bcierre del dia\\b");
     private static final Pattern RECIBO = Pattern.compile("\\b(comprobante|recibo|boleta|ticket)\\b");
@@ -52,10 +56,36 @@ public class InventorySkill implements Skill {
     // precios
     private static final Pattern LISTA_PRECIOS = Pattern.compile("\\b(lista de precios|precios)\\b");
     private static final Pattern CAMBIAR_PRECIO = Pattern.compile(
-            "\\b(cambia|cambiar|cambiale|actualiza|actualizar|pon|ponle|nuevo)\\b.*\\bprecio\\b" +   // "cambia el precio del cemento a 30"
-            "|\\b(cuesta|cuestan|vale|valen)\\s+\\d");                                              // "el cemento cuesta 30 soles"
+            "\\b(cambia|cambiar|cambiale|actualiza|actualizar|pon|ponle|nuevo)\\b.*\\bprecio\\b" +   // "cambia el precio de la polera a 30"
+            "|\\b(cuesta|cuestan|vale|valen)\\s+\\d");                                              // "la polera cuesta 30 soles"
     private static final Pattern PRECIO = Pattern.compile("\\b(precio|cuesta|cuestan|vale|valen|a como)\\b");
     private static final Pattern NUMERO = Pattern.compile("(\\d+(?:[.,]\\d+)?)");
+
+    // correcciones (van antes que las ventas: "anula la última venta" también dice "venta")
+    private static final String ULTIMA = "\\b(ultima venta|ultimo comprobante|ultima boleta|ultimo recibo)\\b";
+    private static final Pattern ANULAR_ULTIMA = Pattern.compile(
+            "\\b(anula|anular|anulale|cancela|cancelar|elimina|eliminar|borra|borrar|deshaz|deshacer|revierte|revertir)\\b.*" + ULTIMA);
+    private static final Pattern CORREGIR_ULTIMA = Pattern.compile(
+            "\\b(corrige|corregir|corrigeme|edita|editar|modifica|modificar|cambia|cambiar|arregla|arreglar)\\b.*" + ULTIMA);
+    private static final Pattern STOCK_MINIMO = Pattern.compile("\\b(stock minimo|minimo de stock|minimo)\\b");
+    private static final Pattern CAMBIAR_UNIDAD = Pattern.compile(
+            "\\b(cambia|cambiar|cambiale|pon|ponle|actualiza|actualizar)\\b.*\\bunidad\\b|\\bse vende (en|por)\\b");
+    private static final Pattern UNIDAD_DE = Pattern.compile("\\bunidad (?:de |del |de la |de los |de las )?(.+?) (?:a|en|por) ([a-z]+)$");
+    private static final Pattern SE_VENDE = Pattern.compile("^(?:el |la |los |las )?(.+?) se vende (?:en|por) ([a-z]+)$");
+    private static final String VERBOS_ELIMINAR = "elimina|eliminar|eliminame|borra|borrar|borrame|suprime|suprimir|quita|quitar|retira|retirar";
+    private static final Pattern ELIMINAR_PRODUCTO = Pattern.compile(
+            "\\b(" + VERBOS_ELIMINAR + ")\\b.*\\b(producto|del inventario)\\b|\\bda(r)? de baja\\b");
+    // "elimina la polera roja m" (sin decir "producto"): "elimina…" siempre es eliminar; "borra…" solo si
+    // lo que sigue es un producto que existe, así "borra mis notas" sigue llegando a las notas
+    private static final Pattern ELIMINAR_SUELTO = Pattern.compile("^(elimina|eliminar|eliminame|suprime|suprimir|borra|borrar|borrame)\\b");
+    private static final Set<String> PALABRAS_CORRECCION = Set.of("corrige", "corregir", "corrigeme", "edita", "editar",
+            "modifica", "modificar", "cambia", "cambiar", "arregla", "arreglar", "ultima", "ultimo", "venta", "comprobante",
+            "boleta", "recibo", "eran", "era", "fueron", "fue", "son", "es", "en", "realidad", "no", "sino", "ahora", "deja", "dejalo", "pon");
+    private static final Set<String> PALABRAS_MINIMO = Set.of("pon", "ponle", "cambia", "cambiar", "cambiale", "actualiza", "actualizar",
+            "define", "fija", "stock", "minimo", "en", "a", "es", "sea", "cual", "dime", "de", "del", "el", "la", "alerta");
+    private static final Set<String> PALABRAS_ELIMINAR = Set.of("elimina", "eliminar", "eliminame", "borra", "borrar", "borrame",
+            "suprime", "suprimir", "quita", "quitar", "retira", "retirar", "producto", "del",
+            "inventario", "da", "dar", "de", "baja", "el", "la", "los", "las", "todo", "toda", "todos", "todas");
     private static final Set<String> PALABRAS_PRECIO = Set.of("precio", "cuesta", "cuestan", "vale", "valen", "cambia", "cambiar",
             "cambiale", "actualiza", "actualizar", "pon", "ponle", "nuevo", "como", "esta", "estan", "en", "cual", "es", "dime", "dame");
 
@@ -65,9 +95,9 @@ public class InventorySkill implements Skill {
     private static final Pattern CANCELAR_VENTA = Pattern.compile("\\b(cancela|cancelar|anula|anular|borra)\\b.*\\bventa\\b");
     private static final Pattern QUITAR = Pattern.compile("\\b(quita|quitar|quitale|saca|sacar|elimina|eliminar|retira|retirar)\\b");
     private static final Pattern VER_VENTA = Pattern.compile("\\b(cuanto va|cuanto llevo|cuanto llevamos|que llevo|que llevamos|ver (la )?venta|total parcial|el total)\\b");
-    // "agrega 3 focos" durante una venta significa añadir al carrito, no una entrada de mercadería
+    // "agrega 3 gorras" durante una venta significa añadir al carrito, no una entrada de mercadería
     private static final Pattern AGREGAR = Pattern.compile("\\b(agrega|agregar|agregale|sumar|anade|anadir)\\b");
-    // separadores entre productos: "2 cementos y 3 focos", "… mas 5 clavos", "… tambien 2 discos"
+    // separadores entre productos: "2 poleras y 3 gorras", "… mas 5 medias", "… tambien 2 correas"
     private static final Set<String> SEPARADORES = Set.of("y", "mas", "tambien", "ademas");
 
     private static final Set<String> SI = Set.of("si", "sip", "claro", "confirmo", "correcto", "dale", "afirmativo", "exacto", "ok", "okay", "confirmado");
@@ -86,17 +116,21 @@ public class InventorySkill implements Skill {
         }
 
         List<String> palabras = new ArrayList<>(Arrays.asList(cmd.split(" ")));
-        int[] qty = Palabras.buscarCantidad(palabras);
+        Palabras.Cantidad qty = Palabras.buscarCantidad(palabras);
 
-        // 2) Venta con varios productos: abrir, y mientras está abierta, ver / cancelar / cobrar
+        // 2) Correcciones: anular/corregir la última venta, stock mínimo, unidad, eliminar producto
+        Optional<String> correccion = correcciones(cmd, palabras);
+        if (correccion.isPresent()) return correccion;
+
+        // 3) Venta con varios productos: abrir, y mientras está abierta, ver / cancelar / cobrar
         if (NUEVA_VENTA.matcher(cmd).find()) return Optional.of(inv.abrirVenta());
         if (inv.ventaAbierta()) {
             if (CANCELAR_VENTA.matcher(cmd).find()) return Optional.of(inv.cancelarVenta());
             if (VER_VENTA.matcher(cmd).find()) return Optional.of(inv.verCarrito());
-            if (COBRAR.matcher(cmd).find() && qty[0] < 0) return Optional.of(inv.cobrar());
+            if (COBRAR.matcher(cmd).find() && !qty.hay()) return Optional.of(inv.cobrar());
         }
 
-        // 3) Órdenes que no mueven stock
+        // 4) Órdenes que no mueven stock
         if (RECIBO.matcher(cmd).find() && !SALIDA.matcher(cmd).find()) return Optional.of(inv.ultimoComprobante());
         if (CIERRE.matcher(cmd).find()) return Optional.of(reporteDiario());
         if (LISTA_PRECIOS.matcher(cmd).find()) return Optional.of(inv.listaPrecios());
@@ -107,14 +141,14 @@ public class InventorySkill implements Skill {
         }
         if (LISTA.matcher(cmd).find()) return Optional.of(inv.inventario());
 
-        // 4) Durante una venta abierta: quitar productos o añadirlos al carrito
+        // 5) Durante una venta abierta: quitar productos o añadirlos al carrito
         if (inv.ventaAbierta()) {
             if (QUITAR.matcher(cmd).find()) {
                 String producto = EntityExtractor.producto(palabras, qty);
                 return Optional.of(producto.isBlank() ? "¿Qué producto quito de la venta, señor?" : inv.quitarDelCarrito(producto));
             }
             boolean entradaReal = ENTRADA.matcher(AGREGAR.matcher(cmd).replaceAll("")).find();
-            if (qty[0] >= 0 && !entradaReal && !CONSULTA.matcher(cmd).find()) return Optional.of(agregarAlCarrito(palabras));
+            if (qty.hay() && !entradaReal && !CONSULTA.matcher(cmd).find()) return Optional.of(agregarAlCarrito(palabras));
         }
 
         if (ES_CALCULO.matcher(cmd).find()) return Optional.empty();   // deja la calculadora en paz
@@ -127,24 +161,84 @@ public class InventorySkill implements Skill {
 
         if (!esEntrada && !esSalida && !esConsulta) return Optional.empty();
 
-        Double precio = EntityExtractor.precio(cmd);
+        BigDecimal precio = EntityExtractor.precio(cmd);
         String producto = EntityExtractor.producto(palabras, qty);
 
         if (esEntrada) {
-            if (qty[0] < 0) return Optional.of("No logré identificar la cantidad, señor. Por favor repita la orden.");
+            if (!qty.hay()) return Optional.of("No logré identificar la cantidad, señor. Por favor repita la orden.");
             if (producto.isBlank()) return Optional.of("No logré identificar el producto, señor. Por favor repita la orden.");
-            return Optional.of(registrarEntrada(qty[0], producto, precio));
+            return Optional.of(inv.entrada(cantidad(qty, producto, palabras), producto, precio, EntityExtractor.unidad(palabras), false));
         }
         if (esSalida) {
             List<List<String>> partes = dividirProductos(palabras);
             if (partes.size() > 1) return Optional.of(venderVarios(partes));
-            if (qty[0] < 0 || producto.isBlank())
+            if (!qty.hay() || producto.isBlank())
                 return Optional.of("No logré identificar la cantidad ni el producto, señor. Por favor repita la orden.");
-            return Optional.of(registrarSalida(qty[0], producto));
+            return Optional.of(registrarSalida(cantidad(qty, producto, palabras), producto));
         }
-        // consulta
+        // consulta: aquí no hay cantidad, así que un número es la talla ("cuántas zapatillas 40 quedan")
+        producto = EntityExtractor.producto(palabras, Palabras.Cantidad.NINGUNA);
         if (producto.isBlank()) return Optional.of("¿De qué producto desea saber el stock, señor?");
         return Optional.of(consultarStock(producto));
+    }
+
+    /** Anular/corregir la última venta, stock mínimo, unidad y eliminar producto. Vacío si no es una corrección. */
+    private Optional<String> correcciones(String cmd, List<String> palabras) {
+        if (ANULAR_ULTIMA.matcher(cmd).find()) return Optional.of(inv.pedirAnularUltimaVenta());
+
+        if (CORREGIR_ULTIMA.matcher(cmd).find()) {
+            List<String> resto = palabras.stream().filter(w -> !PALABRAS_CORRECCION.contains(w)).toList();
+            Palabras.Cantidad q = Palabras.buscarCantidad(resto);
+            if (!q.hay()) return Optional.of("¿Cuál es la cantidad correcta, señor? Por ejemplo: corrige la última venta, eran 3 poleras.");
+            String producto = EntityExtractor.producto(resto, q);
+            return Optional.of(inv.corregirUltimaVenta(producto, cantidad(q, producto, resto), false).mensaje());
+        }
+
+        if (ELIMINAR_PRODUCTO.matcher(cmd).find() && (!inv.ventaAbierta() || cmd.contains("del inventario"))) {
+            String producto = EntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
+                    Palabras.Cantidad.NINGUNA);
+            return Optional.of(producto.isBlank() ? "¿Qué producto elimino del inventario, señor?" : inv.pedirEliminarProducto(producto));
+        }
+        if (ELIMINAR_SUELTO.matcher(cmd).find() && !inv.ventaAbierta()) {
+            String producto = EntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
+                    Palabras.Cantidad.NINGUNA);
+            boolean esElimina = cmd.startsWith("elimin") || cmd.startsWith("suprim");
+            if (producto.isBlank() && esElimina) return Optional.of("¿Qué producto elimino del inventario, señor?");
+            if (!producto.isBlank() && (esElimina || inv.conoce(producto))) return Optional.of(inv.pedirEliminarProducto(producto));
+        }
+
+        if (CAMBIAR_UNIDAD.matcher(cmd).find()) {
+            Matcher m = UNIDAD_DE.matcher(cmd);
+            if (!m.find()) m = SE_VENDE.matcher(cmd);
+            else m.reset();
+            if (!m.find()) return Optional.of("Dígame así, señor: cambia la unidad de la tela a metros.");
+            String producto = EntityExtractor.producto(Arrays.asList(m.group(1).split(" ")), Palabras.Cantidad.NINGUNA);
+            if (producto.isBlank()) producto = m.group(1);
+            return Optional.of(inv.cambiarUnidad(producto, m.group(2)));
+        }
+
+        if (STOCK_MINIMO.matcher(cmd).find() && !ES_CALCULO.matcher(cmd).find()) {
+            // el último número es el mínimo ("stock mínimo de la zapatilla 40 en 3" → 3)
+            int iNumero = -1;
+            for (int i = 0; i < palabras.size(); i++) if (Palabras.esNumero(palabras.get(i))) iNumero = i;
+            List<String> resto = new ArrayList<>();
+            for (int i = 0; i < palabras.size(); i++) if (i != iNumero && !PALABRAS_MINIMO.contains(palabras.get(i))) resto.add(palabras.get(i));
+            String producto = EntityExtractor.producto(resto, Palabras.Cantidad.NINGUNA);
+            if (producto.isBlank()) return Optional.of("¿De qué producto, señor? Por ejemplo: stock mínimo de la polera M en 5.");
+            if (iNumero < 0) return Optional.of(inv.stockMinimo(producto));
+            return Optional.of(inv.cambiarStockMinimo(producto, new BigDecimal(palabras.get(iNumero))));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * "un par de medias" son 2 unidades, pero "un par de zapatillas" es 1 si el producto se cuenta en pares.
+     * Si el producto aún no existe, manda la unidad dicha ("llegaron 3 pares de…" crea el producto en pares).
+     */
+    private BigDecimal cantidad(Palabras.Cantidad q, String producto, List<String> palabras) {
+        if (!q.enPares()) return q.valor();
+        String unidad = inv.unidadDe(producto);
+        return q.valorEn(unidad != null ? unidad : EntityExtractor.unidad(palabras));
     }
 
     private static int posicion(Pattern p, String cmd) {
@@ -153,7 +247,7 @@ public class InventorySkill implements Skill {
     }
 
     /**
-     * Corta "vendí 2 cementos y 3 focos" en ["vendí 2 cementos", "3 focos"]. Solo corta en "y/más/también"
+     * Corta "vendí 2 poleras y 3 gorras" en ["vendí 2 poleras", "3 gorras"]. Solo corta en "y/más/también"
      * si después viene una cantidad, y nunca dentro de un número ("treinta y cinco").
      */
     static List<List<String>> dividirProductos(List<String> palabras) {
@@ -176,14 +270,14 @@ public class InventorySkill implements Skill {
     }
 
     private String venderVarios(List<List<String>> partes) {
-        List<Integer> cantidades = new ArrayList<>();
+        List<BigDecimal> cantidades = new ArrayList<>();
         List<String> productos = new ArrayList<>();
         for (List<String> p : partes) {
-            int[] q = Palabras.buscarCantidad(p);
+            Palabras.Cantidad q = Palabras.buscarCantidad(p);
             String prod = EntityExtractor.producto(p, q);
-            if (q[0] < 0 || prod.isBlank())
+            if (!q.hay() || prod.isBlank())
                 return "No logré identificar la cantidad y el producto de \"" + String.join(" ", p) + "\", señor. Por favor repita la orden.";
-            cantidades.add(q[0]);
+            cantidades.add(cantidad(q, prod, p));
             productos.add(prod);
         }
         return inv.venderVarios(cantidades, productos);
@@ -192,15 +286,15 @@ public class InventorySkill implements Skill {
     private String agregarAlCarrito(List<String> palabras) {
         List<String> respuestas = new ArrayList<>();
         for (List<String> p : dividirProductos(palabras)) {
-            int[] q = Palabras.buscarCantidad(p);
+            Palabras.Cantidad q = Palabras.buscarCantidad(p);
             String prod = EntityExtractor.producto(p, q);
-            if (q[0] < 0 || prod.isBlank()) respuestas.add("No entendí \"" + String.join(" ", p) + "\".");
-            else respuestas.add(inv.agregarAlCarrito(q[0], prod));
+            if (!q.hay() || prod.isBlank()) respuestas.add("No entendí \"" + String.join(" ", p) + "\".");
+            else respuestas.add(inv.agregarAlCarrito(cantidad(q, prod, p), prod));
         }
         return String.join(" ", respuestas);
     }
 
-    /** "cambia el precio del cemento a 30 soles" / "el cemento cuesta 30.50". El número se toma del texto original para no perder decimales. */
+    /** "cambia el precio de la polera M a 30 soles" / "la polera M cuesta 30.50". El número se toma del texto original para no perder decimales. */
     private String cambiarPrecio(String cmd, String original) {
         Matcher m = NUMERO.matcher(original);
         String numero = null;
@@ -208,12 +302,12 @@ public class InventorySkill implements Skill {
         if (numero == null) return "¿A qué precio lo dejo, señor?";
         String producto = productoSinPalabrasDePrecio(new ArrayList<>(Arrays.asList(cmd.split(" "))));
         if (producto.isBlank()) return "¿De qué producto cambio el precio, señor?";
-        return inv.cambiarPrecio(producto, Double.parseDouble(numero.replace(",", ".")));
+        return inv.cambiarPrecio(producto, Num.parse(numero));
     }
 
     private String productoSinPalabrasDePrecio(List<String> palabras) {
         List<String> limpias = palabras.stream().filter(w -> !PALABRAS_PRECIO.contains(w)).toList();
-        return EntityExtractor.producto(limpias, new int[]{-1, -1, -1});
+        return EntityExtractor.producto(limpias, Palabras.Cantidad.NINGUNA);
     }
 
     /**
@@ -223,7 +317,8 @@ public class InventorySkill implements Skill {
     public boolean ordenExplicita(String cmdRaw) {
         String cmd = Palabras.norm(cmdRaw);
         if (ES_CALCULO.matcher(cmd).find()) return false;
-        return Set.of(RECIBO, CIERRE, LISTA, LISTA_PRECIOS, PRECIO, NUEVA_VENTA, ENTRADA, SALIDA, CONSULTA)
+        return Set.of(RECIBO, CIERRE, LISTA, LISTA_PRECIOS, PRECIO, NUEVA_VENTA, ENTRADA, SALIDA, CONSULTA,
+                        ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO)
                 .stream().anyMatch(p -> p.matcher(cmd).find());
     }
 
@@ -235,9 +330,11 @@ public class InventorySkill implements Skill {
     /** ¿Hay una venta con varios productos abierta? Mientras tanto se dictan productos y no se clasifica con el modelo. */
     public boolean ventaEnCurso() { return inv.ventaAbierta(); }
 
-    public String registrarEntrada(int cantidad, String producto, Double precio) { return inv.entrada(cantidad, producto, precio, false); }
+    public String registrarEntrada(BigDecimal cantidad, String producto, BigDecimal precio) {
+        return inv.entrada(cantidad, producto, precio, null, false);
+    }
 
-    public String registrarSalida(int cantidad, String producto) { return inv.salida(cantidad, producto, false); }
+    public String registrarSalida(BigDecimal cantidad, String producto) { return inv.salida(cantidad, producto, false); }
 
     public String consultarStock(String producto) { return inv.consulta(producto); }
 
@@ -251,9 +348,9 @@ public class InventorySkill implements Skill {
     public Optional<String> ejecutar(IntentResult r) {
         return switch (r.intent()) {
             case REGISTRAR_ENTRADA -> r.tieneCantidad() && conoce(r)
-                    ? Optional.of(registrarEntrada(r.cantidad(), r.producto(), r.precio())) : Optional.empty();
+                    ? Optional.of(registrarEntrada(r.cantidadEn(inv.unidadDe(r.producto())), r.producto(), r.precio())) : Optional.empty();
             case REGISTRAR_SALIDA -> r.tieneCantidad() && conoce(r)
-                    ? Optional.of(registrarSalida(r.cantidad(), r.producto())) : Optional.empty();
+                    ? Optional.of(registrarSalida(r.cantidadEn(inv.unidadDe(r.producto())), r.producto())) : Optional.empty();
             case CONSULTAR_STOCK -> conoce(r) ? Optional.of(consultarStock(r.producto())) : Optional.empty();
             case REPORTE_DIARIO -> Optional.of(reporteDiario());
             case DESCONOCIDO -> Optional.empty();
