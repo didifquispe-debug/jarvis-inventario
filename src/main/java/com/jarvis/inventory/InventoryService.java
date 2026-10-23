@@ -467,6 +467,56 @@ public class InventoryService {
         return msg.startsWith("Venta registrada") ? Resultado.ok(msg) : Resultado.error(msg);
     }
 
+    /** Una fila de la lista de comprobantes. {@code cliente}: nombre, o "" si fue a clientes varios. */
+    public record FilaComprobante(int numero, String codigo, String tipo, String fecha, String hora, String cliente,
+                                  int productos, BigDecimal total, boolean anulado) {}
+
+    /** Los últimos comprobantes emitidos, del más reciente al más antiguo. */
+    public synchronized List<FilaComprobante> comprobantes(int limite) {
+        Map<Integer, List<Venta>> porNumero = new TreeMap<>(Comparator.reverseOrder());
+        for (Venta v : ventas) if (v.numero > 0) porNumero.computeIfAbsent(v.numero, k -> new ArrayList<>()).add(v);
+        List<FilaComprobante> out = new ArrayList<>();
+        for (Map.Entry<Integer, List<Venta>> e : porNumero.entrySet()) {
+            if (out.size() >= Math.min(Math.max(limite, 1), 1000)) break;
+            List<Venta> items = e.getValue();
+            Comprobante c = new Comprobante(e.getKey(), items.get(0).fecha, items.get(0).hora, items, Almacen.cabecera(cabeceras, e.getKey()));
+            out.add(new FilaComprobante(c.numero, c.codigo, c.tipo, c.fecha, c.hora, c.cliente == null ? "" : c.cliente.nombre(),
+                    c.items.size(), c.total, c.anulado));
+        }
+        return out;
+    }
+
+    /** Cifras para la pantalla de inicio. Valor al costo: solo de los productos que tienen costo registrado. */
+    public record Resumen(int ventasHoy, BigDecimal totalHoy, BigDecimal igvHoy, int anuladasHoy, int productos, int stockBajo,
+                          int sinStock, BigDecimal valorVenta, BigDecimal valorCosto, int clientes, String igv, String tipoComprobante) {}
+
+    public synchronized Resumen resumen() {
+        String hoy = LocalDate.now().toString();
+        Map<Integer, List<Venta>> deHoy = new HashMap<>();
+        for (Venta v : ventas) if (v.numero > 0 && hoy.equals(v.fecha)) deHoy.computeIfAbsent(v.numero, k -> new ArrayList<>()).add(v);
+        int ventasHoy = 0, anuladas = 0;
+        BigDecimal total = Num.dinero(BigDecimal.ZERO), igv = Num.dinero(BigDecimal.ZERO);
+        for (Map.Entry<Integer, List<Venta>> e : deHoy.entrySet()) {
+            Comprobante c = new Comprobante(e.getKey(), hoy, "", e.getValue(), Almacen.cabecera(cabeceras, e.getKey()));
+            if (c.anulado) { anuladas++; continue; }
+            ventasHoy++;
+            total = total.add(c.total);
+            igv = igv.add(c.igv);
+        }
+        int bajo = 0, sin = 0;
+        BigDecimal valorVenta = BigDecimal.ZERO, valorCosto = BigDecimal.ZERO;
+        for (Producto p : productos) {
+            if (p.stock.signum() <= 0) sin++;
+            else if (p.stockBajo()) bajo++;
+            if (p.stock.signum() > 0) {
+                valorVenta = valorVenta.add(p.precio.multiply(p.stock));
+                if (p.costo != null) valorCosto = valorCosto.add(p.costo.multiply(p.stock));
+            }
+        }
+        return new Resumen(ventasHoy, total, igv, anuladas, productos.size(), bajo, sin, Num.dinero(valorVenta), Num.dinero(valorCosto),
+                clientes.contar(), igvPorDefecto.name(), tipoPorDefecto.name());
+    }
+
     /** El comprobante con ese número interno de venta (el de {@code Comprobante.numero}), o null. */
     public synchronized Comprobante comprobantePorNumero(int numero) {
         return numero <= 0 ? null : comprobante(numero);

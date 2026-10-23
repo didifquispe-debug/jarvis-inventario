@@ -66,6 +66,8 @@ public class JarvisController {
         Map<String, Object> data = new LinkedHashMap<>(monitor.snapshot());
         data.put("port", port);
         data.put("negocio", nombreNegocio);
+        data.put("negocioRuc", negocio.get("ruc"));
+        data.put("negocioDireccion", negocio.get("direccion"));
         return data;
     }
 

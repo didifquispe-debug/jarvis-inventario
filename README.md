@@ -33,6 +33,20 @@ Si le dices desde el celular "abre YouTube", **se abre en la laptop**.
 
 En tu laptop entra a **http://localhost:8080** — te pedirá la clave una sola vez.
 
+## La pantalla
+
+JARVIS se ve como un sistema de gestión: **menú lateral** (Inicio, Vender, Inventario, Clientes, Comprobantes) y
+**JARVIS como asistente** en un panel a la derecha, con su orbe animado, chat, micrófono y manos libres.
+- **Inicio:** ventas de hoy, productos con stock bajo, valor del inventario (a precio de venta y al costo), últimas
+  ventas y lo que hay que reponer.
+- **Vender:** busque o escanee el producto (Enter agrega), elija boleta o nota de venta, el DNI del cliente
+  (si no existe, se registra desde ahí) y **Cobrar**: sale el comprobante con su PDF.
+- **Inventario, Clientes y Comprobantes:** tablas con buscador y filtros; toque un comprobante para verlo.
+- **Modo claro u oscuro:** sigue a Windows; se cambia en el menú. Los medidores del equipo (CPU, RAM, disco,
+  batería y la dirección para el celular) están en **Equipo**, al pie del menú.
+- En una ventana angosta el asistente se abre con el botón redondo de JARVIS; en el celular el menú pasa arriba.
+- Funciona sin Internet: usa las fuentes del sistema.
+
 ## 2b. Programa de escritorio (JARVIS.exe)
 
 Al darle ▶, JARVIS ya funciona como programa de escritorio:

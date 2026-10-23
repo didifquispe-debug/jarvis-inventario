@@ -2,391 +2,599 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="theme-color" content="#02060c">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1a27">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
 <title>J.A.R.V.I.S.</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Sistema de gestión con JARVIS como asistente. Menú oscuro con la identidad de JARVIS (cian),
+     contenido claro u oscuro según Windows o el botón de tema. Fuentes del sistema: funciona sin Internet. */
   :root {
-    --bg: #02060c;
-    --c: 79, 216, 255;               /* cian holográfico (r,g,b) */
-    --cyan: rgb(var(--c));
-    --dim: rgba(var(--c), .35);
-    --faint: rgba(var(--c), .12);
-    --amber: #ffb43c;
-    --text: #cdefff;
-    --head: "Orbitron", "Segoe UI", sans-serif;
-    --body: "Rajdhani", "Segoe UI", sans-serif;
+    --bg: #f2f5f8; --surface: #ffffff; --surface-2: #f7f9fb; --hover: #edf2f6;
+    --border: #e1e7ee; --border-strong: #cdd6e0;
+    --text: #13202f; --muted: #5a6879; --faint: #8794a5;
+    --accent: #0a7ea4; --accent-rgb: 10, 126, 164; --accent-ink: #ffffff; --accent-weak: #e1f1f7;
+    --ok: #15804d; --ok-weak: #e2f3e9; --warn: #9f5f10; --warn-weak: #fbefdc; --danger: #c0352e; --danger-weak: #fbe6e4;
+    --nav-bg: #0e1a27; --nav-text: #c4d2e0; --nav-muted: #7d90a5; --nav-hover: rgba(255,255,255,.06); --nav-accent: #3fcbea;
+    --shadow: 0 1px 2px rgba(16,32,51,.05), 0 6px 18px rgba(16,32,51,.06);
+    --shadow-lg: 0 18px 48px rgba(10,22,36,.22);
+    --radius: 12px; --radius-sm: 8px;
+    --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, "SFMono-Regular", monospace;
+    color-scheme: light;
   }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1118; --surface: #111a24; --surface-2: #15202c; --hover: #1a2633;
+      --border: #213041; --border-strong: #2d3f53;
+      --text: #e3eaf2; --muted: #93a3b6; --faint: #6c7c90;
+      --accent: #3cc2e3; --accent-rgb: 60, 194, 227; --accent-ink: #062330; --accent-weak: rgba(60,194,227,.13);
+      --ok: #45c78a; --ok-weak: rgba(69,199,138,.13); --warn: #e8a64a; --warn-weak: rgba(232,166,74,.14);
+      --danger: #f0716a; --danger-weak: rgba(240,113,106,.14);
+      --nav-bg: #080e15; --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28); --shadow-lg: 0 18px 48px rgba(0,0,0,.55);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1118; --surface: #111a24; --surface-2: #15202c; --hover: #1a2633;
+    --border: #213041; --border-strong: #2d3f53;
+    --text: #e3eaf2; --muted: #93a3b6; --faint: #6c7c90;
+    --accent: #3cc2e3; --accent-rgb: 60, 194, 227; --accent-ink: #062330; --accent-weak: rgba(60,194,227,.13);
+    --ok: #45c78a; --ok-weak: rgba(69,199,138,.13); --warn: #e8a64a; --warn-weak: rgba(232,166,74,.14);
+    --danger: #f0716a; --danger-weak: rgba(240,113,106,.14);
+    --nav-bg: #080e15; --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.28); --shadow-lg: 0 18px 48px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body {
-    margin: 0; overflow: hidden; color: var(--text); font-family: var(--body); font-size: 16px;
-    background:
-      radial-gradient(ellipse at 50% 45%, rgba(20, 70, 110, .45) 0%, transparent 60%),
-      linear-gradient(var(--faint) 1px, transparent 1px) 0 0 / 40px 40px,
-      linear-gradient(90deg, var(--faint) 1px, transparent 1px) 0 0 / 40px 40px,
-      var(--bg);
-  }
-  /* líneas de escaneo */
-  body::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
-    mix-blend-mode: multiply;
-  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-  /* ---------- Estructura ---------- */
-  .hud { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 14px 18px; gap: 12px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .brand h1 { margin: 0; font-family: var(--head); font-weight: 800; font-size: 1.6rem; letter-spacing: .45em; color: var(--cyan);
-              text-shadow: 0 0 14px rgba(var(--c), .8); }
-  .brand small { display: block; font-size: .72rem; letter-spacing: .32em; opacity: .6; text-transform: uppercase; margin-top: 2px; }
-  .clock { text-align: right; font-family: var(--head); }
-  .clock .t { font-size: 1.6rem; color: var(--cyan); letter-spacing: .08em; text-shadow: 0 0 10px rgba(var(--c), .6); }
-  .clock .d { font-size: .7rem; letter-spacing: .25em; opacity: .7; text-transform: uppercase; }
+  /* ---------------------------------------------------------------- estructura */
+  .app { height: 100%; display: grid; grid-template-columns: 228px minmax(0, 1fr) 368px; }
+  .vista { min-width: 0; overflow-y: auto; padding: 28px 32px 48px; }
+  .pagina { max-width: 1180px; margin: 0 auto; }
+  .pagina > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+  .pagina h1 { margin: 0; font: 600 1.6rem/1.2 var(--display); letter-spacing: -.01em; text-wrap: balance; }
+  .pagina .sub { margin: 4px 0 0; color: var(--muted); }
 
-  main { display: grid; grid-template-columns: 330px 1fr 360px; gap: 18px; min-height: 0; }
+  /* ---------------------------------------------------------------- menú lateral */
+  .nav { background: var(--nav-bg); color: var(--nav-text); display: flex; flex-direction: column; padding: 18px 12px; gap: 4px; min-height: 0; overflow-y: auto; }
+  .marca { display: flex; align-items: center; gap: 11px; padding: 4px 8px 18px; }
+  .marca svg { flex: 0 0 34px; }
+  .marca b { display: block; font: 700 1.02rem/1.1 var(--display); letter-spacing: .22em; color: #fff; }
+  .marca small { display: block; font-size: .76rem; color: var(--nav-muted); margin-top: 3px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav .item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px; color: var(--nav-text); text-decoration: none; font-weight: 500; }
+  .nav .item svg { width: 19px; height: 19px; flex: 0 0 19px; stroke: currentColor; opacity: .8; }
+  .nav .item:hover { background: var(--nav-hover); color: #fff; }
+  .nav .item.activo { background: rgba(63,203,234,.14); color: #fff; box-shadow: inset 3px 0 0 var(--nav-accent); }
+  .nav .item.activo svg { color: var(--nav-accent); opacity: 1; }
+  .nav .seccion { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--nav-muted); padding: 14px 12px 6px; }
+  .nav .pie { margin-top: auto; padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .nav .pie button.item { background: none; border: 0; width: 100%; text-align: left; cursor: pointer; font: inherit; }
+  details.equipo { border-radius: 9px; }
+  details.equipo summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px; font-weight: 500; }
+  details.equipo summary::-webkit-details-marker { display: none; }
+  details.equipo summary:hover { background: var(--nav-hover); color: #fff; }
+  details.equipo summary svg { width: 19px; height: 19px; stroke: currentColor; opacity: .8; }
+  .medidores { padding: 4px 12px 10px; display: grid; gap: 9px; font-size: .78rem; }
+  .medidor { display: grid; grid-template-columns: 52px 1fr 40px; align-items: center; gap: 8px; color: var(--nav-muted); }
+  .medidor i { height: 5px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .medidor i b { display: block; height: 100%; width: 0; background: var(--nav-accent); border-radius: 3px; transition: width .6s; }
+  .medidor i b.alto { background: #f0a24a; }
+  .medidor span:last-child { text-align: right; color: var(--nav-text); font-variant-numeric: tabular-nums; }
+  .medidores dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
+  .medidores dt { color: var(--nav-muted); } .medidores dd { margin: 0; color: var(--nav-text); text-align: right; word-break: break-all; }
 
-  .panel { position: relative; border: 1px solid var(--dim); background: linear-gradient(160deg, rgba(10, 40, 70, .35), rgba(2, 10, 20, .55));
-           padding: 16px; min-height: 0; display: flex; flex-direction: column;
-           clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
-  .panel::before, .panel::after { content: ""; position: absolute; width: 14px; height: 14px; border: 2px solid var(--cyan); }
-  .panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
-  .panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
-  .panel h2 { margin: 0 0 14px; font-family: var(--head); font-size: .72rem; font-weight: 600; letter-spacing: .35em; color: var(--cyan);
-              display: flex; align-items: center; gap: 10px; }
-  .panel h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--dim), transparent); }
+  /* ---------------------------------------------------------------- piezas comunes */
+  .tarjeta { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .tarjeta > h2, .tarjeta-cab h2 { margin: 0; font: 600 1rem/1.3 var(--display); }
+  .tarjeta-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 12px; }
+  .tarjeta-cab small { color: var(--muted); }
+  .boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 9px;
+           border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 600; font-size: .9rem;
+           cursor: pointer; white-space: nowrap; text-decoration: none; transition: background .15s, border-color .15s; }
+  .boton:hover { background: var(--hover); }
+  .boton svg { width: 17px; height: 17px; stroke: currentColor; }
+  .boton.primario { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .boton.primario:hover { filter: brightness(1.07); }
+  .boton.peligro { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .boton.grande { height: 48px; font-size: 1rem; padding: 0 22px; }
+  .boton:disabled { opacity: .5; cursor: default; }
+  .icono { width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 8px; border: 1px solid transparent;
+           background: none; color: var(--muted); cursor: pointer; }
+  .icono:hover { background: var(--hover); color: var(--text); border-color: var(--border); }
+  .icono.peligro:hover { color: var(--danger); background: var(--danger-weak); }
+  .icono svg { width: 17px; height: 17px; stroke: currentColor; }
+  .campo { height: 38px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+           outline: none; min-width: 0; width: 100%; }
+  textarea.campo { height: auto; padding: 10px 12px; }
+  .campo:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-weak); }
+  .campo::placeholder { color: var(--faint); }
+  .buscador { position: relative; }
+  .buscador svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; stroke: var(--faint); pointer-events: none; }
+  .buscador .campo { padding-left: 36px; }
+  .barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .barra .buscador { flex: 1 1 260px; }
+  .barra select.campo { width: auto; flex: 0 0 auto; }
+  .etiqueta { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600;
+              background: var(--hover); color: var(--muted); white-space: nowrap; }
+  .etiqueta.ok { background: var(--ok-weak); color: var(--ok); }
+  .etiqueta.aviso { background: var(--warn-weak); color: var(--warn); }
+  .etiqueta.mal { background: var(--danger-weak); color: var(--danger); }
+  .etiqueta.acento { background: var(--accent-weak); color: var(--accent); }
+  .vacio { text-align: center; padding: 42px 20px; color: var(--muted); }
+  .vacio b { display: block; color: var(--text); font-size: 1.05rem; margin-bottom: 6px; }
+  .vacio .acciones { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-  /* ---------- Panel sistema ---------- */
-  .gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px; margin-bottom: 18px; }
-  .gauge { position: relative; text-align: center; }
-  .gauge svg { width: 92px; height: 92px; transform: rotate(-90deg); display: block; margin: 0 auto; }
-  .gauge circle { fill: none; stroke-width: 5; }
-  .gauge .track { stroke: rgba(var(--c), .12); }
-  .gauge .val { stroke: var(--cyan); stroke-linecap: round; stroke-dasharray: 213.6; stroke-dashoffset: 213.6;
-                transition: stroke-dashoffset 1s ease, stroke .3s; filter: drop-shadow(0 0 4px rgba(var(--c), .9)); }
-  .gauge .val.hot { stroke: var(--amber); filter: drop-shadow(0 0 4px var(--amber)); }
-  .gauge b { position: absolute; top: 30px; left: 0; right: 0; font-family: var(--head); font-size: 1.15rem; color: #fff; }
-  .gauge span { display: block; font-size: .72rem; letter-spacing: .3em; opacity: .7; margin-top: 4px; }
-  .info { list-style: none; margin: 0; padding: 0; font-size: .92rem; overflow-y: auto; }
-  .info li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed rgba(var(--c), .15); }
-  .info li span:first-child { opacity: .6; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; }
-  .info li span:last-child { color: var(--cyan); text-align: right; word-break: break-all; }
+  /* tablas */
+  .tabla-caja { overflow-x: auto; }
+  table.tabla { width: 100%; border-collapse: collapse; }
+  .tabla th { text-align: left; font-size: .75rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted);
+              padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); white-space: nowrap; }
+  .tabla td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .tabla tr:last-child td { border-bottom: 0; }
+  .tabla tbody tr:hover td { background: var(--surface-2); }
+  .tabla .der { text-align: right; white-space: nowrap; } .tabla .centro { text-align: center; }
+  .tabla tr.clic { cursor: pointer; }
+  .tabla .acciones { white-space: nowrap; text-align: right; width: 1%; }
+  .nombre-prod b { font-weight: 600; }
+  .nombre-prod small { display: block; color: var(--faint); font-size: .8rem; margin-top: 1px; }
+  .stock-ctrl { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .stock-ctrl button { width: 30px; height: 30px; border: 0; background: var(--surface-2); color: var(--muted); cursor: pointer; font-size: 1rem; }
+  .stock-ctrl button:hover { background: var(--hover); color: var(--text); }
+  .stock-ctrl span { min-width: 88px; text-align: center; padding: 0 8px; font-variant-numeric: tabular-nums; }
+  tr.bajo .stock-ctrl { border-color: var(--warn); } tr.bajo .stock-ctrl span { color: var(--warn); font-weight: 600; }
+  tr.sin .stock-ctrl { border-color: var(--danger); } tr.sin .stock-ctrl span { color: var(--danger); font-weight: 600; }
 
-  /* ---------- Centro: reactor ---------- */
-  .core { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; gap: 10px; }
-  #reactor { width: min(58vh, 100%, 520px); aspect-ratio: 1; cursor: pointer; filter: drop-shadow(0 0 18px rgba(var(--c), .45));
-             -webkit-tap-highlight-color: transparent; }
-  .state { font-family: var(--head); letter-spacing: .5em; font-size: .9rem; color: var(--cyan); text-shadow: 0 0 10px rgba(var(--c), .7); }
-  .state.thinking { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
-  #transcript { min-height: 1.5em; font-size: 1.1rem; opacity: .85; text-align: center; max-width: 560px; font-style: italic; }
+  /* ---------------------------------------------------------------- inicio */
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+  .kpi { padding: 16px 18px; }
+  .kpi span { color: var(--muted); font-size: .85rem; font-weight: 500; }
+  .kpi strong { display: block; font: 600 1.7rem/1.2 var(--display); margin: 6px 0 4px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .kpi small { color: var(--faint); font-size: .8rem; }
+  .kpi.destacado { background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #0e1a27)); border-color: transparent; color: var(--accent-ink); }
+  .kpi.destacado span, .kpi.destacado small { color: inherit; opacity: .85; }
+  .rejilla-2 { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .lista-reponer { list-style: none; margin: 0; padding: 0 6px 8px; }
+  .lista-reponer li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 9px; }
+  .lista-reponer li:hover { background: var(--surface-2); }
+  .lista-reponer small { display: block; color: var(--faint); font-size: .8rem; }
+  .rapido { display: flex; gap: 10px; flex-wrap: wrap; }
 
-  /* ---------- Registro ---------- */
-  #log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 6px; font-size: 1rem; line-height: 1.35; }
-  #log::-webkit-scrollbar { width: 4px; } #log::-webkit-scrollbar-thumb { background: var(--dim); }
-  .entry .meta { font-family: var(--head); font-size: .62rem; letter-spacing: .25em; opacity: .55; margin-bottom: 3px; }
-  .entry .txt { white-space: pre-wrap; }
-  .entry.me .meta { color: #9fb8c8; } .entry.me .txt { color: #e8f6ff; }
-  .entry.bot .meta { color: var(--cyan); opacity: .85; } .entry.bot .txt { color: var(--cyan); border-left: 2px solid var(--dim); padding-left: 10px; }
-  .entry.sys .txt { color: var(--amber); font-size: .9rem; }
+  /* ---------------------------------------------------------------- vender (punto de venta) */
+  .pos { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, 1fr); gap: 16px; align-items: start; }
+  .pos-busqueda { padding: 16px; }
+  .resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; max-height: 60vh; overflow-y: auto; }
+  .prod-boton { text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+  .prod-boton:hover { border-color: var(--accent); background: var(--accent-weak); }
+  .prod-boton b { display: block; font-weight: 600; line-height: 1.25; }
+  .prod-boton span { display: flex; justify-content: space-between; margin-top: 8px; font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .prod-boton span strong { color: var(--text); }
+  .prod-boton.agotado { opacity: .5; cursor: not-allowed; }
+  .ticket { position: sticky; top: 0; display: flex; flex-direction: column; }
+  .ticket .tarjeta-cab { border-bottom: 1px solid var(--border); }
+  .segmentado { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+  .segmentado button { border: 0; background: none; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: .85rem; color: var(--muted); }
+  .segmentado button.activo { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+  .ticket-cliente { padding: 12px 18px; border-bottom: 1px solid var(--border); display: grid; gap: 6px; }
+  .ticket-cliente .fila { display: flex; gap: 8px; }
+  .ticket-cliente small { color: var(--muted); min-height: 1.2em; }
+  .ticket-cliente small.ok { color: var(--ok); } .ticket-cliente small.mal { color: var(--warn); }
+  .lineas { list-style: none; margin: 0; padding: 6px 10px; max-height: 42vh; overflow-y: auto; }
+  .lineas li { display: grid; grid-template-columns: minmax(0, 1fr) 84px 80px 30px; align-items: center; gap: 8px; padding: 8px; border-radius: 9px; }
+  .lineas li:hover { background: var(--surface-2); }
+  .lineas b { font-weight: 600; display: block; line-height: 1.25; }
+  .lineas small { color: var(--faint); font-size: .8rem; }
+  .lineas input { height: 32px; text-align: center; padding: 0 6px; }
+  .lineas .importe { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .lineas-vacio { padding: 30px 18px; text-align: center; color: var(--faint); }
+  .totales { padding: 12px 18px; border-top: 1px solid var(--border); display: grid; gap: 4px; font-variant-numeric: tabular-nums; }
+  .totales div { display: flex; justify-content: space-between; color: var(--muted); font-size: .9rem; }
+  .totales .total { color: var(--text); font: 600 1.5rem/1.3 var(--display); margin-top: 4px; }
+  .ticket-acciones { padding: 0 18px 18px; display: grid; grid-template-columns: auto 1fr; gap: 10px; }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .chip { font-family: var(--body); font-size: .82rem; letter-spacing: .08em; padding: 5px 10px; background: rgba(var(--c), .06);
-          border: 1px solid var(--dim); color: var(--text); cursor: pointer; }
-  .chip:hover { background: rgba(var(--c), .18); color: #fff; }
+  /* ---------------------------------------------------------------- asistente (JARVIS) */
+  .asistente { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .asis-cab { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .asis-cab canvas { width: 46px; height: 46px; flex: 0 0 46px; cursor: pointer; border-radius: 50%; }
+  .asis-cab b { display: block; font: 700 .95rem/1.2 var(--display); letter-spacing: .18em; }
+  .asis-cab small { color: var(--muted); font-size: .8rem; }
+  .asis-cab small.escuchando { color: var(--accent); } .asis-cab small.pensando { color: var(--warn); }
+  .asis-cab .cerrar { margin-left: auto; display: none; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 88%; padding: 9px 13px; border-radius: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; font-size: .93rem; }
+  .msg.yo { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+  .msg.jarvis { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.sistema { align-self: center; background: var(--warn-weak); color: var(--warn); font-size: .82rem; text-align: center; border-radius: 9px; }
+  .msg .hora { display: block; font-size: .7rem; opacity: .6; margin-top: 4px; }
+  .msg .ver { margin-top: 8px; }
+  .carrito-voz { margin: 0 12px 10px; border: 1px solid var(--accent); border-radius: 12px; background: var(--accent-weak); padding: 10px 12px; }
+  .carrito-voz header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 6px; }
+  .carrito-voz .opc { display: flex; gap: 6px; margin-bottom: 6px; }
+  .carrito-voz select, .carrito-voz input { height: 32px; font-size: .85rem; }
+  .carrito-voz ul { list-style: none; margin: 0; padding: 0; font-size: .87rem; }
+  .carrito-voz li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .carrito-voz .pie-carrito { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  .carrito-voz .pie-carrito b { font-variant-numeric: tabular-nums; }
+  .atajos { display: flex; gap: 6px; padding: 0 12px 10px; overflow-x: auto; scrollbar-width: none; }
+  .atajo { flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 5px 11px; font-size: .8rem; cursor: pointer; color: var(--muted); }
+  .atajo:hover { border-color: var(--accent); color: var(--accent); }
+  .composer { border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 8px; align-items: center; }
+  .composer .campo { height: 42px; border-radius: 12px; }
+  .mic { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer;
+         display: grid; place-items: center; color: var(--text); }
+  .mic svg { width: 19px; height: 19px; stroke: currentColor; }
+  .mic.activo { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .transcripcion { min-height: 0; padding: 0 16px; font-size: .85rem; color: var(--accent); font-style: italic; }
+  .transcripcion:not(:empty) { padding: 0 16px 8px; }
+  .manos-libres { display: flex; align-items: center; gap: 8px; padding: 0 14px 12px; font-size: .82rem; color: var(--muted); }
+  .interruptor { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--border-strong); border: 0; cursor: pointer; flex: 0 0 36px; }
+  .interruptor::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .interruptor.activo { background: var(--accent); } .interruptor.activo::after { transform: translateX(16px); }
+  .fab { display: none; position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 30;
+         width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--nav-bg); box-shadow: var(--shadow-lg); cursor: pointer; padding: 6px; }
+  .fab canvas { width: 100%; height: 100%; }
+  .velo { display: none; }
 
-  /* ---------- Barra de órdenes ---------- */
-  footer { display: flex; gap: 10px; align-items: stretch; }
-  .cmd { flex: 1; display: flex; align-items: center; border: 1px solid var(--dim); background: rgba(2, 14, 26, .8); padding: 0 14px; }
-  .cmd::before { content: ">"; font-family: var(--head); color: var(--cyan); margin-right: 10px; }
-  #input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-family: var(--body); font-size: 1.1rem; padding: 13px 0; }
-  #input::placeholder { color: rgba(var(--c), .4); }
-  .btn { font-family: var(--head); font-size: .68rem; letter-spacing: .2em; padding: 0 16px; border: 1px solid var(--dim); background: rgba(var(--c), .06);
-         color: var(--cyan); cursor: pointer; white-space: nowrap; }
-  .btn:hover { background: rgba(var(--c), .18); }
-  .btn.on { background: var(--cyan); color: var(--bg); box-shadow: 0 0 18px rgba(var(--c), .7); }
-
-  /* ---------- Arranque ---------- */
-  #boot { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
-  #boot h1 { font-family: var(--head); font-weight: 800; font-size: clamp(2rem, 6vw, 4rem); letter-spacing: .4em; margin: 0 0 0 .4em; color: var(--cyan);
-             text-shadow: 0 0 24px rgba(var(--c), .9); }
-  #boot p { margin: -12px 0 0; letter-spacing: .4em; font-size: .8rem; opacity: .6; text-transform: uppercase; text-align: center; }
-  #bootLines { font-family: var(--head); font-size: .72rem; letter-spacing: .15em; color: var(--cyan); min-height: 9em; width: min(460px, 90vw); }
-  #bootLines div { opacity: .85; } #bootLines div b { color: #fff; float: right; }
-  #bootBtn { font-size: .9rem; padding: 16px 34px; animation: glow 1.8s ease-in-out infinite; }
-  @keyframes glow { 50% { box-shadow: 0 0 26px rgba(var(--c), .8); } }
-  #boot.fade { transition: opacity .8s; opacity: 0; pointer-events: none; }
-
-  /* ---------- Ventanas (comprobante, producto, confirmación) ---------- */
-  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,12,.82); display: none; align-items: center; justify-content: center; }
+  /* ---------------------------------------------------------------- ventanas */
+  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(8, 15, 24, .55); backdrop-filter: blur(3px); display: none;
+           align-items: center; justify-content: center; padding: 16px; }
   .modal.show { display: flex; }
-  .modal-box { width: min(520px, 92vw); border: 1px solid var(--amber); background: linear-gradient(160deg, rgba(60,40,10,.4), rgba(2,10,20,.9));
-               padding: 24px; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
-  .modal-box h3 { font-family: var(--head); font-size: .9rem; letter-spacing: .25em; color: var(--amber); margin: 0 0 14px; }
-  .modal-box p { opacity: .8; margin: 0 0 10px; }
-  .modal-btns { display: flex; gap: 12px; justify-content: flex-end; }
-  .modal-btns .btn { padding: 12px 22px; }
-
-  /* ---------- Comprobante de venta ---------- */
-  .modal-box.receipt { border-color: var(--cyan); background: linear-gradient(160deg, rgba(10,40,70,.55), rgba(2,10,20,.95)); }
-  .modal-box.receipt h3 { color: var(--cyan); }
-  .rc-head { text-align: center; margin-bottom: 14px; }
-  .rc-head b { display: block; font-family: var(--head); font-size: 1rem; letter-spacing: .12em; color: #fff; }
-  .rc-head span { display: block; font-size: .85rem; opacity: .7; }
-  .rc-meta { display: flex; justify-content: space-between; gap: 10px; font-size: .9rem; padding: 8px 0;
-             border-top: 1px dashed var(--dim); border-bottom: 1px dashed var(--dim); }
-  .rc-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: .95rem; }
-  .rc-table th { font-family: var(--head); font-size: .6rem; letter-spacing: .2em; font-weight: 600; color: var(--cyan); text-align: left; padding: 4px 0; }
-  .rc-table td { padding: 6px 0; vertical-align: top; }
-  .rc-table .n { text-align: right; white-space: nowrap; padding-left: 10px; }
-  .rc-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0 16px; border-top: 1px solid var(--dim);
-              font-family: var(--head); letter-spacing: .15em; }
-  .rc-total b { font-size: 1.3rem; color: #fff; text-shadow: 0 0 10px rgba(var(--c), .6); }
-  .rc-foot { text-align: center; font-size: .8rem; opacity: .6; margin-bottom: 18px; }
-  .rc-doc { text-align: center; border: 1px solid var(--cyan); padding: 6px; margin-bottom: 10px; }
-  .rc-doc b { display: block; font-family: var(--head); font-size: .7rem; letter-spacing: .18em; color: var(--cyan); }
-  .rc-doc span { font-size: 1.05rem; color: #fff; letter-spacing: .08em; }
-  .rc-anulado { color: #ff7a7a; font-family: var(--head); letter-spacing: .3em; font-size: .8rem; }
-  .rc-cliente { font-size: .9rem; padding: 6px 0; border-bottom: 1px dashed var(--dim); }
-  .rc-sub { display: flex; justify-content: space-between; font-size: .88rem; opacity: .85; padding: 2px 0; }
-  .rc-letras { font-size: .78rem; opacity: .75; padding: 6px 0 2px; }
-  .cart-opc { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
-  .cart-opc select { flex: 0 0 auto; width: auto; }
-  .cart-opc input { flex: 1 1 120px; min-width: 0; }
-  .cart-cliente { font-size: .85rem; opacity: .8; min-height: 1.1em; margin: 0 0 6px; }
-  .entry .rc-link { margin-top: 6px; }
-  .cart { border: 1px solid var(--dim); background: rgba(var(--c), .05); padding: 0 12px 10px; margin-top: 14px; }
-  .cart .rc-table { margin: 0; font-size: .88rem; }
-  .cart .rc-total { padding: 8px 0 4px; }
-  .cart .rc-total b { font-size: 1.1rem; }
-  .cart .chips { margin-top: 6px; }
-  .cart-empty { opacity: .6; font-size: .88rem; margin: 0 0 8px; }
-  .inv-price { display: block; opacity: .75; letter-spacing: .05em; text-transform: none; font-size: .78rem; color: var(--text); }
-
-  /* ---------- Inventario editable ---------- */
-  .side { overflow-y: auto; }
-  .side::-webkit-scrollbar { width: 4px; } .side::-webkit-scrollbar-thumb { background: var(--dim); }
-  .inv-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-  .inv-head input { flex: 1; min-width: 0; }
-  .inv-head .btn { padding: 9px 12px; }
-  .field { background: rgba(2, 14, 26, .8); border: 1px solid var(--dim); color: #fff; font-family: var(--body); font-size: 1rem;
-           padding: 9px 10px; outline: 0; width: 100%; }
-  .field:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(var(--c), .4); }
-  .field::placeholder { color: rgba(var(--c), .4); }
-  .inv-rows { display: flex; flex-direction: column; }
-  .inv-row { padding: 8px 0; border-bottom: 1px dashed rgba(var(--c), .15); }
-  .inv-row.low .inv-name { color: var(--amber); }
-  .inv-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .inv-name { font-weight: 600; word-break: break-word; }
-  .inv-top small { opacity: .75; white-space: nowrap; }
-  .inv-bot { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-  .inv-stock { min-width: 74px; text-align: center; color: var(--cyan); font-size: .95rem; }
-  .inv-row.low .inv-stock { color: var(--amber); }
-  .inv-bot .sp { flex: 1; }
-  .ibtn { min-width: 34px; height: 34px; padding: 0 8px; border: 1px solid var(--dim); background: rgba(var(--c), .06); color: var(--cyan);
-          font-size: 1rem; cursor: pointer; font-family: var(--body); }
-  .ibtn:hover { background: rgba(var(--c), .2); color: #fff; }
-  .ibtn.del:hover { border-color: #ff7a7a; color: #ff7a7a; background: rgba(255, 122, 122, .12); }
-  .inv-empty { text-align: center; padding: 18px 6px; opacity: .85; }
-  .inv-empty p { margin: 0 0 12px; }
-
-  /* formulario de producto */
-  .modal-box.form { border-color: var(--cyan); background: linear-gradient(160deg, rgba(10,40,70,.6), rgba(2,10,20,.96)); max-height: 92vh; overflow-y: auto; }
-  .modal-box.form h3 { color: var(--cyan); }
-  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-  .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
-  .form-grid label.full, .form-grid .full { grid-column: 1 / -1; }
-  .form-hint { margin: -4px 0 0; font-size: .9rem; color: var(--cyan); min-height: 1.2em; }
-  .form-hint.mal { color: #ff7a7a; }
+  .modal-box { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); border-radius: 16px;
+               box-shadow: var(--shadow-lg); border: 1px solid var(--border); padding: 22px 24px; animation: entra .18s ease-out; }
+  @keyframes entra { from { transform: translateY(8px); opacity: 0; } }
+  .modal-box h3 { margin: 0 0 4px; font: 600 1.15rem/1.3 var(--display); }
+  .modal-box > p { color: var(--muted); margin: 0 0 14px; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .form-grid label { display: flex; flex-direction: column; gap: 5px; font-size: .85rem; font-weight: 600; }
+  .form-grid label i { font-style: normal; font-weight: 400; color: var(--faint); }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-hint { margin: -4px 0 0; font-size: .88rem; color: var(--ok); min-height: 1.2em; }
+  .form-hint.mal { color: var(--danger); }
   .form-hint:empty { display: none; }
-  .inv-meta { font-size: .78rem; opacity: .6; margin-top: 2px; word-break: break-word; }
-  .inv-head { flex-wrap: wrap; }
-  .inv-head input, .inv-head select { flex: 1 1 100%; }   /* buscador y filtro en su propio renglón, debajo de los botones */
-  .inv-head input { order: 1; } .inv-head select { order: 2; }
-  .form-grid label i { font-style: normal; text-transform: none; letter-spacing: 0; opacity: .6; }
-  .form-err { color: #ff7a7a; min-height: 1.3em; margin: 0 0 10px; }
-  .modal-box.danger { border-color: #ff7a7a; }
-  /* carga masiva */
-  .modal-box.lote { width: min(680px, 94vw); }
-  .lote-ayuda { font-size: .92rem; }
-  .lote-ayuda code, .lote-ej { font-family: Consolas, "Courier New", monospace; color: #fff; }
-  .lote-ej { display: block; white-space: pre; overflow-x: auto; background: rgba(2, 14, 26, .8); border: 1px dashed var(--dim);
-             padding: 8px 10px; margin: 6px 0 12px; font-size: .85rem; }
-  .lote-txt { min-height: 200px; resize: vertical; font-family: Consolas, "Courier New", monospace; font-size: .92rem; white-space: pre; }
-  .lote-voz-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
-  .lote-voz { flex: 1; min-width: 0; font-size: .9rem; opacity: .85; }
-  .lote-file { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; font-size: .9rem; }
-  .lote-file input { max-width: 100%; color: var(--text); }
+  .form-err { color: var(--danger); min-height: 1.2em; margin: 12px 0 0; font-size: .9rem; }
+  .form-err:empty { display: none; }
+  .modal-box.lote { width: min(720px, 100%); }
+  .lote-ayuda { font-size: .88rem; color: var(--muted); margin: 10px 0; }
+  .lote-ayuda code, .lote-ej { font-family: var(--mono); font-size: .82rem; color: var(--text); }
+  .lote-ej { display: block; white-space: pre; overflow-x: auto; background: var(--surface-2); border: 1px dashed var(--border-strong);
+             border-radius: 9px; padding: 10px 12px; margin: 6px 0 12px; }
+  .lote-txt { min-height: 190px; resize: vertical; font-family: var(--mono); font-size: .88rem; white-space: pre; }
+  .lote-voz-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .lote-voz { flex: 1; min-width: 0; font-size: .88rem; color: var(--muted); }
+  .lote-file { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; font-size: .88rem; color: var(--muted); }
   .lote-res:empty { display: none; }
-  .lote-res { border-top: 1px solid var(--faint); padding-top: 10px; margin-bottom: 10px; }
-  .lote-cifras { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--head); font-size: .8rem; letter-spacing: .08em; margin-bottom: 8px; }
-  .lote-cifras .ok { color: var(--cyan); } .lote-cifras .omit { color: var(--amber); } .lote-cifras .err { color: #ff7a7a; }
-  .lote-lista { margin: 0 0 10px; padding-left: 18px; max-height: 160px; overflow-y: auto; font-size: .92rem; }
-  .lote-lista li.err b { color: #ff7a7a; } .lote-lista li.omit b { color: var(--amber); }
-  .modal-box.danger h3 { color: #ff7a7a; }
-  .negocio { font-family: var(--head); font-size: .8rem; letter-spacing: .2em; color: #fff; opacity: .85; margin-top: 2px; text-transform: uppercase; }
-  .negocio:empty { display: none; }
+  .lote-res { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size: .9rem; }
+  .lote-cifras { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .lote-lista { margin: 0 0 10px; padding-left: 18px; max-height: 150px; overflow-y: auto; font-size: .88rem; }
+  .lote-lista li.err b { color: var(--danger); } .lote-lista li.omit b { color: var(--warn); }
 
-  /* ---------- Celular / ventana angosta ---------- */
-  @media (max-width: 1000px) {
-    body { overflow: auto; }
-    .hud { height: auto; min-height: 100vh; padding: 12px; }
-    main { grid-template-columns: 1fr; }
-    .core { order: -1; }
-    #reactor { width: min(78vw, 360px); }
-    .log-panel { height: 45vh; }
-    .brand h1 { font-size: 1.1rem; letter-spacing: .3em; }
-    .brand small { display: none; }
-    .clock .t { font-size: 1.1rem; }
-    footer { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0; flex-wrap: wrap; }
-    .cmd { flex-basis: 100%; }
-    .btn { flex: 1; padding: 12px; }
-    .side { overflow: visible; }
-    .inv-head .btn, .modal-btns .btn, .inv-empty .btn { flex: 0 0 auto; }
-    .ibtn { min-width: 42px; height: 42px; }          /* fáciles de tocar con el dedo */
-    .form-grid { grid-template-columns: 1fr; }
-    .inv-head { flex-wrap: wrap; }
-    .inv-head input { flex-basis: 100%; }
-    .lote-txt { font-size: 16px; min-height: 160px; }
-    .modal-box { padding: 18px; }
-    .field { font-size: 16px; }                        /* 16px evita que el celular haga zoom al escribir */
+  /* comprobante */
+  .modal-box.recibo { width: min(460px, 100%); }
+  .rc-head { text-align: center; margin-bottom: 14px; }
+  .rc-head b { display: block; font: 700 1.1rem/1.3 var(--display); }
+  .rc-head span { display: block; font-size: .85rem; color: var(--muted); }
+  .rc-doc { text-align: center; border: 1.5px solid var(--accent); border-radius: 10px; padding: 8px; margin-bottom: 12px; }
+  .rc-doc b { display: block; font-size: .72rem; letter-spacing: .14em; color: var(--accent); }
+  .rc-doc span { font: 600 1.1rem/1.3 var(--mono); letter-spacing: .04em; }
+  .rc-anulado { color: var(--danger); font-weight: 700; letter-spacing: .3em; font-size: .8rem; }
+  .rc-meta { display: flex; justify-content: space-between; gap: 10px; font-size: .85rem; color: var(--muted); padding: 6px 0; border-bottom: 1px dashed var(--border-strong); }
+  .rc-cliente { font-size: .9rem; padding: 8px 0; border-bottom: 1px dashed var(--border-strong); }
+  .rc-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: .9rem; }
+  .rc-table th { text-align: left; font-size: .7rem; letter-spacing: .08em; color: var(--muted); padding: 4px 0; font-weight: 600; }
+  .rc-table td { padding: 5px 0; vertical-align: top; }
+  .rc-table .n { text-align: right; white-space: nowrap; padding-left: 10px; font-variant-numeric: tabular-nums; }
+  .rc-sub { display: flex; justify-content: space-between; font-size: .88rem; color: var(--muted); padding: 2px 0; font-variant-numeric: tabular-nums; }
+  .rc-total { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0 6px; border-top: 1px solid var(--border-strong); margin-top: 6px; }
+  .rc-total b { font: 700 1.35rem/1.2 var(--display); font-variant-numeric: tabular-nums; }
+  .rc-letras { font-size: .78rem; color: var(--muted); padding: 2px 0; }
+  .rc-foot { text-align: center; font-size: .8rem; color: var(--faint); margin-top: 10px; }
+
+  /* avisos */
+  .avisos { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 8px;
+            align-items: center; pointer-events: none; width: min(520px, calc(100% - 32px)); }
+  .toast { pointer-events: auto; background: var(--nav-bg); color: #e8f1f8; padding: 11px 16px; border-radius: 11px; box-shadow: var(--shadow-lg);
+           font-size: .9rem; animation: entra .2s ease-out; max-width: 100%; }
+  .toast.mal { background: var(--danger); color: #fff; }
+
+  /* ---------------------------------------------------------------- ventanas medianas: el asistente se abre aparte */
+  @media (max-width: 1240px) {
+    .app { grid-template-columns: 220px minmax(0, 1fr); }
+    .asistente { position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100%); z-index: 50; box-shadow: var(--shadow-lg);
+                 transform: translateX(105%); transition: transform .25s ease; }
+    .asistente.abierto { transform: none; }
+    .asis-cab .cerrar { display: inline-grid; }
+    .fab { display: block; }
+    .velo.visible { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(8,15,24,.35); }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
+  /* ---------------------------------------------------------------- celular */
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+    .nav { flex-direction: row; align-items: center; padding: 8px max(12px, env(safe-area-inset-left)) 8px max(12px, env(safe-area-inset-right));
+           gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+    .marca { padding: 0 8px 0 0; } .marca small, .marca div { display: none; }
+    .nav .seccion, .nav .pie { display: none; }
+    .nav .item { padding: 8px 10px; flex: 0 0 auto; font-size: .88rem; }
+    .nav .item.activo { box-shadow: inset 0 -2px 0 var(--nav-accent); }
+    .vista { padding: 18px max(16px, env(safe-area-inset-left)) 90px max(16px, env(safe-area-inset-right)); }
+    .rejilla-2, .pos { grid-template-columns: 1fr; }
+    .ticket { position: static; }
+    .form-grid { grid-template-columns: 1fr; }
+    .campo { font-size: 16px; }   /* evita que el celular haga zoom al escribir */
+    /* tablas como tarjetas */
+    .tabla.adaptable thead { display: none; }
+    .tabla.adaptable, .tabla.adaptable tbody, .tabla.adaptable tr, .tabla.adaptable td { display: block; width: 100%; }
+    .tabla.adaptable tr { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+    .tabla.adaptable td { border: 0; padding: 4px 8px; }
+    .tabla.adaptable td[data-t]::before { content: attr(data-t); display: inline-block; min-width: 90px; color: var(--faint); font-size: .8rem; }
+    .tabla.adaptable .acciones { text-align: left; width: auto; }
+    .pagina h1 { font-size: 1.35rem; }
+  }
+  @media (max-width: 480px) { .kpis { grid-template-columns: 1fr; } .kpi strong { font-size: 1.45rem; } }
 </style>
 </head>
 <body>
 
-<!-- Pantalla de arranque (también da el permiso que el navegador exige para hablar) -->
-<div id="boot">
-  <h1>J.A.R.V.I.S.</h1>
-  <p>Just A Rather Very Intelligent System</p>
-  <div id="bootLines"></div>
-  <button class="btn" id="bootBtn">INICIAR SISTEMAS</button>
-</div>
+<!-- Íconos (trazos simples, heredan el color del texto) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-inicio" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></symbol>
+    <symbol id="i-vender" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6.2"/><circle cx="10" cy="20.5" r="1.2"/><circle cx="17" cy="20.5" r="1.2"/></symbol>
+    <symbol id="i-caja" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+    <symbol id="i-clientes" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14a6.5 6.5 0 0 1 3 6"/></symbol>
+    <symbol id="i-recibo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2Z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/></symbol>
+    <symbol id="i-equipo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
+    <symbol id="i-libro" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5Z"/><path d="M4 19.5V4.5"/></symbol>
+    <symbol id="i-luna" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
+    <symbol id="i-llave" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/></symbol>
+    <symbol id="i-mas" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-subir" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+    <symbol id="i-lapiz" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></symbol>
+    <symbol id="i-basura" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+    <symbol id="i-lupa" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+    <symbol id="i-enviar" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 20 4l-5 16-3-7Z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  </defs>
+</svg>
 
-<div class="hud">
-  <header>
-    <div class="brand">
-      <h1>J.A.R.V.I.S.</h1>
-      <small>Just A Rather Very Intelligent System</small>
-      <div class="negocio" id="negocio"></div>
+<div class="app">
+  <!-- ================================================================ menú -->
+  <nav class="nav" aria-label="Menú principal">
+    <div class="marca">
+      <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="24" cy="24" r="21" fill="none" stroke="#3fcbea" stroke-width="2.5" stroke-dasharray="9 5"/>
+        <circle cx="24" cy="24" r="13" fill="none" stroke="#1d7d96" stroke-width="2.5"/>
+        <circle cx="24" cy="24" r="7" fill="#3fcbea"/><circle cx="24" cy="24" r="3" fill="#fff"/>
+      </svg>
+      <div><b>JARVIS</b><small id="negocio">Asistente de inventario</small></div>
     </div>
-    <div class="clock"><div class="t" id="clockT">--:--:--</div><div class="d" id="clockD"></div></div>
-  </header>
-
-  <main>
-    <section class="panel side">
-      <h2>SISTEMA</h2>
-      <div class="gauges">
-        <div class="gauge" id="g-cpu"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>CPU</span></div>
-        <div class="gauge" id="g-ram"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>RAM</span></div>
-        <div class="gauge" id="g-disk"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>DISCO</span></div>
-        <div class="gauge" id="g-bat"><svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="34"/><circle class="val" cx="40" cy="40" r="34"/></svg><b>--</b><span>BATERÍA</span></div>
-      </div>
-      <ul class="info">
-        <li><span>Sistema</span><span id="i-os">—</span></li>
-        <li><span>Núcleos</span><span id="i-cores">—</span></li>
-        <li><span>Memoria</span><span id="i-ram">—</span></li>
-        <li><span>Disco libre</span><span id="i-disk">—</span></li>
-        <li><span>Equipo</span><span id="i-host">—</span></li>
-        <li><span>Acceso móvil</span><span id="i-ip">—</span></li>
-        <li><span>En línea</span><span id="i-up">—</span></li>
-      </ul>
-
-      <div id="cart" class="cart" hidden>
-        <h2 style="margin-top:18px">🛒 VENTA EN CURSO</h2>
-        <div class="cart-opc">
-          <select class="field" id="cartTipo" title="Tipo de comprobante">
-            <option value="boleta">Boleta</option><option value="nota de venta">Nota de venta</option>
-          </select>
-          <input class="field" id="cartDni" inputmode="numeric" maxlength="11" autocomplete="off"
-                 placeholder="DNI o RUC del cliente (opcional)" title="Cliente registrado (Enter para aplicar)">
+    <a class="item" href="#inicio" data-vista="inicio"><svg><use href="#i-inicio"/></svg>Inicio</a>
+    <a class="item" href="#vender" data-vista="vender"><svg><use href="#i-vender"/></svg>Vender</a>
+    <a class="item" href="#inventario" data-vista="inventario"><svg><use href="#i-caja"/></svg>Inventario</a>
+    <a class="item" href="#clientes" data-vista="clientes"><svg><use href="#i-clientes"/></svg>Clientes</a>
+    <a class="item" href="#comprobantes" data-vista="comprobantes"><svg><use href="#i-recibo"/></svg>Comprobantes</a>
+    <div class="pie">
+      <details class="equipo" id="equipo">
+        <summary><svg><use href="#i-equipo"/></svg>Equipo</summary>
+        <div class="medidores">
+          <div class="medidor"><span>CPU</span><i><b id="m-cpu"></b></i><span id="t-cpu">—</span></div>
+          <div class="medidor"><span>RAM</span><i><b id="m-ram"></b></i><span id="t-ram">—</span></div>
+          <div class="medidor"><span>Disco</span><i><b id="m-disk"></b></i><span id="t-disk">—</span></div>
+          <div class="medidor"><span>Batería</span><i><b id="m-bat"></b></i><span id="t-bat">—</span></div>
+          <dl>
+            <dt>Sistema</dt><dd id="i-os">—</dd>
+            <dt>Celular</dt><dd id="i-ip">—</dd>
+            <dt>En línea</dt><dd id="i-up">—</dd>
+          </dl>
         </div>
-        <p class="cart-cliente" id="cartCliente"></p>
-        <div id="cartBody"></div>
-        <div class="rc-total"><span>TOTAL</span><b id="cartTotal">S/ 0.00</b></div>
-        <div class="chips">
-          <button class="chip">Cobrar</button>
-          <button class="chip">Cancelar venta</button>
+      </details>
+      <a class="item" href="manual.html" target="_blank" rel="noopener"><svg><use href="#i-libro"/></svg>Manual de voz</a>
+      <button class="item" id="tema" type="button"><svg><use href="#i-luna"/></svg><span>Modo oscuro</span></button>
+      <button class="item" id="gear" type="button"><svg><use href="#i-llave"/></svg>Cambiar clave</button>
+    </div>
+  </nav>
+
+  <!-- ================================================================ contenido -->
+  <main class="vista" id="vista">
+
+    <!-- ------------------------------------------------ inicio -->
+    <section class="pagina" id="v-inicio">
+      <header>
+        <div><h1 id="saludo">Hola</h1><p class="sub" id="fechaHoy">—</p></div>
+        <div class="rapido">
+          <a class="boton primario" href="#vender"><svg><use href="#i-vender"/></svg>Nueva venta</a>
+          <button class="boton" type="button" data-accion="nuevo-producto"><svg><use href="#i-mas"/></svg>Producto</button>
+        </div>
+      </header>
+      <div class="kpis">
+        <div class="tarjeta kpi destacado"><span>Ventas de hoy</span><strong id="k-total">S/ 0.00</strong><small id="k-ventas">—</small></div>
+        <div class="tarjeta kpi"><span>Productos</span><strong id="k-productos">0</strong><small id="k-stock">—</small></div>
+        <div class="tarjeta kpi"><span>Valor del inventario</span><strong id="k-valor">S/ 0.00</strong><small id="k-costo">a precio de venta</small></div>
+        <div class="tarjeta kpi"><span>Clientes</span><strong id="k-clientes">0</strong><small id="k-igv">—</small></div>
+      </div>
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <div class="tarjeta-cab"><h2>Últimas ventas</h2><a class="boton" href="#comprobantes">Ver todas</a></div>
+          <div class="tabla-caja" id="ultimas"></div>
+        </div>
+        <div class="tarjeta">
+          <div class="tarjeta-cab"><h2>Reponer pronto</h2><small id="reponerCuenta"></small></div>
+          <ul class="lista-reponer" id="reponer"></ul>
         </div>
       </div>
-
-      <h2 style="margin-top:18px">INVENTARIO</h2>
-      <div class="inv-head">
-        <input class="field" id="invSearch" type="search" placeholder="Buscar por nombre o código…" autocomplete="off" hidden>
-        <button class="btn on" id="invAdd" title="Registrar un producto nuevo">＋ Agregar</button>
-        <button class="btn" id="invLote" title="Registrar muchos productos de una vez">⬆ Cargar lista</button>
-        <select class="field" id="invCat" title="Filtrar por categoría" hidden></select>
-      </div>
-      <div class="inv-rows" id="inv-list"><div class="inv-empty">Cargando…</div></div>
     </section>
 
-    <section class="core">
-      <canvas id="reactor" title="Toque para hablar"></canvas>
-      <div class="state" id="state">EN ESPERA</div>
-      <div id="transcript"></div>
+    <!-- ------------------------------------------------ vender -->
+    <section class="pagina" id="v-vender" hidden>
+      <header><div><h1>Nueva venta</h1><p class="sub">Busque o escanee el producto; JARVIS emite el comprobante al cobrar.</p></div></header>
+      <div class="pos">
+        <div class="tarjeta pos-busqueda">
+          <div class="buscador"><svg><use href="#i-lupa"/></svg>
+            <input class="campo" id="posBuscar" type="search" autocomplete="off" placeholder="Nombre, código o código de barras (Enter agrega)"></div>
+          <div class="resultados" id="posResultados"></div>
+        </div>
+        <div class="tarjeta ticket">
+          <div class="tarjeta-cab"><h2>Venta</h2>
+            <div class="segmentado" role="group" aria-label="Tipo de comprobante">
+              <button type="button" data-tipo="boleta" class="activo">Boleta</button>
+              <button type="button" data-tipo="nota de venta">Nota de venta</button>
+            </div>
+          </div>
+          <div class="ticket-cliente">
+            <div class="fila">
+              <input class="campo" id="posDni" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI o RUC del cliente (opcional)">
+              <button class="boton" type="button" id="posBuscarCliente">Buscar</button>
+            </div>
+            <small id="posCliente">Sin cliente: clientes varios.</small>
+          </div>
+          <ul class="lineas" id="posLineas"></ul>
+          <div class="totales" id="posTotales"></div>
+          <div class="ticket-acciones">
+            <button class="boton" type="button" id="posVaciar">Vaciar</button>
+            <button class="boton primario grande" type="button" id="posCobrar">Cobrar</button>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="panel log-panel">
-      <h2>REGISTRO</h2>
-      <div id="log"></div>
-      <div class="chips">
-        <button class="chip">Estado del sistema</button>
-        <button class="chip">¿Qué hora es?</button>
-        <button class="chip">Abre YouTube</button>
-        <button class="chip">Lee mis notas</button>
-        <button class="chip">Nueva venta</button>
-        <button class="chip">Lista de precios</button>
-        <button class="chip">Último comprobante</button>
-        <button class="chip">Cierre de caja</button>
-        <button class="chip">Ayuda</button>
+    <!-- ------------------------------------------------ inventario -->
+    <section class="pagina" id="v-inventario" hidden>
+      <header>
+        <div><h1>Inventario</h1><p class="sub" id="invCuenta">—</p></div>
+        <div class="rapido">
+          <button class="boton" type="button" id="invLote"><svg><use href="#i-subir"/></svg>Cargar lista</button>
+          <button class="boton primario" type="button" id="invAdd"><svg><use href="#i-mas"/></svg>Agregar producto</button>
+        </div>
+      </header>
+      <div class="barra">
+        <div class="buscador"><svg><use href="#i-lupa"/></svg>
+          <input class="campo" id="invSearch" type="search" placeholder="Buscar por nombre, categoría o código…" autocomplete="off"></div>
+        <select class="campo" id="invCat" title="Categoría"></select>
+        <select class="campo" id="invEstado" title="Stock">
+          <option value="">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option>
+        </select>
       </div>
+      <div class="tarjeta tabla-caja" id="inv-list"></div>
+    </section>
+
+    <!-- ------------------------------------------------ clientes -->
+    <section class="pagina" id="v-clientes" hidden>
+      <header>
+        <div><h1>Clientes</h1><p class="sub">Para boletas y notas de venta con nombre y documento.</p></div>
+        <button class="boton primario" type="button" id="cliNuevo"><svg><use href="#i-mas"/></svg>Nuevo cliente</button>
+      </header>
+      <div class="barra">
+        <div class="buscador"><svg><use href="#i-lupa"/></svg>
+          <input class="campo" id="cliBuscar" type="search" placeholder="Buscar por nombre o DNI/RUC…" autocomplete="off"></div>
+      </div>
+      <div class="tarjeta tabla-caja" id="cliLista"></div>
+    </section>
+
+    <!-- ------------------------------------------------ comprobantes -->
+    <section class="pagina" id="v-comprobantes" hidden>
+      <header>
+        <div><h1>Comprobantes</h1><p class="sub">Toque uno para verlo, imprimirlo o sacar su PDF.</p></div>
+        <button class="boton" type="button" id="anularUltima">Anular la última venta</button>
+      </header>
+      <div class="barra">
+        <div class="buscador"><svg><use href="#i-lupa"/></svg>
+          <input class="campo" id="compBuscar" type="search" placeholder="Buscar por serie o cliente…" autocomplete="off"></div>
+        <select class="campo" id="compTipo"><option value="">Todos</option><option value="BOLETA">Boletas</option><option value="NOTA_VENTA">Notas de venta</option></select>
+      </div>
+      <div class="tarjeta tabla-caja" id="compLista"></div>
     </section>
   </main>
 
-  <footer>
-    <label class="cmd"><input id="input" placeholder="Escriba una orden, señor…" autocomplete="off"></label>
-    <button class="btn" id="micBtn" title="Hablar una vez">🎙 HABLAR</button>
-    <button class="btn" id="hfBtn" title="Escucha continua: diga “Jarvis, …”">MANOS LIBRES</button>
-    <a class="btn" id="manualBtn" href="manual.html" target="_blank" rel="noopener" title="Manual de comandos de voz"
-       style="display:flex;align-items:center;justify-content:center;text-decoration:none">📖 MANUAL</a>
-    <button class="btn" id="gear" title="Cambiar clave">⚙</button>
-  </footer>
+  <!-- ================================================================ asistente -->
+  <aside class="asistente" id="asistente" aria-label="Asistente JARVIS">
+    <div class="asis-cab">
+      <canvas id="reactor" title="Toque para hablar"></canvas>
+      <div><b>J.A.R.V.I.S.</b><small id="state">En espera</small></div>
+      <button class="icono cerrar" type="button" id="cerrarAsistente" aria-label="Cerrar asistente"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div id="log" aria-live="polite"></div>
+    <div class="transcripcion" id="transcript"></div>
+    <!-- venta con carrito dictada por voz ("nueva venta" … "cobrar") -->
+    <div class="carrito-voz" id="cart" hidden>
+      <header><span>Venta por voz</span><b id="cartTotal">S/ 0.00</b></header>
+      <div class="opc">
+        <select class="campo" id="cartTipo" title="Tipo de comprobante">
+          <option value="boleta">Boleta</option><option value="nota de venta">Nota de venta</option>
+        </select>
+        <input class="campo" id="cartDni" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI/RUC (Enter)">
+      </div>
+      <small id="cartCliente"></small>
+      <ul id="cartBody"></ul>
+      <div class="pie-carrito">
+        <button class="boton" type="button" data-cmd="Cancelar venta">Cancelar</button>
+        <button class="boton primario" type="button" data-cmd="Cobrar">Cobrar</button>
+      </div>
+    </div>
+    <div class="atajos">
+      <button class="atajo" type="button" data-cmd="Cierre de caja">Cierre de caja</button>
+      <button class="atajo" type="button" data-cmd="Nueva venta">Venta por voz</button>
+      <button class="atajo" type="button" data-cmd="Último comprobante">Último comprobante</button>
+      <button class="atajo" type="button" data-cmd="Lista de precios">Lista de precios</button>
+      <button class="atajo" type="button" data-cmd="Estado del sistema">Estado del sistema</button>
+      <button class="atajo" type="button" data-cmd="Ayuda">Ayuda</button>
+    </div>
+    <div class="manos-libres">
+      <button class="interruptor" type="button" id="hfBtn" role="switch" aria-checked="false" aria-label="Manos libres"></button>
+      <span>Manos libres: diga “Jarvis” y su orden</span>
+    </div>
+    <div class="composer">
+      <input class="campo" id="input" placeholder="Escriba una orden o pregunta…" autocomplete="off">
+      <button class="mic" type="button" id="micBtn" title="Hablar" aria-label="Hablar"><svg><use href="#i-mic"/></svg></button>
+      <button class="mic" type="button" id="sendBtn" title="Enviar" aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
+    </div>
+  </aside>
 </div>
+<div class="velo" id="velo"></div>
+<button class="fab" type="button" id="abrirAsistente" aria-label="Abrir asistente JARVIS"><canvas id="orbeFab"></canvas></button>
+<div class="avisos" id="avisos" aria-live="polite"></div>
 
-<!-- Alta / edición de un producto -->
+<!-- ================================================================ ventanas -->
 <div id="prodModal" class="modal">
-  <form class="modal-box form" id="prodForm" novalidate>
-    <h3 id="prodTitle">＋ NUEVO PRODUCTO</h3>
+  <form class="modal-box" id="prodForm" novalidate>
+    <h3 id="prodTitle">Nuevo producto</h3>
     <div class="form-grid">
-      <label class="full">Nombre <i>(con talla o color si aplica: “Polera roja M”, “Zapatilla Nike Air 40”)</i>
-        <input class="field" id="fNombre" maxlength="80" required autocomplete="off"></label>
+      <label class="full">Nombre <i>con talla o color si aplica: “Polera roja M”, “Zapatilla Nike Air 40”</i>
+        <input class="campo" id="fNombre" maxlength="80" required autocomplete="off"></label>
       <label>Precio de venta (S/)
-        <input class="field" id="fPrecio" type="number" inputmode="decimal" min="0" step="0.01" required></label>
+        <input class="campo" id="fPrecio" type="number" inputmode="decimal" min="0" step="0.01" required></label>
       <label>Unidad
-        <input class="field" id="fUnidad" list="unidades" maxlength="20" required autocomplete="off" value="unidades"></label>
+        <input class="campo" id="fUnidad" list="unidades" maxlength="20" required autocomplete="off" value="unidades"></label>
       <label><span id="fStockLbl">Stock inicial</span>
-        <input class="field" id="fStock" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
-      <label>Stock mínimo <i>(avisa cuando quede poco)</i>
-        <input class="field" id="fMin" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
-      <label>Costo (S/) <i>(lo que le cuesta a usted)</i>
-        <input class="field" id="fCosto" type="number" inputmode="decimal" min="0" step="0.01" placeholder="opcional"></label>
+        <input class="campo" id="fStock" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+      <label>Stock mínimo <i>avisa cuando quede poco</i>
+        <input class="campo" id="fMin" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+      <label>Costo (S/) <i>lo que le cuesta a usted</i>
+        <input class="campo" id="fCosto" type="number" inputmode="decimal" min="0" step="0.01" placeholder="opcional"></label>
       <label>Categoría
-        <input class="field" id="fCat" list="categorias" maxlength="40" autocomplete="off" placeholder="opcional: Calzado, Polos…"></label>
+        <input class="campo" id="fCat" list="categorias" maxlength="40" autocomplete="off" placeholder="opcional: Calzado, Polos…"></label>
       <p class="full form-hint" id="fMargen"></p>
       <label>Código / SKU
-        <input class="field" id="fCodigo" maxlength="40" autocomplete="off" placeholder="opcional: ZAP-NK-40"></label>
-      <label>Código de barras <i>(puede usar el escáner)</i>
-        <input class="field" id="fBarras" maxlength="40" autocomplete="off" placeholder="opcional"></label>
-      <label class="full">Otros nombres <i>(opcional, separados por coma: cómo lo piden los clientes)</i>
-        <input class="field" id="fAlias" maxlength="300" autocomplete="off" placeholder="polo rojo, polera roja mediana"></label>
+        <input class="campo" id="fCodigo" maxlength="40" autocomplete="off" placeholder="opcional: ZAP-NK-40"></label>
+      <label>Código de barras <i>puede usar el escáner</i>
+        <input class="campo" id="fBarras" maxlength="40" autocomplete="off" placeholder="opcional"></label>
+      <label class="full">Otros nombres <i>separados por coma: cómo lo piden los clientes</i>
+        <input class="campo" id="fAlias" maxlength="300" autocomplete="off" placeholder="polo rojo, polera roja mediana"></label>
     </div>
     <p class="form-err" id="prodErr"></p>
     <div class="modal-btns">
-      <button type="button" class="btn" id="prodCancel">CANCELAR</button>
-      <button type="submit" class="btn on" id="prodSave">GUARDAR</button>
+      <button type="button" class="boton" id="prodCancel">Cancelar</button>
+      <button type="submit" class="boton primario" id="prodSave">Guardar</button>
     </div>
   </form>
 </div>
@@ -396,25 +604,47 @@
   <option value="cajas"><option value="paquetes"><option value="docenas"><option value="bolsas"><option value="rollos">
 </datalist>
 
-<!-- Carga masiva: pegar una lista o elegir un archivo .csv/.txt -->
+<div id="cliModal" class="modal">
+  <form class="modal-box" id="cliForm" novalidate>
+    <h3 id="cliTitulo">Nuevo cliente</h3>
+    <div class="form-grid">
+      <label>DNI o RUC <i>8 u 11 dígitos</i>
+        <input class="campo" id="cDoc" inputmode="numeric" maxlength="11" autocomplete="off" required></label>
+      <label>Teléfono <i>opcional</i>
+        <input class="campo" id="cTel" inputmode="tel" maxlength="9" autocomplete="off"></label>
+      <label class="full">Nombre o razón social
+        <input class="campo" id="cNombre" maxlength="120" autocomplete="off" required></label>
+      <label class="full">Correo <i>opcional</i>
+        <input class="campo" id="cEmail" type="email" maxlength="120" autocomplete="off"></label>
+      <label class="full">Dirección <i>opcional</i>
+        <input class="campo" id="cDir" maxlength="200" autocomplete="off"></label>
+    </div>
+    <p class="form-err" id="cliErr"></p>
+    <div class="modal-btns">
+      <button type="button" class="boton" id="cliCancelar">Cancelar</button>
+      <button type="submit" class="boton primario" id="cliGuardar">Guardar</button>
+    </div>
+  </form>
+</div>
+
 <div id="loteModal" class="modal">
-  <form class="modal-box form lote" id="loteForm" novalidate>
-    <h3>⬆ CARGAR LISTA DE PRODUCTOS</h3>
+  <form class="modal-box lote" id="loteForm" novalidate>
+    <h3>Cargar lista de productos</h3>
     <p class="lote-ayuda">Una línea por producto, en este orden: <code>Nombre, Precio, Stock, Unidad, Stock mínimo</code>.
       Puede separar con coma o con punto y coma (o pegar las columnas directo desde Excel). Si falta la unidad se usa
       “unidades”; si falta el stock, 0. Las líneas que empiezan con # se ignoran. Los productos que ya existen no se tocan.
       Al final puede agregar, si quiere: <code>Costo, Categoría, Código, Código de barras</code>.</p>
-    <p class="lote-ayuda">Con <b>🎙 DICTAR</b> diga un producto por frase, por ejemplo “polo blanco M <b>a</b> 25 <b>soles</b> 10 unidades”
-      o “polo blanco M <b>coma</b> 25 <b>coma</b> 10 <b>coma</b> unidades”. Cada frase se escribe como una línea en el cuadro:
-      revísela o corríjala; nada se guarda hasta tocar CARGAR.</p>
+    <p class="lote-ayuda">Con <b>Dictar</b> diga un producto por frase, por ejemplo “polo blanco M <b>a</b> 25 <b>soles</b> 10 unidades”
+      o “polo blanco M <b>coma</b> 25 <b>coma</b> 10 <b>coma</b> unidades”. Cada frase se escribe como una línea:
+      revísela o corríjala; nada se guarda hasta tocar Cargar.</p>
     <span class="lote-ej">Polo blanco M, 25, 10, unidades
 Zapatilla Nike 40; 180; 5; pares; 2
 Tela drill; 12,50; 30; metros
 Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</span>
-    <textarea class="field lote-txt" id="loteTxt" spellcheck="false" autocomplete="off" aria-label="Lista de productos"
+    <textarea class="campo lote-txt" id="loteTxt" spellcheck="false" autocomplete="off" aria-label="Lista de productos"
               placeholder="Pegue aquí su lista…"></textarea>
     <div class="lote-voz-fila">
-      <button type="button" class="btn" id="loteMic" title="Dictar productos: cada frase se escribe como una línea">🎙 DICTAR</button>
+      <button type="button" class="boton" id="loteMic" title="Dictar productos: cada frase se escribe como una línea"><svg><use href="#i-mic"/></svg><span>Dictar</span></button>
       <span class="lote-voz" id="loteVoz" aria-live="polite"></span>
     </div>
     <label class="lote-file">o elija un archivo .csv / .txt:
@@ -422,34 +652,30 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
     <div class="lote-res" id="loteRes" aria-live="polite"></div>
     <p class="form-err" id="loteErr"></p>
     <div class="modal-btns">
-      <button type="button" class="btn" id="loteCancel">CERRAR</button>
-      <button type="submit" class="btn on" id="loteSend">CARGAR</button>
+      <button type="button" class="boton" id="loteCancel">Cerrar</button>
+      <button type="submit" class="boton primario" id="loteSend">Cargar</button>
     </div>
   </form>
 </div>
 
-<!-- Confirmar antes de eliminar un producto -->
-<div id="delModal" class="modal">
-  <div class="modal-box danger">
-    <h3>🗑 ELIMINAR PRODUCTO</h3>
-    <p id="delText">—</p>
-    <p style="font-size:.88rem">Sus ventas pasadas se conservan en el historial.</p>
+<div id="confirmModal" class="modal">
+  <div class="modal-box">
+    <h3 id="confTitulo">¿Confirma?</h3>
+    <p id="confTexto">—</p>
     <div class="modal-btns">
-      <button class="btn" id="delCancel">CANCELAR</button>
-      <button class="btn on" id="delOk">ELIMINAR</button>
+      <button class="boton" type="button" id="confNo">Cancelar</button>
+      <button class="boton peligro" type="button" id="confSi">Confirmar</button>
     </div>
   </div>
 </div>
 
-<!-- Comprobante de pago de la última venta -->
 <div id="receipt" class="modal">
-  <div class="modal-box receipt">
-    <h3>🧾 COMPROBANTE DE VENTA</h3>
+  <div class="modal-box recibo">
     <div id="receiptBody"></div>
     <div class="modal-btns">
-      <button class="btn" id="receiptClose">CERRAR</button>
-      <button class="btn" id="receiptPdf" title="Comprobante A4 en PDF">PDF</button>
-      <button class="btn on" id="receiptPrint" title="Ticket de 80 mm">IMPRIMIR</button>
+      <button class="boton" type="button" id="receiptClose">Cerrar</button>
+      <button class="boton" type="button" id="receiptPdf" title="Comprobante A4 en PDF">PDF</button>
+      <button class="boton primario" type="button" id="receiptPrint" title="Ticket de 80 mm">Imprimir ticket</button>
     </div>
   </div>
 </div>
@@ -457,10 +683,18 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
 <script>
 const $ = id => document.getElementById(id);
 const stateEl = $('state'), logEl = $('log'), transcriptEl = $('transcript');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const soles = n => 'S/ ' + Number(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const cant = n => Number(n || 0).toLocaleString('es-PE', { maximumFractionDigits: 3 });
+const nroComp = n => String(n).padStart(6, '0');
+const sinTildes = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const icono = (id, extra = '') => `<svg ${extra}><use href="#i-${id}"/></svg>`;
+function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function leer(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
 /* =================== Clave de acceso =================== */
-function saveToken(t) { try { localStorage.setItem('jarvisToken', t); } catch (e) {} }
-function loadToken() { try { return localStorage.getItem('jarvisToken'); } catch (e) { return null; } }
+function saveToken(t) { guardar('jarvisToken', t); }
+function loadToken() { return leer('jarvisToken'); }
 (function () {   // la ventana de escritorio trae la clave en la URL (#t=...)
   const m = location.hash.match(/^#t=(.*)$/);
   if (m) { saveToken(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname); }
@@ -470,10 +704,8 @@ function getToken() {
   if (!t) { t = prompt('Clave de JARVIS (sale en la bandeja de la laptop y en jarvis.log al crearse, o la de jarvis.token):') || ''; saveToken(t); }
   return t;
 }
-
-/* Id de sesión por pestaña: el "sí/no" pendiente y la venta en curso son de cada dispositivo.
-   crypto.randomUUID no existe en http://192.168…
-   (no es contexto seguro), getRandomValues sí. */
+/* Id de sesión por pestaña: el "sí/no" pendiente y la venta por voz son de cada dispositivo.
+   crypto.randomUUID no existe en http://192.168… (no es contexto seguro), getRandomValues sí. */
 const SESSION_ID = (function () {
   const nuevo = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
   try {
@@ -482,44 +714,107 @@ const SESSION_ID = (function () {
     return s;
   } catch (e) { return nuevo(); }
 })();
-$('gear').onclick = () => { saveToken(''); getToken(); refreshSystem(); };
+$('gear').onclick = () => { saveToken(''); getToken(); refrescarTodo(); };
 
-/* =================== Reloj =================== */
-function tickClock() {
-  const d = new Date();
-  $('clockT').textContent = d.toLocaleTimeString('es-PE', { hour12: false });
-  $('clockD').textContent = d.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+/* =================== Tema claro / oscuro =================== */
+function oscuroActivo() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
 }
-setInterval(tickClock, 1000); tickClock();
+function pintarBotonTema() { $('tema').querySelector('span').textContent = oscuroActivo() ? 'Modo claro' : 'Modo oscuro'; }
+(function () { const t = leer('jarvisTema'); if (t) document.documentElement.dataset.theme = t; pintarBotonTema(); })();
+$('tema').onclick = () => {
+  const t = oscuroActivo() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t; guardar('jarvisTema', t); pintarBotonTema(); leerColores();
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { pintarBotonTema(); leerColores(); });
 
-/* =================== Estado =================== */
+/* =================== Avisos =================== */
+function avisar(texto, mal) {
+  const a = document.createElement('div');
+  a.className = 'toast' + (mal ? ' mal' : '');
+  a.textContent = texto;
+  $('avisos').appendChild(a);
+  setTimeout(() => a.remove(), mal ? 6500 : 4200);
+}
+
+/* =================== Servidor =================== */
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(),
+                                                    'X-Jarvis-Session': SESSION_ID, ...(opts.headers || {}) } });
+  if (r.status === 401) { saveToken(''); }
+  return r;
+}
+/* Llama a la API y devuelve { ok, reply, data } con un mensaje claro si algo falla. */
+async function invCall(path, method, body) {
+  try {
+    const r = await api(path, { method, body: body ? JSON.stringify(body) : undefined });
+    const data = await r.json().catch(() => ({ ok: false, reply: 'Respuesta inesperada del servidor.' }));
+    if (r.status === 401) data.reply = 'Clave incorrecta. Use “Cambiar clave” para escribirla de nuevo.';
+    return { ok: r.ok && data.ok !== false, reply: data.reply || '', data };
+  } catch (e) {
+    return { ok: false, reply: 'Sin conexión con el núcleo de JARVIS.' };
+  }
+}
+async function traer(path) {
+  try { const r = await api(path); return r.ok ? await r.json() : null; } catch (e) { return null; }
+}
+
+/* =================== Navegación =================== */
+const VISTAS = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes'];
+let vista = 'inicio';
+function irA(v) {
+  if (!VISTAS.includes(v)) v = 'inicio';
+  vista = v;
+  VISTAS.forEach(x => { $('v-' + x).hidden = x !== v; });
+  document.querySelectorAll('.nav a.item[data-vista]').forEach(a => a.classList.toggle('activo', a.dataset.vista === v));
+  $('vista').scrollTop = 0;
+  if (v === 'inicio') refreshResumen();
+  if (v === 'clientes') refreshClientes();
+  if (v === 'comprobantes') refreshComprobantes();
+  if (v === 'vender') { renderPos(); setTimeout(() => $('posBuscar').focus(), 30); }
+  if (v === 'inventario') renderInventory();
+}
+window.addEventListener('hashchange', () => irA(location.hash.slice(1)));
+document.querySelectorAll('[data-accion="nuevo-producto"]').forEach(b => b.onclick = () => openProduct(null));
+
+/* =================== Asistente: abrir y cerrar en pantallas angostas =================== */
+function abrirAsistente(abrir) {
+  $('asistente').classList.toggle('abierto', abrir);
+  $('velo').classList.toggle('visible', abrir);
+  if (abrir) setTimeout(() => $('input').focus(), 250);
+}
+$('abrirAsistente').onclick = () => abrirAsistente(true);
+$('cerrarAsistente').onclick = () => abrirAsistente(false);
+$('velo').onclick = () => abrirAsistente(false);
+
+/* =================== Estado del asistente =================== */
 let state = 'idle';
-const LABELS = { idle: 'EN ESPERA', listening: 'ESCUCHANDO', thinking: 'PROCESANDO', speaking: 'RESPONDIENDO', wake: 'DIGA "JARVIS"' };
+const LABELS = { idle: 'En espera', listening: 'Escuchando…', thinking: 'Pensando…', speaking: 'Hablando…', wake: 'Diga “Jarvis”…' };
 function setState(s) {
   state = s;
-  const label = (s === 'idle' && handsFree) ? LABELS.wake : LABELS[s];
-  stateEl.textContent = label;
-  stateEl.className = 'state ' + s;
+  stateEl.textContent = (s === 'idle' && handsFree) ? LABELS.wake : LABELS[s];
+  stateEl.className = s === 'listening' ? 'escuchando' : s === 'thinking' ? 'pensando' : '';
 }
 
-/* =================== Registro =================== */
-const hhmm = () => new Date().toLocaleTimeString('es-PE', { hour12: false });
+/* =================== Conversación =================== */
+const hhmm = () => new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
 function addEntry(who, text, typewriter) {
   const e = document.createElement('div');
-  e.className = 'entry ' + who;
-  const name = who === 'me' ? 'USTED' : who === 'bot' ? 'JARVIS' : 'SISTEMA';
-  e.innerHTML = `<div class="meta">[${hhmm()}] ${name}</div><div class="txt"></div>`;
+  e.className = 'msg ' + (who === 'me' ? 'yo' : who === 'bot' ? 'jarvis' : 'sistema');
+  e.innerHTML = '<span class="txt"></span>' + (who === 'sys' ? '' : `<span class="hora">${hhmm()}</span>`);
   logEl.appendChild(e);
   const box = e.querySelector('.txt');
-  if (!typewriter) { box.textContent = text; logEl.scrollTop = logEl.scrollHeight; return; }
+  if (!typewriter) { box.textContent = text; logEl.scrollTop = logEl.scrollHeight; return e; }
   let i = 0;
   const step = () => {
-    i = Math.min(text.length, i + 2);
+    i = Math.min(text.length, i + 3);
     box.textContent = text.slice(0, i);
     logEl.scrollTop = logEl.scrollHeight;
-    if (i < text.length) setTimeout(step, 14);
+    if (i < text.length) setTimeout(step, 12);
   };
   step();
+  return e;
 }
 
 /* =================== Voz de JARVIS =================== */
@@ -532,9 +827,10 @@ function pickVoice() {
   voice = vs.sort((a, b) => score(b) - score(a))[0] || null;
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-
+/* El navegador solo deja hablar después de que el usuario tocó algo en la página. */
+const puedeHablar = () => 'speechSynthesis' in window && (!navigator.userActivation || navigator.userActivation.hasBeenActive);
 function speak(text, then) {
-  if (!('speechSynthesis' in window)) { then && then(); return; }
+  if (!puedeHablar()) { then ? then() : resumeIdle(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text.replace(/[•\n]+/g, '. '));
   u.lang = voice ? voice.lang : 'es-ES';
@@ -544,14 +840,6 @@ function speak(text, then) {
   u.onboundary = () => { speakKick = 0.35; };
   u.onend = u.onerror = () => { then ? then() : resumeIdle(); };
   speechSynthesis.speak(u);
-}
-
-/* =================== Servidor =================== */
-async function api(path, opts = {}) {
-  const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(),
-                                                    'X-Jarvis-Session': SESSION_ID, ...(opts.headers || {}) } });
-  if (r.status === 401) { saveToken(''); }
-  return r;
 }
 
 async function send(text, silentUser) {
@@ -564,43 +852,46 @@ async function send(text, silentUser) {
   try {
     const r = await api('/api/command', { method: 'POST', body: JSON.stringify({ text }) });
     const data = await r.json();
-    addEntry('bot', data.reply, true);
+    const e = addEntry('bot', data.reply, true);
     speak(data.reply);
-    if (data.recibo) { showReceipt(data.recibo); addReceiptLink(data.recibo); }
+    if (data.recibo) { showReceipt(data.recibo); addReceiptLink(e, data.recibo); }
     renderCart(data.carrito);
-    if (/estado del sistema|diagnostico|diagnóstico/i.test(text)) refreshSystem();
-    refreshInventory();   // el stock pudo cambiar
+    if (/estado del sistema|diagnostico|diagnóstico/i.test(text)) { $('equipo').open = true; refreshSystem(); }
+    refrescarDatos();   // el stock, las ventas o los clientes pudieron cambiar
   } catch (e) {
     addEntry('sys', 'Sin conexión con el núcleo de JARVIS.');
     resumeIdle();
   }
 }
+$('input').addEventListener('keydown', e => { if (e.key === 'Enter') { send($('input').value); $('input').value = ''; } });
+$('sendBtn').onclick = () => { send($('input').value); $('input').value = ''; };
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-cmd]');
+  if (b) send(b.dataset.cmd);
+});
 
-/* =================== Comprobante de venta =================== */
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const soles = n => 'S/ ' + Number(n || 0).toFixed(2);
-const nroComp = n => String(n).padStart(6, '0');
+/* =================== Comprobante =================== */
 let lastReceipt = null;
-
+let negocio = { nombre: '', ruc: '', direccion: '' };
 const itemRows = items => items.map(v => `<tr>
-    <td>${v.cantidad}</td>
+    <td class="num">${cant(v.cantidad)}</td>
     <td>${esc(v.producto)}<br><small style="opacity:.6">${esc(v.unidad)}</small></td>
     <td class="n">${soles(v.precioUnitario)}</td>
     <td class="n">${soles(v.monto)}</td>
   </tr>`).join('');
-
 /* "B001-00000012" (o el número interno en ventas muy antiguas sin serie) */
 const codigoDe = c => c.codigo || ('N° ' + nroComp(c.numero));
+const tipoCorto = t => t === 'NOTA_VENTA' ? 'Nota de venta' : 'Boleta';
 
 function receiptHtml(r) {
-  const c = r.comprobante, n = r.negocio || {};
+  const c = r.comprobante, n = r.negocio || negocio;
   const fecha = (c.fecha || '').split('-').reverse().join('/');
   const conIgv = Number(c.tasaIgv) > 0;
   const cliente = c.cliente
     ? `${esc(c.cliente.nombre)} · ${esc(c.cliente.tipoDocumento)} ${esc(c.cliente.documento)}` : 'CLIENTES VARIOS';
   return `
     <div class="rc-head">
-      <b>${esc(n.nombre)}</b>
+      <b>${esc(n.nombre || 'Mi Negocio')}</b>
       ${n.ruc ? `<span>RUC ${esc(n.ruc)}</span>` : ''}
       ${n.direccion ? `<span>${esc(n.direccion)}</span>` : ''}
     </div>
@@ -618,56 +909,24 @@ function receiptHtml(r) {
     <div class="rc-letras">SON: ${esc(c.totalEnLetras || '')}</div>
     <div class="rc-foot">${esc(c.leyendaIgv || '')}<br>¡Gracias por su compra!</div>`;
 }
-
-/* Venta con varios productos en curso (panel izquierdo) */
-function renderCart(c) {
-  const box = $('cart');
-  if (!c) { box.hidden = true; return; }
-  box.hidden = false;
-  $('cartBody').innerHTML = c.items.length
-    ? `<table class="rc-table"><tbody>${itemRows(c.items)}</tbody></table>`
-    : '<p class="cart-empty">Dicte los productos: “2 poleras M”, “1 zapatilla 40”…</p>';
-  $('cartTotal').textContent = soles(c.total);
-  $('cartTipo').value = c.tipo === 'NOTA_VENTA' ? 'nota de venta' : 'boleta';
-  if (document.activeElement !== $('cartDni')) $('cartDni').value = c.cliente ? c.cliente.documento : '';
-  $('cartCliente').textContent = c.cliente ? 'Cliente: ' + c.cliente.nombre : '';
-}
-
-/* Tipo de comprobante y cliente de la venta en curso */
-async function opcionesCarrito(cambios) {
-  const res = await invCall('/api/inventory/venta/opciones', 'PUT', cambios);
-  if (!res.ok) addEntry('sys', res.reply);
-  refreshCart();
-}
-$('cartTipo').addEventListener('change', () => opcionesCarrito({ tipo: $('cartTipo').value }));
-$('cartDni').addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  opcionesCarrito({ cliente: $('cartDni').value.trim() });
-});
-async function refreshCart() {
-  try {
-    const r = await api('/api/inventory/venta');
-    if (r.ok) { const t = await r.text(); renderCart(t ? JSON.parse(t) : null); }
-  } catch (e) {}
-}
-
 function showReceipt(r) {
   lastReceipt = r;
   $('receiptBody').innerHTML = receiptHtml(r);
   $('receipt').classList.add('show');
 }
-
-function addReceiptLink(r) {
-  const e = logEl.lastElementChild; if (!e) return;
-  const b = document.createElement('button');
-  b.className = 'chip rc-link';
-  b.textContent = '🧾 Ver ' + (r.comprobante.tipo === 'NOTA_VENTA' ? 'nota de venta ' : 'boleta ') + codigoDe(r.comprobante);
-  b.onclick = () => showReceipt(r);
-  e.appendChild(b);
+async function verComprobante(numero) {
+  const c = await traer('/api/inventory/comprobantes/' + numero);
+  if (c) showReceipt({ comprobante: c, negocio }); else avisar('No pude abrir ese comprobante.', true);
 }
-
-/* Imprime en formato ticket (80 mm) en una ventana aparte, en blanco y negro. */
+function addReceiptLink(entrada, r) {
+  if (!entrada) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'boton ver';
+  b.textContent = 'Ver ' + tipoCorto(r.comprobante.tipo).toLowerCase() + ' ' + codigoDe(r.comprobante);
+  b.onclick = () => showReceipt(r);
+  entrada.appendChild(b);
+}
+/* Ticket de 80 mm en una ventana aparte, en blanco y negro. */
 function printReceipt() {
   if (!lastReceipt) return;
   const w = window.open('', '_blank', 'width=420,height=640');
@@ -690,86 +949,264 @@ function printReceipt() {
   w.focus();
   setTimeout(() => { try { w.print(); } catch (e) {} }, 300);   // deja que la ventana dibuje antes
 }
-
-$('receiptClose').onclick = () => $('receipt').classList.remove('show');
-$('receiptPrint').onclick = printReceipt;
-
 /* Comprobante A4 en PDF: se pide con la clave y se abre en una ventana aparte */
 async function openReceiptPdf() {
   if (!lastReceipt) return;
   try {
     const r = await api('/api/inventory/comprobantes/' + lastReceipt.comprobante.numero + '/pdf');
-    if (!r.ok) { addEntry('sys', 'No pude generar el PDF del comprobante.'); return; }
+    if (!r.ok) { avisar('No pude generar el PDF del comprobante.', true); return; }
     const url = URL.createObjectURL(await r.blob());
     if (!window.open(url, '_blank')) location.href = url;
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
-    addEntry('sys', 'Sin conexión con el núcleo de JARVIS.');
+    avisar('Sin conexión con el núcleo de JARVIS.', true);
   }
 }
+$('receiptClose').onclick = () => $('receipt').classList.remove('show');
+$('receiptPrint').onclick = printReceipt;
 $('receiptPdf').onclick = openReceiptPdf;
 
-/* =================== Paneles de sistema =================== */
-function setGauge(id, pct, label) {
-  const g = $(id); if (!g) return;
-  const v = Math.max(0, Math.min(100, pct || 0));
-  const c = g.querySelector('.val');
-  c.style.strokeDashoffset = 213.6 * (1 - v / 100);
-  c.classList.toggle('hot', id === 'g-bat' ? v < 20 : v > 85);
-  g.querySelector('b').textContent = label ?? (Math.round(v) + '%');
+/* =================== Venta por voz (carrito de la sesión) =================== */
+function renderCart(c) {
+  const box = $('cart');
+  if (!c) { box.hidden = true; return; }
+  box.hidden = false;
+  $('cartBody').innerHTML = c.items.length
+    ? c.items.map(v => `<li><span>${cant(v.cantidad)} × ${esc(v.producto)}</span><span class="num">${soles(v.monto)}</span></li>`).join('')
+    : '<li><span>Dicte los productos: “2 poleras M”, “1 zapatilla 40”…</span></li>';
+  $('cartTotal').textContent = soles(c.total);
+  $('cartTipo').value = c.tipo === 'NOTA_VENTA' ? 'nota de venta' : 'boleta';
+  if (document.activeElement !== $('cartDni')) $('cartDni').value = c.cliente ? c.cliente.documento : '';
+  $('cartCliente').textContent = c.cliente ? 'Cliente: ' + c.cliente.nombre : '';
 }
-/* =================== Inventario editable =================== */
-let invItems = [];
-const sinTildes = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
-async function refreshInventory() {
+async function opcionesCarrito(cambios) {
+  const res = await invCall('/api/inventory/venta/opciones', 'PUT', cambios);
+  if (!res.ok) addEntry('sys', res.reply);
+  refreshCart();
+}
+$('cartTipo').addEventListener('change', () => opcionesCarrito({ tipo: $('cartTipo').value }));
+$('cartDni').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  opcionesCarrito({ cliente: $('cartDni').value.trim() });
+});
+async function refreshCart() {
   try {
-    const r = await api('/api/inventory');
-    if (!r.ok) return;
-    invItems = await r.json();
-    renderInventory();
+    const r = await api('/api/inventory/venta');
+    if (r.ok) { const t = await r.text(); renderCart(t ? JSON.parse(t) : null); }
   } catch (e) {}
 }
 
+/* =================== Inicio =================== */
+let resumen = null;
+function pintarSaludo() {
+  const h = new Date().getHours();
+  $('saludo').textContent = (h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches') + (negocio.nombre ? ', ' + negocio.nombre : '');
+  const f = new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('fechaHoy').textContent = f.charAt(0).toUpperCase() + f.slice(1);
+}
+async function refreshResumen() {
+  pintarSaludo();
+  const [r, ultimas] = await Promise.all([traer('/api/inventory/resumen'), traer('/api/inventory/comprobantes?limite=6')]);
+  if (r) {
+    resumen = r;
+    $('k-total').textContent = soles(r.totalHoy);
+    $('k-ventas').textContent = (r.ventasHoy === 1 ? '1 venta' : r.ventasHoy + ' ventas')
+      + (r.anuladasHoy ? ` · ${r.anuladasHoy} anulada${r.anuladasHoy === 1 ? '' : 's'}` : '');
+    $('k-productos').textContent = r.productos.toLocaleString('es-PE');
+    $('k-stock').textContent = r.stockBajo || r.sinStock ? `${r.stockBajo} con stock bajo · ${r.sinStock} sin stock` : 'Stock en orden';
+    $('k-valor').textContent = soles(r.valorVenta);
+    $('k-costo').textContent = Number(r.valorCosto) > 0 ? `${soles(r.valorCosto)} al costo` : 'a precio de venta';
+    $('k-clientes').textContent = r.clientes.toLocaleString('es-PE');
+    $('k-igv').textContent = r.igv === 'EXONERADO' ? 'Ventas exoneradas de IGV' : `IGV de hoy: ${soles(r.igvHoy)}`;
+    renderPos();
+  }
+  if (ultimas) {
+    $('ultimas').innerHTML = ultimas.length ? `<table class="tabla adaptable"><thead><tr><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th class="der">Total</th></tr></thead>
+      <tbody>${ultimas.map(filaComprobante).join('')}</tbody></table>`
+      : '<div class="vacio"><b>Aún no hay ventas</b>Registre la primera en “Vender” o dígaselo a JARVIS.</div>';
+  }
+  const bajos = invItems.filter(p => Number(p.stock) <= Number(p.stockMin)).sort((a, b) => Number(a.stock) - Number(b.stock));
+  $('reponerCuenta').textContent = bajos.length ? bajos.length + (bajos.length === 1 ? ' producto' : ' productos') : '';
+  $('reponer').innerHTML = bajos.length ? bajos.slice(0, 8).map(p => `<li>
+      <div><b>${esc(p.nombre)}</b><small>Mínimo ${cant(p.stockMin)} ${esc(p.unidad)}</small></div>
+      <span class="etiqueta ${Number(p.stock) <= 0 ? 'mal' : 'aviso'}">${Number(p.stock) <= 0 ? 'Sin stock' : cant(p.stock) + ' ' + esc(p.unidad)}</span>
+    </li>`).join('')
+    : '<li class="vacio" style="display:block"><b>Todo en orden</b>Ningún producto está por debajo de su mínimo.</li>';
+}
+function filaComprobante(c) {
+  const fecha = (c.fecha || '').split('-').reverse().join('/');
+  return `<tr class="clic" data-comp="${c.numero}">
+    <td data-t="Comprobante"><b class="num">${esc(codigoDe(c))}</b> <span class="etiqueta ${c.tipo === 'BOLETA' ? 'acento' : ''}">${tipoCorto(c.tipo)}</span>
+      ${c.anulado ? '<span class="etiqueta mal">Anulado</span>' : ''}</td>
+    <td data-t="Cliente">${c.cliente ? esc(c.cliente) : '<span style="color:var(--faint)">Clientes varios</span>'}</td>
+    <td data-t="Fecha" class="num">${esc(fecha)} ${esc(c.hora)}</td>
+    <td data-t="Total" class="der num"${c.anulado ? ' style="text-decoration:line-through;color:var(--faint)"' : ''}>${soles(c.total)}</td></tr>`;
+}
+document.addEventListener('click', e => {
+  const fila = e.target.closest('[data-comp]');
+  if (fila) verComprobante(fila.dataset.comp);
+});
+
+/* =================== Punto de venta =================== */
+let posLineas = [], posTipo = 'boleta', posCliente = null;   // posCliente: { documento, nombre }
+(function () {   // la venta a medio armar sobrevive a una recarga de la página
+  try { const g = JSON.parse(leer('jarvisPos') || 'null'); if (g) { posLineas = g.lineas || []; posTipo = g.tipo || 'boleta'; posCliente = g.cliente || null; } } catch (e) {}
+})();
+const guardarPos = () => guardar('jarvisPos', JSON.stringify({ lineas: posLineas, tipo: posTipo, cliente: posCliente }));
+const redondear = n => Math.round((n + Number.EPSILON) * 100) / 100;
+function totalesIgv(importes, modo) {
+  const suma = redondear(importes.reduce((s, x) => s + x, 0));
+  if (modo === 'EXONERADO') return { base: suma, igv: 0, total: suma };
+  if (modo === 'AGREGADO') { const igv = redondear(suma * 0.18); return { base: suma, igv, total: redondear(suma + igv) }; }
+  const base = redondear(suma / 1.18);
+  return { base, igv: redondear(suma - base), total: suma };
+}
+function productoPos(nombre) { return invItems.find(p => p.nombre === nombre); }
+function buscarProductos(q) {
+  const t = sinTildes(q.trim()), cod = q.trim().toLowerCase();
+  if (!t) return invItems.slice(0, 24);
+  return invItems.filter(p => sinTildes(p.nombre).includes(t) || (p.alias || []).some(a => a.includes(t))
+    || sinTildes(p.categoria).includes(t) || [p.codigo, p.codigoBarras].some(c => c && c.toLowerCase() === cod)).slice(0, 40);
+}
+function agregarPos(p, cantidad = 1) {
+  if (!p) return;
+  const l = posLineas.find(x => x.nombre === p.nombre);
+  const nueva = (l ? Number(l.cantidad) : 0) + cantidad;
+  if (nueva > Number(p.stock)) { avisar(`Solo quedan ${cant(p.stock)} ${p.unidad} de ${p.nombre}.`, true); return; }
+  if (l) l.cantidad = nueva; else posLineas.push({ nombre: p.nombre, cantidad });
+  guardarPos(); renderPos();
+}
+function renderResultados() {
+  const lista = buscarProductos($('posBuscar').value);
+  $('posResultados').innerHTML = lista.length ? lista.map(p => `<button type="button" class="prod-boton${Number(p.stock) <= 0 ? ' agotado' : ''}" data-nombre="${esc(p.nombre)}">
+      <b>${esc(p.nombre)}</b><span><strong>${soles(p.precio)}</strong><span>${Number(p.stock) <= 0 ? 'Sin stock' : cant(p.stock) + ' ' + esc(p.unidad)}</span></span></button>`).join('')
+    : `<div class="vacio" style="grid-column:1/-1"><b>${invItems.length ? 'Sin coincidencias' : 'Aún no hay productos'}</b>
+       ${invItems.length ? 'Pruebe con otra palabra o el código.' : 'Agréguelos en Inventario.'}</div>`;
+}
+function renderPos() {
+  renderResultados();
+  document.querySelectorAll('.segmentado button').forEach(b => b.classList.toggle('activo', b.dataset.tipo === posTipo));
+  $('posDni').value = posCliente ? posCliente.documento : $('posDni').value;
+  const ci = $('posCliente');
+  ci.className = posCliente ? 'ok' : '';
+  ci.textContent = posCliente ? 'Cliente: ' + posCliente.nombre : 'Sin cliente: clientes varios.';
+  const importes = [];
+  $('posLineas').innerHTML = posLineas.length ? posLineas.map((l, i) => {
+    const p = productoPos(l.nombre);
+    const precio = p ? Number(p.precio) : 0, importe = redondear(precio * Number(l.cantidad));
+    importes.push(importe);
+    return `<li data-i="${i}"><div><b>${esc(l.nombre)}</b><small>${soles(precio)} · ${p ? esc(p.unidad) : 'ya no existe'}</small></div>
+      <input class="campo num" type="number" min="0" step="any" value="${l.cantidad}" aria-label="Cantidad de ${esc(l.nombre)}">
+      <span class="importe">${soles(importe)}</span>
+      <button class="icono peligro" type="button" data-quitar="${i}" aria-label="Quitar">${icono('x')}</button></li>`;
+  }).join('') : '<li class="lineas-vacio">Toque un producto o escanee su código para agregarlo.</li>';
+  const modo = resumen ? resumen.igv : 'INCLUIDO', t = totalesIgv(importes, modo);
+  $('posTotales').innerHTML = modo === 'EXONERADO'
+    ? `<div><span>Exonerado de IGV</span><span></span></div><div class="total"><span>Total</span><span>${soles(t.total)}</span></div>`
+    : `<div><span>Op. gravada</span><span>${soles(t.base)}</span></div><div><span>IGV 18%${modo === 'INCLUIDO' ? ' (incluido)' : ''}</span><span>${soles(t.igv)}</span></div>
+       <div class="total"><span>Total</span><span>${soles(t.total)}</span></div>`;
+  $('posCobrar').disabled = !posLineas.length;
+}
+$('posBuscar').addEventListener('input', renderResultados);
+$('posBuscar').addEventListener('keydown', e => {   // Enter: el escáner o el único resultado se agrega
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const q = $('posBuscar').value.trim(); if (!q) return;
+  const exacto = invItems.find(p => [p.codigo, p.codigoBarras].some(c => c && c.toLowerCase() === q.toLowerCase()));
+  const lista = buscarProductos(q);
+  const p = exacto || (lista.length === 1 ? lista[0] : null);
+  if (p) { agregarPos(p); $('posBuscar').value = ''; renderResultados(); }
+  else avisar(lista.length ? 'Hay varios parecidos: toque el que corresponde.' : 'No encontré ese producto.', !lista.length);
+});
+$('posResultados').addEventListener('click', e => {
+  const b = e.target.closest('[data-nombre]'); if (!b || b.classList.contains('agotado')) return;
+  agregarPos(productoPos(b.dataset.nombre));
+});
+$('posLineas').addEventListener('change', e => {
+  const li = e.target.closest('li[data-i]'); if (!li || e.target.tagName !== 'INPUT') return;
+  const l = posLineas[li.dataset.i], p = productoPos(l.nombre), v = Number(String(e.target.value).replace(',', '.'));
+  if (!(v > 0)) posLineas.splice(li.dataset.i, 1);
+  else if (p && v > Number(p.stock)) { avisar(`Solo quedan ${cant(p.stock)} ${p.unidad} de ${p.nombre}.`, true); }
+  else l.cantidad = v;
+  guardarPos(); renderPos();
+});
+$('posLineas').addEventListener('click', e => {
+  const b = e.target.closest('[data-quitar]'); if (!b) return;
+  posLineas.splice(Number(b.dataset.quitar), 1); guardarPos(); renderPos();
+});
+document.querySelectorAll('.segmentado button').forEach(b => b.onclick = () => { posTipo = b.dataset.tipo; guardarPos(); renderPos(); });
+async function buscarClientePos() {
+  const doc = $('posDni').value.trim();
+  if (!doc) { posCliente = null; guardarPos(); renderPos(); return; }
+  try {
+    const r = await api('/api/clientes/' + encodeURIComponent(doc));
+    if (r.ok) { const c = await r.json(); posCliente = { documento: c.documento, nombre: c.nombre }; guardarPos(); renderPos(); return; }
+  } catch (e) {}
+  posCliente = null; guardarPos(); renderPos();
+  const ci = $('posCliente');
+  ci.className = 'mal';
+  ci.innerHTML = `No hay un cliente con ese documento. <a href="#" id="posRegistrar">Registrarlo</a>`;
+  $('posRegistrar').onclick = ev => { ev.preventDefault(); abrirCliente(null, doc); };
+}
+$('posBuscarCliente').onclick = buscarClientePos;
+$('posDni').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscarClientePos(); } });
+$('posVaciar').onclick = () => { posLineas = []; posCliente = null; $('posDni').value = ''; guardarPos(); renderPos(); };
+$('posCobrar').onclick = async () => {
+  if (!posLineas.length) return;
+  $('posCobrar').disabled = true;
+  const res = await invCall('/api/inventory/ventas', 'POST', { items: posLineas, tipo: posTipo, cliente: posCliente ? posCliente.documento : null });
+  $('posCobrar').disabled = false;
+  if (!res.ok) { avisar(res.reply, true); return; }
+  if (res.data.recibo) showReceipt(res.data.recibo);
+  avisar(res.reply);
+  posLineas = []; posCliente = null; $('posDni').value = ''; guardarPos();
+  await refreshInventory(); renderPos();
+};
+
+/* =================== Inventario =================== */
+let invItems = [];
+async function refreshInventory() {
+  const d = await traer('/api/inventory');
+  if (!d) return;
+  invItems = d;
+  renderInventory();
+  if (vista === 'vender') renderResultados();
+  if (vista === 'inicio') refreshResumen();
+}
 function renderInventory() {
-  const box = $('inv-list'), q = sinTildes($('invSearch').value.trim());
-  $('invSearch').hidden = invItems.length < 6;      // el buscador aparece cuando ya hay varios productos
+  const box = $('inv-list'), q = sinTildes($('invSearch').value.trim()), qCod = $('invSearch').value.trim().toLowerCase();
+  renderCategorias();
+  const bajos = invItems.filter(p => Number(p.stock) <= Number(p.stockMin)).length;
+  $('invCuenta').textContent = invItems.length
+    ? `${invItems.length} ${invItems.length === 1 ? 'producto' : 'productos'}${bajos ? ` · ${bajos} por reponer` : ''}` : 'Sin productos todavía';
   if (!invItems.length) {
-    box.innerHTML = `<div class="inv-empty"><p>Aún no tienes productos. Agrega el primero.</p>
-      <button class="btn on" data-act="nuevo">＋ Agregar producto</button>
-      <button class="btn" data-act="lote">⬆ Cargar lista</button></div>`;
+    box.innerHTML = `<div class="vacio"><b>Aún no tiene productos</b>Agregue el primero, cargue una lista desde Excel o dígaselo a JARVIS.
+      <div class="acciones"><button class="boton primario" type="button" data-act="nuevo">${icono('mas')}Agregar producto</button>
+      <button class="boton" type="button" data-act="lote">${icono('subir')}Cargar lista</button></div></div>`;
     return;
   }
-  renderCategorias();
-  const cat = $('invCat').value, qCod = $('invSearch').value.trim().toLowerCase();
+  const cat = $('invCat').value, est = $('invEstado').value;
   const lista = invItems.map((p, i) => ({ p, i }))
     .filter(x => !cat || x.p.categoria === cat)
+    .filter(x => !est || (est === 'sin' ? Number(x.p.stock) <= 0 : Number(x.p.stock) > 0 && Number(x.p.stock) <= Number(x.p.stockMin)))
     .filter(x => !q || sinTildes(x.p.nombre).includes(q) || (x.p.alias || []).some(a => a.includes(q))
-      || sinTildes(x.p.categoria).includes(q)
-      || [x.p.codigo, x.p.codigoBarras].some(c => c && c.toLowerCase() === qCod));
-  if (!lista.length) { box.innerHTML = '<div class="inv-empty">Ningún producto coincide con la búsqueda.</div>'; return; }
-  box.innerHTML = lista.map(({ p, i }) => {
-    const bajo = p.stock <= p.stockMin;
-    return `<div class="inv-row${bajo ? ' low' : ''}" data-i="${i}">
-      <div class="inv-top"><span class="inv-name">${esc(p.nombre)}${bajo ? ' ⚠' : ''}</span><small>${soles(p.precio)}</small></div>
-      ${metaDe(p)}
-      <div class="inv-bot">
-        <button class="ibtn" data-act="menos" title="Restar 1 (sin venta)" aria-label="Restar 1">－</button>
-        <span class="inv-stock">${p.stock} ${esc(p.unidad)}</span>
-        <button class="ibtn" data-act="mas" title="Sumar 1" aria-label="Sumar 1">＋</button>
-        <span class="sp"></span>
-        <button class="ibtn" data-act="editar" title="Editar" aria-label="Editar">✎</button>
-        <button class="ibtn del" data-act="borrar" title="Eliminar" aria-label="Eliminar">🗑</button>
-      </div></div>`;
-  }).join('');
+      || sinTildes(x.p.categoria).includes(q) || [x.p.codigo, x.p.codigoBarras].some(c => c && c.toLowerCase() === qCod));
+  if (!lista.length) { box.innerHTML = '<div class="vacio"><b>Sin resultados</b>Ningún producto coincide con la búsqueda.</div>'; return; }
+  box.innerHTML = `<table class="tabla adaptable"><thead><tr><th>Producto</th><th>Stock</th><th class="der">Precio</th><th class="der">Costo</th><th></th></tr></thead><tbody>`
+    + lista.map(({ p, i }) => {
+      const sin = Number(p.stock) <= 0, bajo = !sin && Number(p.stock) <= Number(p.stockMin);
+      const meta = [p.categoria, p.codigo, p.codigoBarras].filter(Boolean).map(esc).join(' · ');
+      return `<tr data-i="${i}" class="${sin ? 'sin' : bajo ? 'bajo' : ''}">
+        <td data-t="" class="nombre-prod"><b>${esc(p.nombre)}</b>${meta ? `<small>${meta}</small>` : ''}</td>
+        <td data-t="Stock"><span class="stock-ctrl"><button type="button" data-act="menos" title="Restar 1 (sin venta)" aria-label="Restar 1">−</button>
+          <span>${cant(p.stock)} ${esc(p.unidad)}</span><button type="button" data-act="mas" title="Sumar 1" aria-label="Sumar 1">+</button></span></td>
+        <td data-t="Precio" class="der num">${soles(p.precio)}</td>
+        <td data-t="Costo" class="der num">${p.costo != null ? soles(p.costo) : '<span style="color:var(--faint)">—</span>'}</td>
+        <td class="acciones"><button class="icono" type="button" data-act="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
+          <button class="icono peligro" type="button" data-act="borrar" title="Eliminar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`;
+    }).join('') + '</tbody></table>';
 }
-
-/* Categoría y códigos bajo el nombre (nada si el producto no tiene ninguno) */
-function metaDe(p) {
-  const partes = [p.categoria, p.codigo, p.codigoBarras].filter(Boolean).map(esc);
-  return partes.length ? `<div class="inv-meta">${partes.join(' · ')}</div>` : '';
-}
-
 /* Categorías que ya existen: para el filtro y para sugerirlas en el formulario */
 function renderCategorias() {
   const cats = [...new Set(invItems.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
@@ -779,45 +1216,39 @@ function renderCategorias() {
     + cats.map(c => `<option${c === actual ? ' selected' : ''}>${esc(c)}</option>`).join('');
   $('categorias').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
 }
-
-/* Llama a la API de productos y muestra la respuesta. Devuelve { ok, reply }. */
-async function invCall(path, method, body) {
-  try {
-    const r = await api(path, { method, body: body ? JSON.stringify(body) : undefined });
-    const data = await r.json().catch(() => ({ ok: false, reply: 'Respuesta inesperada del servidor.' }));
-    if (r.status === 401) data.reply = 'Clave incorrecta. Toque ⚙ para escribirla de nuevo.';
-    return { ok: r.ok && data.ok !== false, reply: data.reply || '' };
-  } catch (e) {
-    return { ok: false, reply: 'Sin conexión con el núcleo de JARVIS.' };
-  }
-}
-
 $('inv-list').addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (b.dataset.act === 'nuevo') { openProduct(null); return; }
   if (b.dataset.act === 'lote') { openLote(); return; }
-  const p = invItems[b.closest('.inv-row').dataset.i]; if (!p) return;
+  const p = invItems[b.closest('tr').dataset.i]; if (!p) return;
   if (b.dataset.act === 'editar') { openProduct(p); return; }
-  if (b.dataset.act === 'borrar') { askDelete(p); return; }
+  if (b.dataset.act === 'borrar') {
+    if (await confirmar('Eliminar producto', `¿Eliminar “${p.nombre}” del inventario? Quedan ${cant(p.stock)} ${p.unidad}. Sus ventas pasadas se conservan.`, 'Eliminar')) {
+      const res = await invCall('/api/inventory/productos?nombre=' + encodeURIComponent(p.nombre), 'DELETE');
+      avisar(res.reply, !res.ok);
+      refreshInventory();
+    }
+    return;
+  }
   b.disabled = true;
   const res = await invCall('/api/inventory/productos/ajuste', 'POST', { nombre: p.nombre, cantidad: b.dataset.act === 'mas' ? 1 : -1 });
-  if (!res.ok) addEntry('sys', res.reply);
+  if (!res.ok) avisar(res.reply, true);
   b.disabled = false;
   refreshInventory();
 });
 $('invAdd').onclick = () => openProduct(null);
 $('invSearch').addEventListener('input', renderInventory);
 $('invCat').addEventListener('change', renderInventory);
+$('invEstado').addEventListener('change', renderInventory);
 
-/* ---- formulario de alta / edición ---- */
+/* ---- formulario de producto ---- */
 let editando = null;   // producto que se edita (null = nuevo)
 const numOrNull = v => v.trim() === '' ? null : Number(v.replace(',', '.'));
 /* alias que escribió el usuario (el servidor siempre agrega el propio nombre normalizado) */
 const aliasPropios = p => (p.alias || []).filter(a => a !== sinTildes(p.nombre).replace(/\s+/g, ' ').trim());
-
 function openProduct(p) {
   editando = p;
-  $('prodTitle').textContent = p ? '✎ EDITAR PRODUCTO' : '＋ NUEVO PRODUCTO';
+  $('prodTitle').textContent = p ? 'Editar producto' : 'Nuevo producto';
   $('fStockLbl').textContent = p ? 'Stock actual' : 'Stock inicial';
   $('fNombre').value = p ? p.nombre : '';
   $('fPrecio').value = p ? p.precio : '';
@@ -835,7 +1266,6 @@ function openProduct(p) {
   setTimeout(() => $('fNombre').focus(), 50);
 }
 function closeProduct() { $('prodModal').classList.remove('show'); editando = null; }
-
 /* Ganancia por unidad mientras se escriben el precio y el costo */
 function mostrarMargen() {
   const precio = numOrNull($('fPrecio').value), costo = numOrNull($('fCosto').value), out = $('fMargen');
@@ -850,7 +1280,6 @@ $('fCosto').addEventListener('input', mostrarMargen);
 /* El escáner "teclea" el código y luego Enter: que no envíe el formulario, solo pase al botón Guardar */
 $('fBarras').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('prodSave').focus(); } });
 $('prodCancel').onclick = closeProduct;
-
 $('prodForm').addEventListener('submit', async e => {
   e.preventDefault();
   const nombre = $('fNombre').value.trim(), unidad = $('fUnidad').value.trim();
@@ -891,7 +1320,7 @@ $('prodForm').addEventListener('submit', async e => {
   $('prodSave').disabled = false;
   if (!res.ok) { $('prodErr').textContent = res.reply; return; }
   closeProduct();
-  addEntry('bot', res.reply);
+  avisar(res.reply);
   refreshInventory();
 });
 
@@ -904,31 +1333,28 @@ function openLote() {
 function closeLote() { pararDictado(); $('loteModal').classList.remove('show'); }
 $('invLote').onclick = openLote;
 $('loteCancel').onclick = closeLote;
-
-/* El archivo se vuelca al cuadro de texto: el usuario lo revisa y luego toca CARGAR. */
+/* El archivo se vuelca al cuadro de texto: el usuario lo revisa y luego toca Cargar. */
 $('loteFile').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
   if (f.size > 2 * 1024 * 1024) { $('loteErr').textContent = 'El archivo es muy grande (máximo 2 MB).'; return; }
   const buf = await f.arrayBuffer();
   let txt = new TextDecoder('utf-8').decode(buf);
-  if (txt.includes('\uFFFD')) txt = new TextDecoder('windows-1252').decode(buf);   // .csv guardado por Excel con tildes
+  if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // .csv guardado por Excel con tildes
   $('loteTxt').value = txt;
   $('loteErr').textContent = '';
-  $('loteRes').innerHTML = `<p>Archivo “${esc(f.name)}” listo. Revíselo y toque CARGAR.</p>`;
+  $('loteRes').innerHTML = `<p>Archivo “${esc(f.name)}” listo. Revíselo y toque Cargar.</p>`;
 });
-
 function loteResumen(d) {
   const item = (x, cls) => `<li class="${cls}"><b>Línea ${x.linea}:</b> ${esc(x.motivo)}</li>`;
   const n = (k, uno, varios) => `${k} ${k === 1 ? uno : varios}`;
-  return `<div class="lote-cifras"><span class="ok">✔ ${n(d.agregados, 'agregado', 'agregados')}</span>
-      <span class="omit">↷ ${n(d.omitidos, 'omitido', 'omitidos')}</span>
-      <span class="err">✖ ${n(d.errores.length, 'con error', 'con errores')}</span></div>`
-    + (d.errores.length ? `<p>Corrija estas líneas y vuelva a tocar CARGAR (los ya agregados se omiten solos):</p>
+  return `<div class="lote-cifras"><span class="etiqueta ok">${n(d.agregados, 'agregado', 'agregados')}</span>
+      <span class="etiqueta aviso">${n(d.omitidos, 'omitido', 'omitidos')}</span>
+      <span class="etiqueta mal">${n(d.errores.length, 'con error', 'con errores')}</span></div>`
+    + (d.errores.length ? `<p>Corrija estas líneas y vuelva a tocar Cargar (los ya agregados se omiten solos):</p>
       <ul class="lote-lista">${d.errores.map(x => item(x, 'err')).join('')}</ul>` : '')
     + (d.omitidos ? `<p>No se registraron:</p><ul class="lote-lista">${d.omitidosDetalle.map(x => item(x, 'omit')).join('')}</ul>` : '');
 }
-
 $('loteForm').addEventListener('submit', async e => {
   e.preventDefault();
   const txt = $('loteTxt').value;
@@ -940,7 +1366,7 @@ $('loteForm').addEventListener('submit', async e => {
     const r = await api('/api/inventory/productos/lote', { method: 'POST', body: txt,
                                                          headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     d = await r.json().catch(() => ({ ok: false, reply: 'Respuesta inesperada del servidor.' }));
-    if (r.status === 401) d = { ok: false, reply: 'Clave incorrecta. Toque ⚙ para escribirla de nuevo.' };
+    if (r.status === 401) d = { ok: false, reply: 'Clave incorrecta. Use “Cambiar clave” para escribirla de nuevo.' };
     else if (!r.ok) d.ok = false;
   } catch (err) {
     d = { ok: false, reply: 'Sin conexión con el núcleo de JARVIS.' };
@@ -949,11 +1375,11 @@ $('loteForm').addEventListener('submit', async e => {
   if (!d.ok) { $('loteRes').innerHTML = ''; $('loteErr').textContent = d.reply; return; }
   $('loteRes').innerHTML = loteResumen(d);
   if (!d.errores.length) $('loteTxt').value = '';   // con errores se deja el texto para corregirlo
-  addEntry('bot', d.reply);
+  avisar(d.reply);
   refreshInventory();
 });
 
-/* ---- dictado dentro de "Cargar lista": la voz solo ESCRIBE en el cuadro; se registra al tocar CARGAR ---- */
+/* ---- dictado dentro de "Cargar lista": la voz solo ESCRIBE en el cuadro; se registra al tocar Cargar ---- */
 const NUM_DICHO = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
   once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50, cien: 100 };
 const UNIDAD_DICHA = { unidad: 'unidades', unidades: 'unidades', par: 'pares', pares: 'pares', metro: 'metros', metros: 'metros',
@@ -962,7 +1388,6 @@ const UNIDAD_DICHA = { unidad: 'unidades', unidades: 'unidades', par: 'pares', p
   rollo: 'rollos', rollos: 'rollos', galon: 'galones', galones: 'galones', saco: 'sacos', sacos: 'sacos',
   pieza: 'piezas', piezas: 'piezas', gramo: 'gramos', gramos: 'gramos' };
 const RELLENO_NUMERO = /\b(soles?|precio|stock|minimo|min)\b|s\/\s*/g;
-
 /* "25", "4,20" o "diez" → texto del número; null si no es un número */
 function numeroDicho(t) {
   const s = sinTildes(t).trim();
@@ -976,7 +1401,6 @@ function armarLinea(c) {
   while (out.length > 1 && !out[out.length - 1]) out.pop();
   return out.join('; ');
 }
-
 /*
  * Convierte una frase dictada en una línea de la lista:
  *  - con separadores dichos: "polo blanco coma 25 coma 10 coma unidades"
@@ -1019,7 +1443,6 @@ function lineaDictada(frase) {
   }
   return armarLinea([capital(ts.slice(0, finNombre).join(' ')), numeroDicho(ts[ip]), stock, unidad, min]);
 }
-
 function agregarDictado(frase) {
   const linea = lineaDictada(frase);
   if (!linea) return;
@@ -1027,12 +1450,10 @@ function agregarDictado(frase) {
   t.value += (t.value && !t.value.endsWith('\n') ? '\n' : '') + linea + '\n';
   t.scrollTop = t.scrollHeight;
 }
-
 let dictado = null, dictando = false, dictadoLang = null;
 const AVISO_DICTADO = local => local
-  ? '🔒 Dictado en este equipo. Diga un producto por frase…'
-  : '⚠ El dictado usa el servicio de voz del navegador (necesita Internet). Diga un producto por frase…';
-
+  ? 'Dictado en este equipo. Diga un producto por frase…'
+  : 'El dictado usa el servicio de voz del navegador (necesita Internet). Diga un producto por frase…';
 /* ¿El navegador puede reconocer español sin Internet? Devuelve el idioma o null. No descarga nada. */
 async function idiomaLocal() {
   if (!SR || typeof SR.available !== 'function') return null;
@@ -1041,7 +1462,10 @@ async function idiomaLocal() {
   }
   return null;
 }
-
+function botonDictado(activo) {
+  $('loteMic').classList.toggle('primario', activo);
+  $('loteMic').querySelector('span').textContent = activo ? 'Parar' : 'Dictar';
+}
 async function iniciarDictado() {
   if (!voiceOK) {
     $('loteErr').textContent = window.isSecureContext
@@ -1053,13 +1477,12 @@ async function iniciarDictado() {
   speechSynthesis.cancel();
   dictando = true;
   $('loteErr').textContent = '';
-  $('loteMic').classList.add('on'); $('loteMic').textContent = '■ PARAR';
+  botonDictado(true);
   dictadoLang = await idiomaLocal();
   if (!dictando) return;
   $('loteVoz').textContent = AVISO_DICTADO(dictadoLang);
   escucharDictado();
 }
-
 function escucharDictado() {
   if (!dictando) return;
   const r = new SR();
@@ -1074,7 +1497,7 @@ function escucharDictado() {
       const res = e.results[i];
       if (res.isFinal) agregarDictado(res[0].transcript); else parcial += res[0].transcript;
     }
-    if (dictando) $('loteVoz').textContent = parcial ? '🎙 ' + parcial : AVISO_DICTADO(dictadoLang);
+    if (dictando) $('loteVoz').textContent = parcial ? '“' + parcial + '”' : AVISO_DICTADO(dictadoLang);
   };
   r.onerror = e => {
     if (e.error === 'language-not-supported' && dictadoLang) { dictadoLang = null; return; }   // onend reintenta sin modo local
@@ -1086,69 +1509,171 @@ function escucharDictado() {
   r.onend = () => { if (dictando && dictado === r) setTimeout(escucharDictado, 200); };   // Chrome corta tras un silencio
   try { r.start(); } catch (e) {}
 }
-
 function pararDictado() {
   if (!dictando) return;
   dictando = false;
   const r = dictado; dictado = null;
   if (r) { r.onend = null; try { r.stop(); } catch (e) {} }   // stop() (no abort): entrega la última frase
-  $('loteMic').classList.remove('on'); $('loteMic').textContent = '🎙 DICTAR';
+  botonDictado(false);
   $('loteVoz').textContent = '';
   if (handsFree) setTimeout(() => { if (!rec && handsFree) startRec('wake'); }, 300);
 }
 $('loteMic').onclick = () => dictando ? pararDictado() : iniciarDictado();
 
-/* ---- eliminar ---- */
-let porBorrar = null;
-function askDelete(p) {
-  porBorrar = p;
-  $('delText').textContent = `¿Eliminar “${p.nombre}” del inventario? Quedan ${p.stock} ${p.unidad}.`;
-  $('delModal').classList.add('show');
+/* =================== Clientes =================== */
+let clientes = [], editandoCliente = null, clienteParaVenta = false;
+async function refreshClientes() {
+  const q = $('cliBuscar').value.trim();
+  const d = await traer('/api/clientes?limite=200&q=' + encodeURIComponent(q));
+  if (!d) return;
+  clientes = d;
+  const box = $('cliLista');
+  if (!clientes.length) {
+    box.innerHTML = q ? '<div class="vacio"><b>Sin resultados</b>Ningún cliente coincide con la búsqueda.</div>'
+      : `<div class="vacio"><b>Aún no tiene clientes</b>Regístrelos para emitir boletas con nombre y DNI.
+         <div class="acciones"><button class="boton primario" type="button" data-cli="nuevo">${icono('mas')}Nuevo cliente</button></div></div>`;
+    return;
+  }
+  box.innerHTML = `<table class="tabla adaptable"><thead><tr><th>Documento</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th></th></tr></thead><tbody>`
+    + clientes.map((c, i) => `<tr data-i="${i}">
+      <td data-t="Documento" class="num"><span class="etiqueta">${esc(c.tipoDocumento)}</span> ${esc(c.documento)}</td>
+      <td data-t="Nombre"><b>${esc(c.nombre)}</b></td>
+      <td data-t="Teléfono" class="num">${esc(c.telefono) || '<span style="color:var(--faint)">—</span>'}</td>
+      <td data-t="Correo">${esc(c.email) || '<span style="color:var(--faint)">—</span>'}</td>
+      <td class="acciones"><button class="icono" type="button" data-cli="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
+        <button class="icono peligro" type="button" data-cli="borrar" title="Eliminar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`).join('')
+    + '</tbody></table>';
 }
-$('delCancel').onclick = () => { $('delModal').classList.remove('show'); porBorrar = null; };
-$('delOk').onclick = async () => {
-  const p = porBorrar; $('delModal').classList.remove('show'); porBorrar = null;
-  if (!p) return;
-  const res = await invCall('/api/inventory/productos?nombre=' + encodeURIComponent(p.nombre), 'DELETE');
-  addEntry(res.ok ? 'bot' : 'sys', res.reply);
-  refreshInventory();
+let buscarClienteEspera = null;
+$('cliBuscar').addEventListener('input', () => { clearTimeout(buscarClienteEspera); buscarClienteEspera = setTimeout(refreshClientes, 220); });
+$('cliNuevo').onclick = () => abrirCliente(null);
+$('cliLista').addEventListener('click', async e => {
+  const b = e.target.closest('[data-cli]'); if (!b) return;
+  if (b.dataset.cli === 'nuevo') { abrirCliente(null); return; }
+  const c = clientes[b.closest('tr').dataset.i]; if (!c) return;
+  if (b.dataset.cli === 'editar') { abrirCliente(c); return; }
+  if (await confirmar('Eliminar cliente', `¿Eliminar a ${c.nombre} (${c.tipoDocumento} ${c.documento})?`, 'Eliminar')) {
+    const res = await invCall('/api/clientes/' + encodeURIComponent(c.documento), 'DELETE');
+    avisar(res.reply, !res.ok);
+    refreshClientes();
+  }
+});
+function abrirCliente(c, documento) {
+  editandoCliente = c;
+  clienteParaVenta = !c && !!documento;
+  $('cliTitulo').textContent = c ? 'Editar cliente' : 'Nuevo cliente';
+  $('cDoc').value = c ? c.documento : documento || '';
+  $('cNombre').value = c ? c.nombre : '';
+  $('cTel').value = c ? c.telefono : '';
+  $('cEmail').value = c ? c.email : '';
+  $('cDir').value = c ? c.direccion : '';
+  $('cliErr').textContent = '';
+  $('cliModal').classList.add('show');
+  setTimeout(() => (documento ? $('cNombre') : $('cDoc')).focus(), 50);
+}
+$('cliCancelar').onclick = () => $('cliModal').classList.remove('show');
+$('cliForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const datos = { documento: $('cDoc').value.trim(), nombre: $('cNombre').value.trim(), telefono: $('cTel').value.trim(),
+                  email: $('cEmail').value.trim(), direccion: $('cDir').value.trim() };
+  if (!/^(\d{8}|\d{11})$/.test(datos.documento)) { $('cliErr').textContent = 'El documento es un DNI de 8 dígitos o un RUC de 11.'; return; }
+  if (!datos.nombre) { $('cliErr').textContent = 'Escriba el nombre.'; return; }
+  $('cliGuardar').disabled = true;
+  const res = editandoCliente
+    ? await invCall('/api/clientes/' + encodeURIComponent(editandoCliente.documento), 'PATCH', datos)
+    : await invCall('/api/clientes', 'POST', datos);
+  $('cliGuardar').disabled = false;
+  if (!res.ok) { $('cliErr').textContent = res.reply; return; }
+  $('cliModal').classList.remove('show');
+  avisar(res.reply);
+  if (clienteParaVenta) { posCliente = { documento: datos.documento, nombre: datos.nombre }; guardarPos(); renderPos(); }
+  refreshClientes();
+});
+
+/* =================== Comprobantes =================== */
+let comprobantes = [];
+async function refreshComprobantes() {
+  const d = await traer('/api/inventory/comprobantes?limite=300');
+  if (!d) return;
+  comprobantes = d;
+  renderComprobantes();
+}
+function renderComprobantes() {
+  const q = sinTildes($('compBuscar').value.trim()), tipo = $('compTipo').value;
+  const lista = comprobantes.filter(c => (!tipo || c.tipo === tipo)
+    && (!q || sinTildes(c.codigo).includes(q) || sinTildes(c.cliente).includes(q)));
+  $('compLista').innerHTML = lista.length
+    ? `<table class="tabla adaptable"><thead><tr><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th class="der">Total</th></tr></thead>
+       <tbody>${lista.map(filaComprobante).join('')}</tbody></table>`
+    : `<div class="vacio"><b>${comprobantes.length ? 'Sin resultados' : 'Aún no hay comprobantes'}</b>
+       ${comprobantes.length ? 'Ningún comprobante coincide con la búsqueda.' : 'Se crean al cobrar una venta.'}</div>`;
+}
+$('compBuscar').addEventListener('input', renderComprobantes);
+$('compTipo').addEventListener('change', renderComprobantes);
+$('anularUltima').onclick = async () => {
+  const ultimo = comprobantes[0];   // la lista viene de la más reciente a la más antigua
+  if (!ultimo) { avisar('No hay ventas para anular.', true); return; }
+  if (ultimo.anulado) { avisar(`La última venta (${codigoDe(ultimo)}) ya está anulada.`, true); return; }
+  if (!await confirmar('Anular la última venta', `¿Anular ${tipoCorto(ultimo.tipo).toLowerCase()} ${codigoDe(ultimo)} por ${soles(ultimo.total)}? Los productos vuelven al stock.`, 'Anular')) return;
+  const res = await invCall('/api/inventory/ventas/ultima/anular', 'POST');
+  avisar(res.reply, !res.ok);
+  refrescarDatos();
 };
 
+/* =================== Confirmación =================== */
+let confirmarResolver = null;
+function confirmar(titulo, texto, boton) {
+  $('confTitulo').textContent = titulo;
+  $('confTexto').textContent = texto;
+  $('confSi').textContent = boton || 'Confirmar';
+  $('confirmModal').classList.add('show');
+  setTimeout(() => $('confNo').focus(), 50);
+  return new Promise(res => { confirmarResolver = res; });
+}
+function cerrarConfirmar(si) { $('confirmModal').classList.remove('show'); if (confirmarResolver) { confirmarResolver(si); confirmarResolver = null; } }
+$('confSi').onclick = () => cerrarConfirmar(true);
+$('confNo').onclick = () => cerrarConfirmar(false);
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('prodModal').classList.contains('show')) closeProduct();
-  closeLote();
-  $('delModal').classList.remove('show');
+  if ($('loteModal').classList.contains('show')) closeLote();
+  if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
+  $('cliModal').classList.remove('show');
+  $('receipt').classList.remove('show');
+  if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
+/* =================== Equipo (discreto) =================== */
+function medidor(id, pct, texto, alto) {
+  const v = Math.max(0, Math.min(100, pct || 0));
+  $('m-' + id).style.width = v + '%';
+  $('m-' + id).classList.toggle('alto', !!alto);
+  $('t-' + id).textContent = texto ?? (Math.round(v) + '%');
+}
 async function refreshSystem() {
-  try {
-    const r = await api('/api/system');
-    if (!r.ok) return;
-    const s = await r.json();
-    setGauge('g-cpu', s.cpu); setGauge('g-ram', s.ram); setGauge('g-disk', s.disk);
-    $('i-os').textContent = s.os;
-    $('i-cores').textContent = s.cores;
-    $('i-ram').textContent = s.ramTotalGb ? s.ramTotalGb + ' GB' : '—';
-    $('i-disk').textContent = s.diskFreeGb + ' GB';
-    $('i-host').textContent = s.host;
-    $('i-ip').textContent = s.ip + ':' + s.port;
-    const m = s.uptimeMin;
-    $('i-up').textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
-    if ((s.negocio || '') !== $('negocio').textContent) {   // jarvis.negocio en application.properties
-      $('negocio').textContent = s.negocio || '';
-      document.title = s.negocio ? s.negocio + ' · J.A.R.V.I.S.' : 'J.A.R.V.I.S.';
-    }
-  } catch (e) {}
+  const s = await traer('/api/system');
+  if (!s) return;
+  medidor('cpu', s.cpu, null, s.cpu > 85); medidor('ram', s.ram, null, s.ram > 85); medidor('disk', s.disk, null, s.disk > 90);
+  $('i-os').textContent = s.os;
+  $('i-ip').textContent = s.ip + ':' + s.port;
+  const m = s.uptimeMin;
+  $('i-up').textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
+  negocio.ruc = s.negocioRuc || ''; negocio.direccion = s.negocioDireccion || '';
+  if ((s.negocio || '') !== negocio.nombre) {   // jarvis.negocio en application.properties
+    negocio.nombre = s.negocio || '';
+    $('negocio').textContent = negocio.nombre || 'Asistente de inventario';
+    document.title = negocio.nombre ? negocio.nombre + ' · J.A.R.V.I.S.' : 'J.A.R.V.I.S.';
+    pintarSaludo();
+  }
 }
 if (navigator.getBattery) {
   navigator.getBattery().then(b => {
-    const upd = () => setGauge('g-bat', b.level * 100, Math.round(b.level * 100) + (b.charging ? '%⚡' : '%'));
+    const upd = () => medidor('bat', b.level * 100, Math.round(b.level * 100) + (b.charging ? '% ⚡' : '%'), b.level < .2 && !b.charging);
     upd(); b.onlevelchange = upd; b.onchargingchange = upd;
   });
-} else { setGauge('g-bat', 0, 'N/D'); }
+} else { medidor('bat', 0, 'N/D'); }
 
-/* =================== Micrófono (nivel de audio para el reactor) =================== */
+/* =================== Micrófono (nivel de audio para el orbe) =================== */
 let analyser = null, freq = new Uint8Array(64), micLevel = 0;
 async function initMicMeter() {
   if (analyser || !navigator.mediaDevices?.getUserMedia) return;
@@ -1166,7 +1691,6 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOK = !!SR && window.isSecureContext;
 let rec = null, recMode = null, handsFree = false, awaitingCommand = false;
 const WAKE = /\b(jarvis|yarvis|harvis|jarbis|yarbis|charvis)\b/i;
-
 function startRec(mode) {
   if (!voiceOK || dictando) return;
   stopRec();
@@ -1197,7 +1721,7 @@ function startRec(mode) {
   };
   rec.onerror = e => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      handsFree = false; $('hfBtn').classList.remove('on');
+      handsFree = false; pintarManosLibres();
       addEntry('sys', 'Permiso de micrófono denegado.');
     }
   };
@@ -1206,13 +1730,14 @@ function startRec(mode) {
     if (handsFree && (state === 'idle' || state === 'listening')) {
       setTimeout(() => { if (!rec && handsFree && (state === 'idle' || state === 'listening')) startRec('wake'); }, 250);
     } else if (wasMode === 'single' && state === 'listening') {
-      setState('idle'); transcriptEl.textContent = '';
+      setState('idle'); transcriptEl.textContent = ''; $('micBtn').classList.remove('activo');
     }
   };
   try { rec.start(); } catch (e) {}
-  if (mode === 'single') setState('listening');
+  if (mode === 'single') { setState('listening'); $('micBtn').classList.add('activo'); }
 }
 function stopRec() {
+  $('micBtn').classList.remove('activo');
   if (!rec) return;
   rec.onend = rec.onresult = rec.onerror = null;
   try { rec.abort(); } catch (e) {}
@@ -1222,7 +1747,6 @@ function resumeIdle() {
   setState('idle');
   if (handsFree) startRec('wake');
 }
-
 function listenOnce() {
   if (!voiceOK) { noVoiceHint(); return; }
   speechSynthesis.cancel();
@@ -1235,124 +1759,94 @@ function noVoiceHint() {
     : 'El micrófono requiere HTTPS en este dispositivo (vea el README). Puede escribir la orden.');
   $('input').focus();
 }
+function pintarManosLibres() {
+  $('hfBtn').classList.toggle('activo', handsFree);
+  $('hfBtn').setAttribute('aria-checked', String(handsFree));
+}
 $('reactor').onclick = listenOnce;
 $('micBtn').onclick = listenOnce;
 $('hfBtn').onclick = () => {
   if (!voiceOK) { noVoiceHint(); return; }
   handsFree = !handsFree;
-  $('hfBtn').classList.toggle('on', handsFree);
-  if (handsFree) { addEntry('sys', 'Modo manos libres activado. Diga "Jarvis" seguido de su orden.'); if (state === 'idle') startRec('wake'); setState(state); }
+  pintarManosLibres();
+  if (handsFree) { addEntry('sys', 'Manos libres activado. Diga “Jarvis” seguido de su orden.'); if (state === 'idle') startRec('wake'); setState(state); }
   else { stopRec(); awaitingCommand = false; setState('idle'); }
 };
 
-$('input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { send($('input').value); $('input').value = ''; }
-});
-document.querySelectorAll('.chip').forEach(c => c.onclick = () => send(c.textContent));
-
-/* =================== Reactor (canvas) =================== */
-const cv = $('reactor');
+/* =================== Orbe de JARVIS (canvas) =================== */
+let acento = '60,194,227';
+function leerColores() { acento = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || acento; }
+leerColores();
 let level = 0.05;
-function frame(t) {
-  const dpr = window.devicePixelRatio || 1;
-  const w = cv.clientWidth || 300;
+function dibujarOrbe(cv, t, fondoOscuro) {
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth || 46;
+  if (!w) return;
   if (cv.width !== Math.round(w * dpr)) { cv.width = cv.height = Math.round(w * dpr); }
   const ctx = cv.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, w);
-
+  const col = state === 'thinking' ? '232,166,74' : fondoOscuro ? '63,203,234' : acento;
+  const spd = state === 'thinking' ? 4 : state === 'speaking' ? 1.8 : 1;
+  const c = w / 2, R = w / 2 - 1.5, TAU = Math.PI * 2;
+  const arco = (r, ancho, segs, rot, alfa) => {
+    ctx.save(); ctx.translate(c, c); ctx.rotate(rot);
+    ctx.strokeStyle = `rgba(${col},${alfa})`; ctx.lineWidth = ancho; ctx.lineCap = 'round';
+    for (const [a, b] of segs) { ctx.beginPath(); ctx.arc(0, 0, r, a, b); ctx.stroke(); }
+    ctx.restore();
+  };
+  arco(R * 0.92, Math.max(1.4, R * 0.07), [[0, 1.3], [1.7, 3.2], [3.6, 4.4], [4.8, 6.0]], t * 0.0006 * spd, 0.9);
+  arco(R * 0.74, Math.max(1, R * 0.05), [[0.3, 1.6], [2.4, 3.7], [4.5, 5.8]], -t * 0.0009 * spd, 0.5);
+  // ecualizador: reacciona a la voz al escuchar y al hablar
+  const N = 28;
+  ctx.save(); ctx.translate(c, c);
+  for (let i = 0; i < N; i++) {
+    const a = i / N * TAU - t * 0.0003;
+    const f = state === 'listening' && analyser ? freq[i % freq.length] / 255 : 0.5 + 0.5 * Math.sin(i * 1.7 + t / 140);
+    const v = level * (0.3 + f), r0 = R * 0.5, r1 = r0 + R * 0.04 + v * R * 0.2;
+    ctx.strokeStyle = `rgba(${col},${0.25 + Math.min(level, 1) * 0.7})`; ctx.lineWidth = Math.max(1, R * 0.045);
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
+  }
+  ctx.restore();
+  const cr = R * (0.26 + level * 0.12);
+  const g = ctx.createRadialGradient(c, c, 0, c, c, cr * 1.6);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, `rgba(${col},0.95)`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, cr * 1.6, 0, TAU); ctx.fill();
+}
+function frame(t) {
   if (analyser) {
     analyser.getByteFrequencyData(freq);
     let sum = 0; for (let i = 0; i < freq.length; i++) sum += freq[i];
     micLevel = sum / freq.length / 255;
   }
-  let target = 0.06 + Math.sin(t / 900) * 0.02;
-  if (state === 'listening') target = 0.12 + micLevel * 2.4;
-  else if (state === 'speaking') target = 0.3 + 0.22 * Math.abs(Math.sin(t / 85)) + speakKick;
-  else if (state === 'thinking') target = 0.22;
+  let target = 0.08 + Math.sin(t / 900) * 0.03;
+  if (state === 'listening') target = 0.15 + micLevel * 2.4;
+  else if (state === 'speaking') target = 0.35 + 0.25 * Math.abs(Math.sin(t / 85)) + speakKick;
+  else if (state === 'thinking') target = 0.25;
   speakKick *= 0.88;
   level += (Math.min(target, 1) - level) * 0.15;
-
-  const col = state === 'thinking' ? '255,180,60' : '79,216,255';
-  const spd = state === 'thinking' ? 5 : state === 'speaking' ? 1.8 : 1;
-  const c = w / 2, R = w / 2 - 4, TAU = Math.PI * 2;
-
-  const arcs = (r, width, segs, rot, alpha) => {
-    ctx.save(); ctx.translate(c, c); ctx.rotate(rot);
-    ctx.strokeStyle = `rgba(${col},${alpha})`; ctx.lineWidth = width;
-    for (const [a, b] of segs) { ctx.beginPath(); ctx.arc(0, 0, r, a, b); ctx.stroke(); }
-    ctx.restore();
-  };
-
-  // 1. regla exterior
-  ctx.save(); ctx.translate(c, c); ctx.rotate(t * 0.00005 * spd);
-  for (let i = 0; i < 180; i++) {
-    const a = i / 180 * TAU, big = i % 15 === 0, len = big ? R * 0.05 : R * 0.022;
-    ctx.strokeStyle = `rgba(${col},${big ? 0.9 : 0.3})`; ctx.lineWidth = big ? 2 : 1;
-    ctx.beginPath(); ctx.moveTo(Math.cos(a) * R, Math.sin(a) * R); ctx.lineTo(Math.cos(a) * (R - len), Math.sin(a) * (R - len)); ctx.stroke();
-  }
-  ctx.restore();
-
-  // 2. anillos segmentados
-  arcs(R * 0.89, R * 0.02, [[0, 1.1], [1.4, 2.2], [2.5, 3.9], [4.2, 4.6], [4.9, 6.0]], t * 0.0003 * spd, 0.85);
-  arcs(R * 0.83, 1, [[0, TAU]], 0, 0.25);
-  arcs(R * 0.76, R * 0.07, [[0.2, 0.9], [2.3, 3.0], [4.4, 5.1]], -t * 0.0005 * spd, 0.28);
-  ctx.save(); ctx.translate(c, c); ctx.rotate(t * 0.0008 * spd); ctx.setLineDash([3, 7]);
-  ctx.strokeStyle = `rgba(${col},.55)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, R * 0.66, 0, TAU); ctx.stroke(); ctx.restore();
-
-  // 3. ecualizador circular (reacciona a la voz)
-  ctx.save(); ctx.translate(c, c);
-  const N = 72;
-  for (let i = 0; i < N; i++) {
-    const a = i / N * TAU - t * 0.0002;
-    const f = state === 'listening' && analyser ? freq[i % freq.length] / 255 : 0.5 + 0.5 * Math.sin(i * 1.7 + t / 140);
-    const v = level * (0.35 + f);
-    const r0 = R * 0.52, r1 = r0 + R * 0.015 + v * R * 0.13;
-    ctx.strokeStyle = `rgba(${col},${0.3 + Math.min(level, 1) * 0.7})`; ctx.lineWidth = Math.max(1.5, R * 0.012);
-    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
-  }
-  ctx.restore();
-
-  // 4. reactor interior
-  arcs(R * 0.46, 2, [[0, TAU]], 0, 0.5);
-  const seg = []; for (let k = 0; k < 10; k++) seg.push([k * TAU / 10 + 0.06, (k + 1) * TAU / 10 - 0.06]);
-  arcs(R * 0.40, R * 0.06, seg, -t * 0.0009 * spd, 0.75);
-  arcs(R * 0.32, 1.5, [[0, TAU]], 0, 0.6);
-
-  // 5. núcleo brillante
-  const cr = R * (0.2 + level * 0.09);
-  const g = ctx.createRadialGradient(c, c, 0, c, c, cr * 1.7);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.25, `rgba(${col},0.95)`);
-  g.addColorStop(0.6, `rgba(${col},0.25)`);
-  g.addColorStop(1, `rgba(${col},0)`);
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, cr * 1.7, 0, TAU); ctx.fill();
-
+  dibujarOrbe($('reactor'), t, false);
+  if (getComputedStyle($('abrirAsistente')).display !== 'none') dibujarOrbe($('orbeFab'), t, true);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-/* =================== Secuencia de arranque =================== */
-const BOOT = ['NÚCLEO DE INVENTARIO', 'MÓDULO DE VOZ', 'RECONOCIMIENTO DE HABLA', 'ENLACE CON SISTEMA LOCAL', 'RED INALÁMBRICA', 'PROTOCOLOS DE SEGURIDAD'];
-async function boot() {
-  $('bootBtn').style.display = 'none';
-  const box = $('bootLines');
-  for (const name of BOOT) {
-    const d = document.createElement('div');
-    d.innerHTML = 'INICIALIZANDO ' + name + '… <b></b>';
-    box.appendChild(d);
-    await new Promise(r => setTimeout(r, 260));
-    d.querySelector('b').textContent = (name === 'RECONOCIMIENTO DE HABLA' && !voiceOK) ? 'TEXTO' : 'OK';
-  }
-  await new Promise(r => setTimeout(r, 350));
-  $('boot').classList.add('fade');
-  setTimeout(() => $('boot').remove(), 900);
-  refreshSystem(); setInterval(refreshSystem, 3000);
+/* =================== Arranque =================== */
+function refrescarDatos() {
   refreshInventory(); refreshCart();
-  setState('idle');
-  send('hola jarvis', true);
+  if (vista === 'comprobantes') refreshComprobantes();
+  if (vista === 'clientes') refreshClientes();
+  if (vista === 'inicio') refreshResumen();
 }
-$('bootBtn').onclick = () => { getToken(); boot(); };
+function refrescarTodo() { refreshSystem(); refrescarDatos(); }
+(async function arrancar() {
+  getToken();
+  irA(location.hash.slice(1) || 'inicio');
+  setState('idle');
+  await refreshSystem();
+  refrescarDatos();
+  setInterval(refreshSystem, 5000);
+  send('hola jarvis', true);
+})();
 </script>
 </body>
 </html>
