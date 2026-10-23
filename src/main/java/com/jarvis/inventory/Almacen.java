@@ -21,7 +21,12 @@ final class Almacen {
     /** Un movimiento del historial y el producto al que se refiere (null si ya no existe o es general). */
     record Pendiente(Movimiento movimiento, Producto producto) {}
 
-    record Estado(List<Producto> productos, List<InventoryService.Venta> ventas, int ultimoNumero) {}
+    /**
+     * @param cabeceras  datos de cada comprobante que no están en sus líneas (tipo, serie, cliente, IGV), por número
+     * @param contadores último número usado: {@value #ULTIMO_COMPROBANTE} y uno por serie ("serie:B001")
+     */
+    record Estado(List<Producto> productos, List<InventoryService.Venta> ventas,
+                  Map<Integer, InventoryService.Cabecera> cabeceras, Map<String, Integer> contadores) {}
 
     /** Los valores tal como están en la base: si la foto es igual a la fila actual, no se escribe nada. */
     private record FilaProducto(String nombre, String alias, long stock, long stockMin, long precio, String unidad,
@@ -30,20 +35,23 @@ final class Almacen {
     private record FilaVenta(long comprobanteId, int item, Long productoId, String producto, long cantidad, String unidad,
                              long precio, long monto, Long costo, boolean anulada) {}
 
-    private static final String ULTIMO_COMPROBANTE = "ultimo_comprobante";
+    static final String ULTIMO_COMPROBANTE = "ultimo_comprobante";
 
     private final BaseDatos db;
     private final ObjectMapper json = new ObjectMapper();
     private final Map<Producto, FilaProducto> fotosProductos = new IdentityHashMap<>();
     private final Map<InventoryService.Venta, FilaVenta> fotosVentas = new IdentityHashMap<>();
     private final Map<Integer, Long> comprobantePorNumero = new HashMap<>();
-    private int ultimoGuardado;
+    private final Map<String, Integer> contadoresGuardados = new HashMap<>();
 
     Almacen(Path archivo) {
         this.db = new BaseDatos(archivo);
     }
 
     Path archivo() { return db.archivo(); }
+
+    /** Para lo que se lee y escribe directo, sin pasar por las listas en memoria (clientes). */
+    BaseDatos baseDatos() { return db; }
 
     boolean vacio() { return db.vacia(); }
 
@@ -79,10 +87,18 @@ final class Almacen {
                     fotosProductos.put(p, fila(p, p.id));
                 }
             }
-            try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("SELECT id, numero FROM comprobante")) {
+            Map<Integer, InventoryService.Cabecera> cabeceras = new HashMap<>();
+            try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("""
+                    SELECT id, numero, tipo, correlativo, cliente_id, cliente_doc, cliente_nombre, modo_igv FROM comprobante""")) {
                 while (rs.next()) {
                     int numero = rs.getInt("numero");
-                    if (!rs.wasNull()) comprobantePorNumero.put(numero, rs.getLong("id"));
+                    if (rs.wasNull()) continue;
+                    comprobantePorNumero.put(numero, rs.getLong("id"));
+                    long cliente = rs.getLong("cliente_id");
+                    Long clienteId = rs.wasNull() ? null : cliente;
+                    TipoComprobante tipo = TipoComprobante.valueOf(rs.getString("tipo"));
+                    cabeceras.put(numero, new InventoryService.Cabecera(tipo, rs.getInt("correlativo"), clienteId,
+                            rs.getString("cliente_doc"), rs.getString("cliente_nombre"), Igv.Modo.valueOf(rs.getString("modo_igv"))));
                 }
             }
             List<InventoryService.Venta> ventas = new ArrayList<>();
@@ -109,14 +125,11 @@ final class Almacen {
                     ventas.add(v);
                 }
             }
-            int ultimo = 0;
-            try (PreparedStatement ps = cx.prepareStatement("SELECT valor FROM contador WHERE nombre = ?")) {
-                ps.setString(1, ULTIMO_COMPROBANTE);
-                try (ResultSet rs = ps.executeQuery()) { if (rs.next()) ultimo = rs.getInt(1); }
+            contadoresGuardados.clear();
+            try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("SELECT nombre, valor FROM contador")) {
+                while (rs.next()) contadoresGuardados.put(rs.getString(1), rs.getInt(2));
             }
-            ultimoGuardado = ultimo;
-            int maximo = comprobantePorNumero.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-            return new Estado(productos, ventas, Math.max(ultimo, maximo));
+            return new Estado(productos, ventas, cabeceras, new HashMap<>(contadoresGuardados));
         });
     }
 
@@ -146,8 +159,8 @@ final class Almacen {
      * Escribe las diferencias con la última foto y los movimientos pendientes, todo en una transacción.
      * Si falla no cambia nada en la base ni en las fotos: quien llama debe volver a cargar.
      */
-    void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, int ultimoNumero,
-                 List<Pendiente> movimientos) throws SQLException {
+    void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
+                 Map<String, Integer> contadores, List<Pendiente> movimientos) throws SQLException {
         Map<Producto, Long> idsNuevos = new IdentityHashMap<>();
         Map<Producto, FilaProducto> fotosP = new IdentityHashMap<>();
         Map<InventoryService.Venta, Long> idsVentas = new IdentityHashMap<>();
@@ -197,8 +210,13 @@ final class Almacen {
                 if (v.comprobanteId != null) { comprobanteDe.put(v, v.comprobanteId); continue; }
                 Long cid = v.numero > 0 ? numerosNuevos.getOrDefault(v.numero, comprobantePorNumero.get(v.numero)) : null;
                 if (cid == null) {
-                    cid = insertar(cx, "INSERT INTO comprobante (numero, fecha, hora) VALUES (?,?,?)",
-                            v.numero > 0 ? v.numero : null, v.fecha == null ? "" : v.fecha, v.hora == null ? "" : v.hora);
+                    InventoryService.Cabecera cab = cabecera(cabeceras, v.numero);
+                    cid = insertar(cx, """
+                            INSERT INTO comprobante (numero, fecha, hora, tipo, serie, correlativo, cliente_id, cliente_doc,
+                                                     cliente_nombre, modo_igv) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                            v.numero > 0 ? v.numero : null, v.fecha == null ? "" : v.fecha, v.hora == null ? "" : v.hora,
+                            cab.tipo().name(), cab.tipo().serie, cab.correlativo() > 0 ? cab.correlativo() : null,
+                            cab.clienteId(), nz(cab.clienteDoc()), nz(cab.clienteNombre()), cab.modo().name());
                     if (v.numero > 0) numerosNuevos.put(v.numero, cid);
                 }
                 comprobanteDe.put(v, cid);
@@ -235,9 +253,11 @@ final class Almacen {
                     numerosNuevos.values().remove(cid);
                     continue;
                 }
-                long total = lineas.stream().mapToLong(v -> Num.aEntero(v.monto, Num.CENT)).sum();
+                Igv.Totales t = Igv.calcular(lineas.stream().map(v -> v.monto).toList(), cabecera(cabeceras, lineas.get(0).numero).modo());
                 boolean anulado = lineas.stream().allMatch(v -> v.anulada);
-                ejecutar(cx, "UPDATE comprobante SET anulado = ?, total_cent = ? WHERE id = ?", anulado ? 1 : 0, total, cid);
+                ejecutar(cx, "UPDATE comprobante SET anulado = ?, base_cent = ?, igv_cent = ?, total_cent = ? WHERE id = ?",
+                        anulado ? 1 : 0, Num.aEntero(t.base(), Num.CENT), Num.aEntero(t.igv(), Num.CENT),
+                        Num.aEntero(t.total(), Num.CENT), cid);
             }
 
             // 3) historial y correlativo
@@ -250,8 +270,9 @@ final class Almacen {
                         mv.fecha(), mv.tipo(), mv.producto(), pid, Num.aEntero(mv.cantidad(), Num.MIL),
                         mv.detalle() == null ? "" : mv.detalle(), mv.usuario() == null ? "" : mv.usuario());
             }
-            if (ultimoNumero != ultimoGuardado)
-                ejecutar(cx, "INSERT OR REPLACE INTO contador (nombre, valor) VALUES (?, ?)", ULTIMO_COMPROBANTE, ultimoNumero);
+            for (Map.Entry<String, Integer> c : contadores.entrySet())
+                if (!c.getValue().equals(contadoresGuardados.get(c.getKey())))
+                    ejecutar(cx, "INSERT OR REPLACE INTO contador (nombre, valor) VALUES (?, ?)", c.getKey(), c.getValue());
             return null;
         });
 
@@ -265,10 +286,21 @@ final class Almacen {
         fotosVentas.putAll(fotosV);
         numerosBorrados.forEach(comprobantePorNumero::remove);
         comprobantePorNumero.putAll(numerosNuevos);
-        ultimoGuardado = ultimoNumero;
+        contadoresGuardados.putAll(contadores);
     }
 
     // ---------------------------------------------------------------- apoyo
+
+    /**
+     * La cabecera del comprobante; si no hay (ventas de versiones anteriores, sin tipo ni IGV), una nota de venta
+     * con el mismo número y sin IGV, igual que al pasar la base a la versión 2.
+     */
+    static InventoryService.Cabecera cabecera(Map<Integer, InventoryService.Cabecera> cabeceras, int numero) {
+        InventoryService.Cabecera c = numero > 0 ? cabeceras.get(numero) : null;
+        return c != null ? c : new InventoryService.Cabecera(TipoComprobante.NOTA_VENTA, numero, null, "", "", Igv.Modo.EXONERADO);
+    }
+
+    private static String nz(String s) { return s == null ? "" : s; }
 
     private FilaProducto fila(Producto p, Long id) {
         return new FilaProducto(p.nombre, aliasJson(p.alias), Num.aEntero(p.stock, Num.MIL), Num.aEntero(p.stockMin, Num.MIL),

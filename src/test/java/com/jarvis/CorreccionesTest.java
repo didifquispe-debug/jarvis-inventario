@@ -44,13 +44,13 @@ class CorreccionesTest {
         BigDecimal antes = stock("Cemento");
         assertTrue(jarvis.process("vendí 2 bolsas de cemento").startsWith("Venta registrada"));
         String pregunta = jarvis.process("anula la última venta");
-        assertTrue(pregunta.startsWith("¿Confirma anular el comprobante número"), pregunta);
+        assertTrue(pregunta.startsWith("¿Confirma anular la boleta número"), pregunta);
         assertEquals(antes.subtract(new BigDecimal("2")), stock("Cemento"), "aún no se anuló");
         String r = jarvis.process("sí");
         assertTrue(r.startsWith("Venta anulada"), r);
         assertEquals(antes, stock("Cemento"));
-        assertTrue(jarvis.process("anula la última venta").contains("ya está anulado"));
-        assertTrue(jarvis.process("último comprobante").contains("(ANULADO)"));
+        assertTrue(jarvis.process("anula la última venta").contains("ya está anulada"));
+        assertTrue(jarvis.process("último comprobante").contains("(ANULADA)"));
     }
 
     @Test void anularYDecirNoNoCambiaNada() {
