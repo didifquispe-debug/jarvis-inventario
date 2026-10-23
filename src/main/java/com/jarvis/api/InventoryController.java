@@ -29,13 +29,18 @@ import java.util.Map;
  *   POST   /api/inventory/ventas/ultima/anular     -> anula el último comprobante y devuelve el stock
  *   PUT    /api/inventory/ventas/ultima            { "producto": "Polera roja M", "cantidad": 3 }  (producto opcional si hay una sola línea)
  *   POST   /api/inventory/productos                { "nombre": "Polera roja M", "precio": 25, "stock": 10, "unidad": "unidades",
- *                                                    "stockMin": 2, "alias": ["polo rojo"] }  (stock, stockMin y alias opcionales)
+ *                                                    "stockMin": 2, "alias": ["polo rojo"], "categoria": "Polos", "codigo": "POL-R-M",
+ *                                                    "codigoBarras": "7750182000123", "costo": 14.5 }  (solo nombre, precio y unidad son obligatorios)
  *   PATCH  /api/inventory/productos                { "nombre": "Polera roja M", "nuevoNombre": "…", "precio": 28, "stock": 12,
- *                                                    "stockMin": 3, "unidad": "unidades", "alias": ["…"] }  (solo lo que cambia)
+ *                                                    "stockMin": 3, "unidad": "unidades", "alias": ["…"], "categoria": "…", "codigo": "…",
+ *                                                    "codigoBarras": "…", "costo": 15, "quitarCosto": true }  (solo lo que cambia;
+ *                                                    categoria/codigo/codigoBarras "" los borra)
  *   POST   /api/inventory/productos/ajuste         { "nombre": "Polera roja M", "cantidad": -1 }  (botones +/-, sin comprobante)
  *   POST   /api/inventory/productos/lote           alta masiva ("Cargar lista"), en uno de dos formatos:
- *            application/json  [ { "nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2 }, … ]
- *            text/plain        una línea por producto: Nombre, Precio, Stock, Unidad, [StockMín]  (ver ListaProductos)
+ *            application/json  [ { "nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2,
+ *                                  "costo": 14, "categoria": "Polos", "codigo": "…", "codigoBarras": "…" }, … ]
+ *            text/plain        una línea por producto: Nombre, Precio, Stock, Unidad, [StockMín], [Costo], [Categoría], [Código],
+ *                              [Código de barras]  (ver ListaProductos)
  *          -> { ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }
  *   DELETE /api/inventory/productos?nombre=Polera roja M
  *
@@ -54,9 +59,13 @@ public class InventoryController {
     }
 
     public record CorreccionVenta(String producto, BigDecimal cantidad) {}
-    public record NuevoProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad, BigDecimal stockMin, List<String> alias) {}
+    public record NuevoProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad, BigDecimal stockMin, List<String> alias,
+                                String categoria, String codigo, String codigoBarras, BigDecimal costo) {
+        Producto.Ficha ficha() { return new Producto.Ficha(categoria, codigo, codigoBarras, costo); }
+    }
     public record EdicionProducto(String nombre, String nuevoNombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin,
-                                  String unidad, List<String> alias) {}
+                                  String unidad, List<String> alias, String categoria, String codigo, String codigoBarras,
+                                  BigDecimal costo, Boolean quitarCosto) {}
     public record AjusteStock(String nombre, BigDecimal cantidad) {}
 
     @GetMapping
@@ -87,13 +96,15 @@ public class InventoryController {
 
     @PostMapping("/productos")
     public ResponseEntity<Map<String, Object>> crear(@RequestBody NuevoProducto req) {
-        return responder(inv.crearProducto(req.nombre(), req.precio(), req.stock(), req.unidad(), req.stockMin(), req.alias()));
+        return responder(inv.crearProducto(req.nombre(), req.precio(), req.stock(), req.unidad(), req.stockMin(), req.alias(), req.ficha()));
     }
 
     @PatchMapping("/productos")
     public ResponseEntity<Map<String, Object>> editar(@RequestBody EdicionProducto req) {
         return responder(inv.editarProducto(req.nombre(), true, new InventoryService.Cambios(
-                req.nuevoNombre(), req.precio(), req.stock(), req.stockMin(), req.unidad(), req.alias())));
+                req.nuevoNombre(), req.precio(), req.stock(), req.stockMin(), req.unidad(), req.alias(),
+                new Producto.Ficha(req.categoria(), req.codigo(), req.codigoBarras(), req.costo()),
+                Boolean.TRUE.equals(req.quitarCosto()))));
     }
 
     @PostMapping("/productos/ajuste")
@@ -110,7 +121,7 @@ public class InventoryController {
         for (int i = 0; i < lista.size(); i++) {
             NuevoProducto p = lista.get(i);
             if (p == null) errores.add(new ListaProductos.ErrorLinea(i + 1, "producto vacío"));
-            else filas.add(new ListaProductos.Fila(i + 1, p.nombre(), p.precio(), p.stock(), p.unidad(), p.stockMin()));
+            else filas.add(new ListaProductos.Fila(i + 1, p.nombre(), p.precio(), p.stock(), p.unidad(), p.stockMin(), p.ficha()));
         }
         return responderLote(new ListaProductos.Lectura(filas, errores));
     }

@@ -6,12 +6,12 @@ import java.util.List;
 
 /**
  * Lee la lista que se pega en "Cargar lista": una línea por producto, en este orden
- * {@code Nombre, Precio, Stock, Unidad, [StockMín]}.
+ * {@code Nombre, Precio, Stock, Unidad, [StockMín], [Costo], [Categoría], [Código], [Código de barras]}.
  * <ul>
  *   <li>Separador: tabulador (lo que copia Excel), punto y coma o coma, el primero que aparezca en la línea
  *       en ese orden. Con tabulador o punto y coma el decimal puede ir con coma ("25,50").</li>
  *   <li>Se ignoran las líneas vacías, las que empiezan con # y un encabezado "Nombre, Precio, …".</li>
- *   <li>Sin unidad = "unidades"; sin stock = 0. El precio es obligatorio.</li>
+ *   <li>Sin unidad = "unidades"; sin stock = 0. El precio es obligatorio; los cuatro últimos campos son opcionales.</li>
  * </ul>
  * Aquí solo se entiende el texto; las reglas del producto (negativos, duplicados…) las aplica InventoryService.
  */
@@ -23,7 +23,8 @@ public final class ListaProductos {
     public static final int MAX_FILAS = 5000;
 
     /** Un producto de la lista. {@code linea}: número de línea del texto (o posición en el JSON), desde 1. */
-    public record Fila(int linea, String nombre, BigDecimal precio, BigDecimal stock, String unidad, BigDecimal stockMin) {}
+    public record Fila(int linea, String nombre, BigDecimal precio, BigDecimal stock, String unidad, BigDecimal stockMin,
+                       Producto.Ficha ficha) {}
 
     /** Una línea que no se pudo registrar y por qué. */
     public record ErrorLinea(int linea, String motivo) {}
@@ -51,19 +52,22 @@ public final class ListaProductos {
             filas.add(new Fila(n, c.get(0), numero(c.get(1)),
                     campo(c, 2).isEmpty() ? BigDecimal.ZERO : numero(c.get(2)),
                     campo(c, 3).isEmpty() ? "unidades" : c.get(3),
-                    campo(c, 4).isEmpty() ? null : numero(c.get(4))));
+                    campo(c, 4).isEmpty() ? null : numero(c.get(4)),
+                    new Producto.Ficha(campo(c, 6), campo(c, 7), campo(c, 8), campo(c, 5).isEmpty() ? null : numero(c.get(5)))));
         }
         return new Lectura(filas, errores);
     }
 
     /** Lo que impide leer la línea, o null si se puede. */
     private static String errorDe(List<String> c) {
-        if (c.size() > 5) return "sobran campos (son 5 como máximo: nombre, precio, stock, unidad, stock mínimo)";
+        if (c.size() > 9) return "sobran campos (son 9 como máximo: nombre, precio, stock, unidad, stock mínimo, "
+                + "costo, categoría, código, código de barras)";
         if (c.get(0).isEmpty()) return "nombre vacío";
         if (campo(c, 1).isEmpty()) return "precio vacío";
         if (numero(c.get(1)) == null) return "el precio no es un número: \"" + c.get(1) + "\"";
         if (!campo(c, 2).isEmpty() && numero(c.get(2)) == null) return "el stock no es un número: \"" + c.get(2) + "\"";
         if (!campo(c, 4).isEmpty() && numero(c.get(4)) == null) return "el stock mínimo no es un número: \"" + c.get(4) + "\"";
+        if (!campo(c, 5).isEmpty() && numero(c.get(5)) == null) return "el costo no es un número: \"" + c.get(5) + "\"";
         return null;
     }
 

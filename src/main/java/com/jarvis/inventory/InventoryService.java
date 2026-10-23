@@ -57,15 +57,17 @@ public class InventoryService {
         public String fecha; public String hora;
         public String producto; public BigDecimal cantidad; public String unidad;
         public BigDecimal precioUnitario; public BigDecimal monto;
+        public BigDecimal costoUnitario;   // costo del producto al momento de vender (null = no registrado), para la ganancia
         public boolean anulada;            // anulada: no cuenta en el cierre, el stock se devolvió
         public Venta() {}
         public Venta(int n, String f, String h, Producto p, BigDecimal c) {
             numero = n; fecha = f; hora = h; producto = p.nombre; cantidad = Num.cantidad(c); unidad = p.unidad;
-            precioUnitario = p.precio; monto = Num.monto(p.precio, c);
+            precioUnitario = p.precio; monto = Num.monto(p.precio, c); costoUnitario = p.costo;
         }
         void normalizar() {
             cantidad = Num.cantidad(cantidad == null ? BigDecimal.ZERO : cantidad);
             precioUnitario = Num.dinero(precioUnitario == null ? BigDecimal.ZERO : precioUnitario);
+            costoUnitario = Num.dinero(costoUnitario);
             monto = Num.dinero(monto == null ? Num.monto(precioUnitario, cantidad) : monto);
         }
     }
@@ -713,33 +715,78 @@ public class InventoryService {
                 c.numero, que, corregido.total, Num.txt(p.stock))));
     }
 
-    /** Cambios de un producto desde la pantalla. Los null no se tocan. */
-    public record Cambios(String nombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin, String unidad, List<String> alias) {
+    /**
+     * Cambios de un producto desde la pantalla. Los null no se tocan. En la ficha, un texto "" borra ese dato;
+     * {@code quitarCosto} borra el costo (null en la ficha significa "no tocar").
+     */
+    public record Cambios(String nombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin, String unidad, List<String> alias,
+                          Producto.Ficha ficha, boolean quitarCosto) {
+        public Cambios(String nombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin, String unidad, List<String> alias) {
+            this(nombre, precio, stock, stockMin, unidad, alias, Producto.Ficha.VACIA, false);
+        }
         boolean vacio() {
             return (nombre == null || nombre.isBlank()) && precio == null && stock == null && stockMin == null
-                    && (unidad == null || unidad.isBlank()) && alias == null;
+                    && (unidad == null || unidad.isBlank()) && alias == null
+                    && (ficha == null || ficha.equals(Producto.Ficha.VACIA)) && !quitarCosto;
         }
     }
 
-    private static final int MAX_NOMBRE = 80, MAX_UNIDAD = 20;
+    private static final int MAX_NOMBRE = 80, MAX_UNIDAD = 20, MAX_CATEGORIA = 40, MAX_CODIGO = 40;
+
+    public synchronized Resultado crearProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad,
+                                                BigDecimal stockMin, List<String> alias) {
+        return crearProducto(nombre, precio, stock, unidad, stockMin, alias, Producto.Ficha.VACIA);
+    }
 
     /**
      * Crea un producto desde la pantalla. Nombre, precio y unidad son obligatorios; el stock inicial,
-     * el stock mínimo y los alias son opcionales. No admite dos productos con el mismo nombre
-     * (sin importar mayúsculas ni tildes).
+     * el stock mínimo, los alias y la ficha (categoría, códigos, costo) son opcionales. No admite dos productos
+     * con el mismo nombre (sin importar mayúsculas ni tildes) ni con el mismo código.
      */
     public synchronized Resultado crearProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad,
-                                                BigDecimal stockMin, List<String> alias) {
+                                                BigDecimal stockMin, List<String> alias, Producto.Ficha ficha) {
         String n = limpiarNombre(nombre);
         String u = unidad == null ? "" : unidad.trim().toLowerCase();
         String error = errorAlCrear(n, precio, stock, u, stockMin);
         if (error != null) return Resultado.error(error);
         Producto repetido = mismoNombre(n, null);
         if (repetido != null) return Resultado.error("Ya existe un producto llamado " + repetido.nombre + ". Edítelo en lugar de crear otro.");
+        error = errorEnFicha(ficha, null);
+        if (error != null) return Resultado.error(error);
 
-        Producto p = nuevo(n, aliasDe(n, alias), precio, stock, u, stockMin, "");
+        Producto p = nuevo(n, aliasDe(n, alias), precio, stock, u, stockMin, ficha, "");
         return Resultado.ok(persistir("Producto registrado: " + p.nombre + ". Stock: " + Num.txt(p.stock) + " " + p.unidad
-                + String.format(". Precio: %.2f soles.", p.precio)));
+                + String.format(". Precio: %.2f soles.", p.precio) + avisoCosto(p)));
+    }
+
+    /** Sin espacios de más; null se queda null (en una edición, null es "no tocar"). */
+    private static String limpio(String s) { return s == null ? null : s.trim().replaceAll("\\s+", " "); }
+
+    /** Por qué no sirven la categoría, los códigos o el costo, o null si sirven. Un código no puede ser de otro producto. */
+    private String errorEnFicha(Producto.Ficha f, Producto excepto) {
+        if (f == null) return null;
+        String cat = limpio(f.categoria()), cod = limpio(f.codigo()), bar = limpio(f.codigoBarras());
+        if (cat != null && cat.length() > MAX_CATEGORIA) return "La categoría es muy larga (máximo " + MAX_CATEGORIA + " letras).";
+        if (cod != null && cod.length() > MAX_CODIGO) return "El código es muy largo (máximo " + MAX_CODIGO + " caracteres).";
+        if (bar != null && bar.length() > MAX_CODIGO) return "El código de barras es muy largo (máximo " + MAX_CODIGO + " caracteres).";
+        if (f.costo() != null && f.costo().signum() < 0) return "El costo no puede ser negativo.";
+        for (String c : new String[]{cod, bar}) {
+            Producto otro = conCodigo(c, excepto);
+            if (otro != null) return "El código " + c + " ya es de " + otro.nombre + ".";
+        }
+        return null;
+    }
+
+    /** Otro producto (distinto de {@code excepto}) que ya usa este código interno o de barras, o null. */
+    private Producto conCodigo(String c, Producto excepto) {
+        if (c == null || c.isBlank()) return null;
+        return productos.stream().filter(p -> p != excepto && p.tieneCodigo(c)).findFirst().orElse(null);
+    }
+
+    /** " Atención: …" si se vende por debajo del costo; "" si no. */
+    private static String avisoCosto(Producto p) {
+        return p.costo != null && p.costo.compareTo(p.precio) > 0
+                ? String.format(" Atención: el costo (%.2f soles) es mayor que el precio de venta.", p.costo) : "";
     }
 
     /** Resumen de una carga masiva. {@code omitidosDetalle}: los que no se registraron por ya existir o venir repetidos. */
@@ -760,6 +807,7 @@ public class InventoryService {
         List<ListaProductos.ErrorLinea> errores = new ArrayList<>(erroresDeLectura);
         List<ListaProductos.ErrorLinea> omitidos = new ArrayList<>();
         Map<String, Integer> enLista = new HashMap<>();   // nombre normalizado → línea donde se aceptó
+        Map<String, Integer> codigosEnLista = new HashMap<>();   // código en mayúsculas → línea donde se aceptó
         List<ListaProductos.Fila> validas = new ArrayList<>();
 
         // 1) validar todo, sin tocar el inventario
@@ -770,19 +818,37 @@ public class InventoryService {
             if (error != null) { errores.add(new ListaProductos.ErrorLinea(f.linea(), error)); continue; }
             Producto existe = mismoNombre(n, null);
             if (existe != null) { omitidos.add(new ListaProductos.ErrorLinea(f.linea(), "ya existe: " + existe.nombre)); continue; }
-            Integer antes = enLista.putIfAbsent(Palabras.norm(n), f.linea());
-            if (antes != null) { omitidos.add(new ListaProductos.ErrorLinea(f.linea(), "repetido: ya viene en la línea " + antes)); continue; }
-            validas.add(new ListaProductos.Fila(f.linea(), n, f.precio(), f.stock(), u, f.stockMin()));
+            if (enLista.containsKey(Palabras.norm(n))) {
+                omitidos.add(new ListaProductos.ErrorLinea(f.linea(), "repetido: ya viene en la línea " + enLista.get(Palabras.norm(n))));
+                continue;
+            }
+            Producto.Ficha ficha = f.ficha() == null ? Producto.Ficha.VACIA : f.ficha();
+            error = errorEnFicha(ficha, null);
+            if (error == null) error = codigoRepetidoEnLista(ficha, codigosEnLista);
+            if (error != null) { errores.add(new ListaProductos.ErrorLinea(f.linea(), error)); continue; }
+            enLista.put(Palabras.norm(n), f.linea());
+            for (String c : new String[]{limpio(ficha.codigo()), limpio(ficha.codigoBarras())})
+                if (c != null && !c.isEmpty()) codigosEnLista.putIfAbsent(c.toUpperCase(Locale.ROOT), f.linea());
+            validas.add(new ListaProductos.Fila(f.linea(), n, f.precio(), f.stock(), u, f.stockMin(), ficha));
         }
         errores.sort(Comparator.comparingInt(ListaProductos.ErrorLinea::linea));
 
         // 2) registrar los válidos y guardar una sola vez
         for (ListaProductos.Fila f : validas)
-            nuevo(f.nombre(), aliasDe(f.nombre(), null), f.precio(), f.stock(), f.unidad(), f.stockMin(), " (carga masiva)");
+            nuevo(f.nombre(), aliasDe(f.nombre(), null), f.precio(), f.stock(), f.unidad(), f.stockMin(), f.ficha(), " (carga masiva)");
         String resumen = "Carga de productos: " + validas.size() + (validas.size() == 1 ? " agregado" : " agregados")
                 + ", " + omitidos.size() + (omitidos.size() == 1 ? " omitido" : " omitidos")
                 + ", " + errores.size() + (errores.size() == 1 ? " con error." : " con errores.");
         return new ResultadoLote(validas.size(), omitidos, errores, validas.isEmpty() ? resumen : persistir(resumen));
+    }
+
+    /** Un código que ya trae una línea anterior de la misma lista, o null. */
+    private static String codigoRepetidoEnLista(Producto.Ficha f, Map<String, Integer> codigosEnLista) {
+        for (String c : new String[]{limpio(f.codigo()), limpio(f.codigoBarras())}) {
+            Integer linea = c == null || c.isEmpty() ? null : codigosEnLista.get(c.toUpperCase(Locale.ROOT));
+            if (linea != null) return "el código " + c + " ya viene en la línea " + linea;
+        }
+        return null;
     }
 
     private static String limpiarNombre(String nombre) { return nombre == null ? "" : nombre.trim().replaceAll("\\s+", " "); }
@@ -804,11 +870,21 @@ public class InventoryService {
     }
 
     /** Agrega un producto ya validado y deja su alta (y el stock inicial) en el historial. No guarda el archivo. */
-    private Producto nuevo(String n, List<String> alias, BigDecimal precio, BigDecimal stock, String u, BigDecimal stockMin, String nota) {
+    private Producto nuevo(String n, List<String> alias, BigDecimal precio, BigDecimal stock, String u, BigDecimal stockMin,
+                           Producto.Ficha f, String nota) {
         Producto p = new Producto(n, alias, stock == null ? BigDecimal.ZERO : stock,
                 stockMin == null ? BigDecimal.ZERO : stockMin, precio, u);
+        if (f != null) {
+            p.categoria = Objects.requireNonNullElse(limpio(f.categoria()), "");
+            p.codigo = Objects.requireNonNullElse(limpio(f.codigo()), "");
+            p.codigoBarras = Objects.requireNonNullElse(limpio(f.codigoBarras()), "");
+            p.costo = Num.dinero(f.costo());
+        }
         productos.add(p);
-        registrar("NUEVO_PRODUCTO", p, null, "unidad " + p.unidad + ", precio " + p.precio + nota);
+        registrar("NUEVO_PRODUCTO", p, null, "unidad " + p.unidad + ", precio " + p.precio
+                + (p.costo != null ? ", costo " + p.costo : "") + (p.categoria.isEmpty() ? "" : ", categoría " + p.categoria)
+                + (p.codigo.isEmpty() ? "" : ", código " + p.codigo)
+                + (p.codigoBarras.isEmpty() ? "" : ", código de barras " + p.codigoBarras) + nota);
         if (p.stock.signum() > 0) registrar("ENTRADA", p, p.stock, "stock inicial " + Num.txt(p.stock) + nota);
         return p;
     }
@@ -873,6 +949,9 @@ public class InventoryService {
             return Resultado.error(nuevaUnidad != null
                     ? p.nombre + " tiene cantidades con decimales; no puede pasar a " + nuevaUnidad + ", señor."
                     : p.nombre + " se maneja en " + p.unidad + ": no admite cantidades con decimales, señor.");
+        Producto.Ficha f = c.ficha() == null ? Producto.Ficha.VACIA : c.ficha();
+        String errorFicha = errorEnFicha(f, p);
+        if (errorFicha != null) return Resultado.error(errorFicha);
 
         List<String> hecho = new ArrayList<>();
         if (nuevoNombre != null) {
@@ -910,9 +989,42 @@ public class InventoryService {
             p.unidad = nuevaUnidad;
             hecho.add(p.nombre + " ahora se maneja en " + nuevaUnidad + ".");
         }
+        String cat = limpio(f.categoria());
+        if (cat != null && !cat.equals(p.categoria)) {
+            registrar("CATEGORIA", p, null, sinDato(p.categoria) + " -> " + sinDato(cat));
+            p.categoria = cat;
+            hecho.add(cat.isEmpty() ? p.nombre + " quedó sin categoría." : "Categoría de " + p.nombre + ": " + cat + ".");
+        }
+        String cod = limpio(f.codigo());
+        if (cod != null && !cod.equals(p.codigo)) {
+            registrar("CODIGO", p, null, sinDato(p.codigo) + " -> " + sinDato(cod));
+            p.codigo = cod;
+            hecho.add(cod.isEmpty() ? p.nombre + " quedó sin código." : "Código de " + p.nombre + ": " + cod + ".");
+        }
+        String bar = limpio(f.codigoBarras());
+        if (bar != null && !bar.equals(p.codigoBarras)) {
+            registrar("CODIGO_BARRAS", p, null, sinDato(p.codigoBarras) + " -> " + sinDato(bar));
+            p.codigoBarras = bar;
+            hecho.add(bar.isEmpty() ? p.nombre + " quedó sin código de barras." : "Código de barras de " + p.nombre + ": " + bar + ".");
+        }
+        BigDecimal costo = c.quitarCosto() ? null : f.costo() == null ? p.costo : Num.dinero(f.costo());
+        if (!Objects.equals(costo, p.costo)) {
+            registrar("COSTO", p, null, (p.costo == null ? "sin costo" : p.costo) + " -> " + (costo == null ? "sin costo" : costo));
+            p.costo = costo;
+            hecho.add(costo == null ? p.nombre + " quedó sin costo registrado."
+                    : String.format("Costo de %s: %.2f soles (margen de %.2f soles sobre el precio de venta).", p.nombre, costo,
+                            p.precio.subtract(costo)));
+        }
+        if (c.precio() != null || c.ficha() != null && c.ficha().costo() != null) {
+            String aviso = avisoCosto(p);
+            if (!aviso.isEmpty()) hecho.add(aviso.trim());
+        }
         if (hecho.isEmpty()) hecho.add("Guardé los cambios de " + p.nombre + ".");
         return Resultado.ok(persistir(String.join(" ", hecho)));
     }
+
+    /** Para el historial: "(ninguno)" en lugar de un texto vacío. */
+    private static String sinDato(String s) { return s.isEmpty() ? "(ninguno)" : s; }
 
     /** Otro producto (distinto de {@code excepto}) con el mismo nombre sin contar mayúsculas ni tildes, o null. */
     private Producto mismoNombre(String nombre, Producto excepto) {
@@ -951,6 +1063,22 @@ public class InventoryService {
     /** Últimos movimientos del historial, del más reciente al más antiguo. */
     public List<Movimiento> movimientos(int n) {
         synchronized (this) { return historial.ultimos(Math.min(Math.max(n, 1), 1000)); }
+    }
+
+    /**
+     * Cambia cada palabra que sea el código (interno o de barras) de un producto por el nombre de ese producto.
+     * Los números de hasta 5 cifras no se tocan: son cantidades o tallas ("vendí 2 polos", "zapatilla 40"),
+     * aunque algún producto tenga ese código; un código de barras tiene 8 a 13 cifras.
+     */
+    public synchronized String codigosANombres(String cmd) {
+        if (cmd == null || productos.stream().allMatch(p -> p.codigo.isEmpty() && p.codigoBarras.isEmpty())) return cmd;
+        StringBuilder out = new StringBuilder();
+        for (String palabra : cmd.split(" ", -1)) {
+            Producto p = palabra.matches("\\d{1,5}") ? null : conCodigo(palabra, null);
+            if (out.length() > 0) out.append(' ');
+            out.append(p == null ? palabra : Palabras.norm(p.nombre));
+        }
+        return out.toString();
     }
 
     /** ¿El texto corresponde a algún producto existente? (búsqueda difusa) */
@@ -1003,6 +1131,9 @@ public class InventoryService {
     }
 
     private Match buscar(String texto) {
+        // un código exacto (escrito o leído con el escáner) gana a cualquier parecido por nombre
+        Producto porCodigo = conCodigo(texto == null ? null : texto.trim(), null);
+        if (porCodigo != null) return new Match(porCodigo, false, List.of(porCodigo));
         String q = Palabras.norm(texto);
         if (q.isBlank()) return null;
         Producto mejor = null, segundo = null;
