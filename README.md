@@ -202,6 +202,19 @@ Cada venta emite un comprobante con su **serie y correlativo**: boleta `B001-000
   salen de `jarvis.negocio`, `.ruc`, `.direccion`, `.telefono` y `.email`.
 - Nota: JARVIS no envía los comprobantes a la SUNAT; son la representación interna del negocio.
 
+### Compras y proveedores
+En **Compras → Nueva compra** se registra la mercadería que llega: RUC del proveedor (si es nuevo, se registra
+solo con su razón social), documento (factura, boleta, guía de remisión o nota de venta), serie y número, fecha
+(no puede ser futura), IGV (los costos lo incluyen, se suma o exonerado) y los productos con su cantidad y costo.
+- **Suma el stock** y **recalcula el costo promedio ponderado** de cada producto, sin IGV (el IGV de la compra es
+  crédito fiscal): `(stock × costo actual + cantidad × costo nuevo) / (stock + cantidad)`. Ese costo es el que queda
+  guardado en cada venta, así la ganancia sale de compras reales.
+- **No se registra dos veces el mismo documento** del mismo proveedor (salvo que la primera se haya anulado).
+- **Anular una compra** retira del stock lo que ingresó con ella, solo si esa mercadería no se vendió todavía.
+  El costo promedio no se recalcula al anular (igual que en el sistema de referencia).
+- Todo se guarda en una sola operación: la compra, el stock y el costo, o nada.
+- Un proveedor con compras no se puede eliminar. API: `/api/proveedores` y `/api/compras` (ver `ComprasController.java`).
+
 ### Clientes
 Se registran por la API (`/api/clientes`, ver abajo): DNI de 8 dígitos o RUC de 11 (que empiece con 10, 15, 17 o
 20), nombre, y opcionalmente correo, teléfono (6 a 9 dígitos) y dirección. No se repite el documento, y un cliente

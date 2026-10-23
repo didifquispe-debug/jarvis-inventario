@@ -35,7 +35,7 @@ final class BaseDatos {
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
 
     static final int RESPALDOS = 7;
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -177,10 +177,11 @@ final class BaseDatos {
             if (version > VERSION)
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
-            if (version < 2) {
+            if (version < 3) {
                 cx.setAutoCommit(false);   // en SQLite los cambios de tablas también son transaccionales
                 try {
-                    migrarAVersion2(st);
+                    if (version < 2) migrarAVersion2(st);
+                    migrarAVersion3(st);
                     cx.commit();
                 } catch (SQLException e) {
                     cx.rollback();
@@ -188,6 +189,55 @@ final class BaseDatos {
                 }
             }
         }
+    }
+
+    /** Versión 3: proveedores y compras (cada compra suma stock y actualiza el costo promedio). */
+    private static void migrarAVersion3(Statement st) throws SQLException {
+        st.execute("""
+                CREATE TABLE IF NOT EXISTS proveedor (
+                    id            INTEGER PRIMARY KEY,
+                    ruc           TEXT    NOT NULL UNIQUE,
+                    razon_social  TEXT    NOT NULL,
+                    busqueda      TEXT    NOT NULL DEFAULT '',
+                    direccion     TEXT    NOT NULL DEFAULT '',
+                    telefono      TEXT    NOT NULL DEFAULT ''
+                )""");
+        st.execute("""
+                CREATE TABLE IF NOT EXISTS compra (
+                    id                INTEGER PRIMARY KEY,
+                    numero            INTEGER NOT NULL UNIQUE,
+                    fecha             TEXT    NOT NULL,
+                    hora              TEXT    NOT NULL DEFAULT '',
+                    proveedor_id      INTEGER NOT NULL REFERENCES proveedor(id),
+                    proveedor_ruc     TEXT    NOT NULL,
+                    proveedor_nombre  TEXT    NOT NULL,
+                    tipo_documento    TEXT    NOT NULL,
+                    numero_documento  TEXT    NOT NULL,
+                    fecha_documento   TEXT    NOT NULL,
+                    modo_igv          TEXT    NOT NULL,
+                    base_cent         INTEGER NOT NULL,
+                    igv_cent          INTEGER NOT NULL,
+                    total_cent        INTEGER NOT NULL,
+                    anulada           INTEGER NOT NULL DEFAULT 0,
+                    observacion       TEXT    NOT NULL DEFAULT '',
+                    usuario           TEXT    NOT NULL DEFAULT ''
+                )""");
+        st.execute("CREATE INDEX IF NOT EXISTS ix_compra_fecha ON compra(fecha)");
+        st.execute("CREATE INDEX IF NOT EXISTS ix_compra_proveedor ON compra(proveedor_id)");
+        st.execute("""
+                CREATE TABLE IF NOT EXISTS compra_detalle (
+                    id            INTEGER PRIMARY KEY,
+                    compra_id     INTEGER NOT NULL REFERENCES compra(id) ON DELETE CASCADE,
+                    item          INTEGER NOT NULL,
+                    producto_id   INTEGER,
+                    producto      TEXT    NOT NULL,
+                    unidad        TEXT    NOT NULL,
+                    cantidad_mil  INTEGER NOT NULL,
+                    costo_dm      INTEGER NOT NULL,
+                    importe_cent  INTEGER NOT NULL
+                )""");
+        st.execute("CREATE INDEX IF NOT EXISTS ix_compra_detalle ON compra_detalle(compra_id)");
+        st.execute("PRAGMA user_version = 3");
     }
 
     /**

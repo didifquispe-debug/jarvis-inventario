@@ -201,6 +201,19 @@
   .totales .total { color: var(--text); font: 600 1.5rem/1.3 var(--display); margin-top: 4px; }
   .ticket-acciones { padding: 0 18px 18px; display: grid; grid-template-columns: auto 1fr; gap: 10px; }
 
+  /* ---------------------------------------------------------------- compras */
+  .cifras { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .cifras .tarjeta { padding: 10px 16px; display: flex; gap: 10px; align-items: baseline; box-shadow: none; }
+  .cifras span { color: var(--muted); font-size: .85rem; } .cifras b { font-variant-numeric: tabular-nums; }
+  .barra input[type="date"].campo { width: auto; flex: 0 0 auto; }
+  .modal-box.ancho { width: min(820px, 100%); }
+  .compra-linea { display: grid; grid-template-columns: minmax(0, 1fr) 110px 120px auto; gap: 8px; align-items: end; margin-top: 6px; }
+  .compra-linea label { display: flex; flex-direction: column; gap: 5px; font-size: .85rem; font-weight: 600; }
+  .tabla.compacta td, .tabla.compacta th { padding: 8px 10px; }
+  .proveedor-nombre { min-height: 1.3em; font-size: .88rem; color: var(--muted); }
+  .proveedor-nombre.ok { color: var(--ok); }
+  @media (max-width: 860px) { .compra-linea { grid-template-columns: 1fr 1fr; } }
+
   /* ---------------------------------------------------------------- asistente (JARVIS) */
   .asistente { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
   .asis-cab { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -353,6 +366,8 @@
     <symbol id="i-caja" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
     <symbol id="i-clientes" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14a6.5 6.5 0 0 1 3 6"/></symbol>
     <symbol id="i-recibo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2Z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/></symbol>
+    <symbol id="i-camion" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v10H2zM13 9h4.5l3.5 4v3h-8"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></symbol>
+    <symbol id="i-fabrica" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l6 4V10l6 4V4h6v17Z"/><path d="M7 17h2M12 17h2M17 17h2"/></symbol>
     <symbol id="i-equipo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
     <symbol id="i-libro" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5Z"/><path d="M4 19.5V4.5"/></symbol>
     <symbol id="i-luna" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
@@ -379,11 +394,15 @@
       </svg>
       <div><b>JARVIS</b><small id="negocio">Asistente de inventario</small></div>
     </div>
+    <div class="seccion">Ventas</div>
     <a class="item" href="#inicio" data-vista="inicio"><svg><use href="#i-inicio"/></svg>Inicio</a>
     <a class="item" href="#vender" data-vista="vender"><svg><use href="#i-vender"/></svg>Vender</a>
     <a class="item" href="#inventario" data-vista="inventario"><svg><use href="#i-caja"/></svg>Inventario</a>
     <a class="item" href="#clientes" data-vista="clientes"><svg><use href="#i-clientes"/></svg>Clientes</a>
     <a class="item" href="#comprobantes" data-vista="comprobantes"><svg><use href="#i-recibo"/></svg>Comprobantes</a>
+    <div class="seccion">Abastecimiento</div>
+    <a class="item" href="#compras" data-vista="compras"><svg><use href="#i-camion"/></svg>Compras</a>
+    <a class="item" href="#proveedores" data-vista="proveedores"><svg><use href="#i-fabrica"/></svg>Proveedores</a>
     <div class="pie">
       <details class="equipo" id="equipo">
         <summary><svg><use href="#i-equipo"/></svg>Equipo</summary>
@@ -513,6 +532,34 @@
         <select class="campo" id="compTipo"><option value="">Todos</option><option value="BOLETA">Boletas</option><option value="NOTA_VENTA">Notas de venta</option></select>
       </div>
       <div class="tarjeta tabla-caja" id="compLista"></div>
+    </section>
+    <!-- ------------------------------------------------ compras -->
+    <section class="pagina" id="v-compras" hidden>
+      <header>
+        <div><h1>Compras</h1><p class="sub">Cada compra suma stock y actualiza el costo promedio de sus productos.</p></div>
+        <button class="boton primario" type="button" id="compraNueva"><svg><use href="#i-mas"/></svg>Nueva compra</button>
+      </header>
+      <div class="barra">
+        <div class="buscador"><svg><use href="#i-lupa"/></svg>
+          <input class="campo" id="comprasBuscar" type="search" placeholder="Código, proveedor, RUC o documento…" autocomplete="off"></div>
+        <input class="campo" id="comprasDesde" type="date" title="Desde">
+        <input class="campo" id="comprasHasta" type="date" title="Hasta">
+      </div>
+      <div class="cifras" id="comprasCifras"></div>
+      <div class="tarjeta tabla-caja" id="comprasLista"></div>
+    </section>
+
+    <!-- ------------------------------------------------ proveedores -->
+    <section class="pagina" id="v-proveedores" hidden>
+      <header>
+        <div><h1>Proveedores</h1><p class="sub">Se registran solos con la primera compra, o aquí.</p></div>
+        <button class="boton primario" type="button" id="provNuevo"><svg><use href="#i-mas"/></svg>Nuevo proveedor</button>
+      </header>
+      <div class="barra">
+        <div class="buscador"><svg><use href="#i-lupa"/></svg>
+          <input class="campo" id="provBuscar" type="search" placeholder="Buscar por razón social o RUC…" autocomplete="off"></div>
+      </div>
+      <div class="tarjeta tabla-caja" id="provLista"></div>
     </section>
   </main>
 
@@ -658,6 +705,74 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </form>
 </div>
 
+<div id="compraModal" class="modal">
+  <form class="modal-box ancho" id="compraForm" novalidate>
+    <h3>Nueva compra</h3>
+    <div class="form-grid">
+      <label>RUC del proveedor
+        <span class="fila" style="display:flex;gap:8px">
+          <input class="campo" id="coRuc" inputmode="numeric" maxlength="11" autocomplete="off" required>
+          <button class="boton" type="button" id="coBuscarRuc">Buscar</button></span></label>
+      <label>Razón social <i id="coRazonAyuda">si el RUC es nuevo</i>
+        <input class="campo" id="coRazon" maxlength="150" autocomplete="off"></label>
+      <label>Documento
+        <select class="campo" id="coTipo"><option value="factura">Factura</option><option value="boleta">Boleta de venta</option>
+          <option value="guia">Guía de remisión</option><option value="nota de venta">Nota de venta</option></select></label>
+      <label>Serie y número
+        <input class="campo" id="coNumero" maxlength="20" autocomplete="off" placeholder="F001-452" required></label>
+      <label>Fecha del documento
+        <input class="campo" id="coFecha" type="date" required></label>
+      <label>IGV
+        <select class="campo" id="coIgv"><option value="incluido">Los costos incluyen IGV</option>
+          <option value="agregado">El IGV se suma a los costos</option><option value="exonerado">Exonerado / inafecto</option></select></label>
+      <div class="full">
+        <div class="compra-linea">
+          <label>Producto <input class="campo" id="coProducto" list="productosLista" autocomplete="off" placeholder="Nombre exacto"></label>
+          <label>Cantidad <input class="campo num" id="coCantidad" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label>Costo unitario (S/) <input class="campo num" id="coCosto" type="number" min="0" step="0.0001" inputmode="decimal"></label>
+          <button class="boton" type="button" id="coAgregar"><svg><use href="#i-mas"/></svg>Agregar</button>
+        </div>
+      </div>
+      <div class="full tabla-caja" id="coLineas"></div>
+      <div class="full totales" id="coTotales" style="padding:0"></div>
+      <label class="full">Observación <i>opcional</i><input class="campo" id="coObs" maxlength="255" autocomplete="off"></label>
+    </div>
+    <p class="form-err" id="coErr"></p>
+    <div class="modal-btns">
+      <button type="button" class="boton" id="coCancelar">Cancelar</button>
+      <button type="submit" class="boton primario" id="coGuardar">Registrar compra</button>
+    </div>
+  </form>
+</div>
+<datalist id="productosLista"></datalist>
+
+<div id="compraVer" class="modal">
+  <div class="modal-box ancho">
+    <div id="compraVerCuerpo"></div>
+    <div class="modal-btns">
+      <button class="boton" type="button" id="cvCerrar">Cerrar</button>
+      <button class="boton peligro" type="button" id="cvAnular">Anular compra</button>
+    </div>
+  </div>
+</div>
+
+<div id="provModal" class="modal">
+  <form class="modal-box" id="provForm" novalidate>
+    <h3 id="provTitulo">Nuevo proveedor</h3>
+    <div class="form-grid">
+      <label>RUC <i>11 dígitos</i><input class="campo" id="pRuc" inputmode="numeric" maxlength="11" autocomplete="off" required></label>
+      <label>Teléfono <i>opcional</i><input class="campo" id="pTel" inputmode="tel" maxlength="9" autocomplete="off"></label>
+      <label class="full">Razón social<input class="campo" id="pRazon" maxlength="150" autocomplete="off" required></label>
+      <label class="full">Dirección <i>opcional</i><input class="campo" id="pDir" maxlength="200" autocomplete="off"></label>
+    </div>
+    <p class="form-err" id="provErr"></p>
+    <div class="modal-btns">
+      <button type="button" class="boton" id="provCancelar">Cancelar</button>
+      <button type="submit" class="boton primario" id="provGuardar">Guardar</button>
+    </div>
+  </form>
+</div>
+
 <div id="confirmModal" class="modal">
   <div class="modal-box">
     <h3 id="confTitulo">¿Confirma?</h3>
@@ -761,7 +876,7 @@ async function traer(path) {
 }
 
 /* =================== Navegación =================== */
-const VISTAS = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes'];
+const VISTAS = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
 let vista = 'inicio';
 function irA(v) {
   if (!VISTAS.includes(v)) v = 'inicio';
@@ -774,6 +889,8 @@ function irA(v) {
   if (v === 'comprobantes') refreshComprobantes();
   if (v === 'vender') { renderPos(); setTimeout(() => $('posBuscar').focus(), 30); }
   if (v === 'inventario') renderInventory();
+  if (v === 'compras') refreshCompras();
+  if (v === 'proveedores') refreshProveedores();
 }
 window.addEventListener('hashchange', () => irA(location.hash.slice(1)));
 document.querySelectorAll('[data-accion="nuevo-producto"]').forEach(b => b.onclick = () => openProduct(null));
@@ -1171,6 +1288,7 @@ async function refreshInventory() {
   if (!d) return;
   invItems = d;
   renderInventory();
+  $('productosLista').innerHTML = invItems.map(p => `<option value="${esc(p.nombre)}">`).join('');
   if (vista === 'vender') renderResultados();
   if (vista === 'inicio') refreshResumen();
 }
@@ -1620,6 +1738,208 @@ $('anularUltima').onclick = async () => {
   refrescarDatos();
 };
 
+/* =================== Compras =================== */
+const fechaCorta = f => (f || '').split('-').reverse().join('/');
+let compras = [];
+async function refreshCompras() {
+  const q = new URLSearchParams({ q: $('comprasBuscar').value.trim(), desde: $('comprasDesde').value, hasta: $('comprasHasta').value, limite: 300 });
+  const d = await traer('/api/compras?' + q);
+  if (!d) return;
+  compras = d.compras;
+  const t = d.totales;
+  $('comprasCifras').innerHTML = `<div class="tarjeta"><span>Compras</span><b>${t.compras}</b></div>
+    <div class="tarjeta"><span>Op. gravada</span><b>${soles(t.base)}</b></div>
+    <div class="tarjeta"><span>IGV (crédito fiscal)</span><b>${soles(t.igv)}</b></div>
+    <div class="tarjeta"><span>Total</span><b>${soles(t.total)}</b></div>`;
+  $('comprasLista').innerHTML = compras.length
+    ? `<table class="tabla adaptable"><thead><tr><th>Compra</th><th>Proveedor</th><th>Documento</th><th>Fecha</th><th class="der">Total</th></tr></thead><tbody>`
+      + compras.map(c => `<tr class="clic" data-compra="${esc(c.codigo)}">
+        <td data-t="Compra"><b class="num">${esc(c.codigo)}</b>${c.anulada ? ' <span class="etiqueta mal">Anulada</span>' : ''}</td>
+        <td data-t="Proveedor">${esc(c.proveedor)}<small style="display:block;color:var(--faint)">RUC ${esc(c.proveedorRuc)}</small></td>
+        <td data-t="Documento">${esc(c.tipoDocumentoDescripcion)} <span class="num">${esc(c.numeroDocumento)}</span></td>
+        <td data-t="Fecha" class="num">${fechaCorta(c.fecha)}</td>
+        <td data-t="Total" class="der num"${c.anulada ? ' style="text-decoration:line-through;color:var(--faint)"' : ''}>${soles(c.total)}</td></tr>`).join('')
+      + '</tbody></table>'
+    : `<div class="vacio"><b>${$('comprasBuscar').value || $('comprasDesde').value || $('comprasHasta').value ? 'Sin resultados' : 'Aún no hay compras'}</b>
+       Registre la mercadería que llega de sus proveedores: suma el stock y calcula el costo.
+       <div class="acciones"><button class="boton primario" type="button" onclick="abrirCompra()">${icono('mas')}Nueva compra</button></div></div>`;
+}
+let buscarCompraEspera = null;
+$('comprasBuscar').addEventListener('input', () => { clearTimeout(buscarCompraEspera); buscarCompraEspera = setTimeout(refreshCompras, 250); });
+$('comprasDesde').addEventListener('change', refreshCompras);
+$('comprasHasta').addEventListener('change', refreshCompras);
+
+/* ---- nueva compra ---- */
+let coLineas = [];
+function abrirCompra() {
+  coLineas = [];
+  ['coRuc', 'coRazon', 'coNumero', 'coProducto', 'coCantidad', 'coCosto', 'coObs'].forEach(id => { $(id).value = ''; });
+  $('coTipo').value = 'factura'; $('coIgv').value = 'incluido';
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $('coFecha').value = hoy; $('coFecha').max = hoy;
+  $('coRazon').disabled = false; $('coRazonAyuda').textContent = 'si el RUC es nuevo';
+  $('coErr').textContent = '';
+  renderCompraLineas();
+  $('compraModal').classList.add('show');
+  setTimeout(() => $('coRuc').focus(), 50);
+}
+$('compraNueva').onclick = abrirCompra;
+$('coCancelar').onclick = () => $('compraModal').classList.remove('show');
+async function buscarProveedorCompra() {
+  const ruc = $('coRuc').value.trim();
+  if (!/^\d{11}$/.test(ruc)) return;
+  try {
+    const r = await api('/api/proveedores/' + ruc);
+    if (r.ok) { const p = await r.json(); $('coRazon').value = p.razonSocial; $('coRazon').disabled = true; $('coRazonAyuda').textContent = 'proveedor registrado'; return; }
+  } catch (e) {}
+  $('coRazon').disabled = false; $('coRazonAyuda').textContent = 'RUC nuevo: escríbala';
+  $('coRazon').focus();
+}
+$('coBuscarRuc').onclick = buscarProveedorCompra;
+$('coRuc').addEventListener('change', buscarProveedorCompra);
+$('coRuc').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscarProveedorCompra(); } });
+function agregarLineaCompra() {
+  const nombre = $('coProducto').value.trim(), cantidad = numOrNull($('coCantidad').value), costo = numOrNull($('coCosto').value);
+  const p = invItems.find(x => x.nombre.toLowerCase() === nombre.toLowerCase());
+  const err = !p ? 'Elija un producto de la lista (nombre exacto).' : !(cantidad > 0) ? 'Escriba la cantidad.' : !(costo > 0) ? 'Escriba el costo unitario.' : '';
+  $('coErr').textContent = err;
+  if (err) return;
+  coLineas.push({ producto: p.nombre, cantidad, costo, unidad: p.unidad });
+  $('coProducto').value = ''; $('coCantidad').value = ''; $('coCosto').value = '';
+  renderCompraLineas();
+  $('coProducto').focus();
+}
+$('coAgregar').onclick = agregarLineaCompra;
+$('coCosto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); agregarLineaCompra(); } });
+$('coProducto').addEventListener('change', () => {   // sugiere el costo actual del producto
+  const p = invItems.find(x => x.nombre === $('coProducto').value);
+  if (p && p.costo != null && !$('coCosto').value) $('coCosto').value = p.costo;
+});
+$('coIgv').addEventListener('change', renderCompraLineas);
+function renderCompraLineas() {
+  const importes = coLineas.map(l => redondear(l.costo * l.cantidad));
+  $('coLineas').innerHTML = coLineas.length
+    ? `<table class="tabla compacta"><thead><tr><th>Producto</th><th class="der">Cantidad</th><th class="der">Costo</th><th class="der">Importe</th><th></th></tr></thead><tbody>`
+      + coLineas.map((l, i) => `<tr><td>${esc(l.producto)}</td><td class="der num">${cant(l.cantidad)} ${esc(l.unidad)}</td>
+        <td class="der num">${soles(l.costo)}</td><td class="der num">${soles(importes[i])}</td>
+        <td class="acciones"><button class="icono peligro" type="button" data-co-quitar="${i}" aria-label="Quitar">${icono('x')}</button></td></tr>`).join('')
+      + '</tbody></table>'
+    : '<div class="lineas-vacio">Agregue los productos del documento con su cantidad y costo.</div>';
+  const modo = { incluido: 'INCLUIDO', agregado: 'AGREGADO', exonerado: 'EXONERADO' }[$('coIgv').value];
+  const t = totalesIgv(importes, modo);
+  $('coTotales').innerHTML = `<div><span>Op. gravada</span><span>${soles(t.base)}</span></div><div><span>IGV</span><span>${soles(t.igv)}</span></div>
+    <div class="total"><span>Total</span><span>${soles(t.total)}</span></div>`;
+}
+$('coLineas').addEventListener('click', e => {
+  const b = e.target.closest('[data-co-quitar]'); if (!b) return;
+  coLineas.splice(Number(b.dataset.coQuitar), 1); renderCompraLineas();
+});
+$('compraForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if ($('coProducto').value.trim() && $('coCantidad').value) agregarLineaCompra();   // la línea a medio escribir también cuenta
+  const datos = { ruc: $('coRuc').value.trim(), razonSocial: $('coRazon').value.trim(), tipoDocumento: $('coTipo').value,
+    numeroDocumento: $('coNumero').value.trim(), fechaDocumento: $('coFecha').value, igv: $('coIgv').value,
+    observacion: $('coObs').value.trim(), items: coLineas.map(l => ({ producto: l.producto, cantidad: l.cantidad, costo: l.costo })) };
+  const err = !/^(10|15|17|20)\d{9}$/.test(datos.ruc) ? 'El RUC tiene 11 dígitos y empieza con 10, 15, 17 o 20.'
+    : !datos.numeroDocumento ? 'Escriba la serie y número del documento.' : !datos.items.length ? 'Agregue al menos un producto.' : '';
+  if (err) { $('coErr').textContent = err; return; }
+  $('coGuardar').disabled = true;
+  const res = await invCall('/api/compras', 'POST', datos);
+  $('coGuardar').disabled = false;
+  if (!res.ok) { $('coErr').textContent = res.reply; return; }
+  $('compraModal').classList.remove('show');
+  avisar(res.reply);
+  refreshInventory(); refreshCompras();
+});
+
+/* ---- ver y anular ---- */
+let compraVista = null;
+async function verCompra(codigo) {
+  const c = await traer('/api/compras/' + encodeURIComponent(codigo));
+  if (!c) { avisar('No pude abrir esa compra.', true); return; }
+  compraVista = c;
+  $('compraVerCuerpo').innerHTML = `<h3>Compra ${esc(c.codigo)} ${c.anulada ? '<span class="etiqueta mal">Anulada</span>' : ''}</h3>
+    <p>${esc(c.tipoDocumentoDescripcion)} <b class="num">${esc(c.numeroDocumento)}</b> del ${fechaCorta(c.fechaDocumento)} ·
+      ${esc(c.proveedor)} (RUC ${esc(c.proveedorRuc)})<br>Registrada el ${fechaCorta(c.fecha)} a las ${esc(c.hora)}${c.observacion ? ' · ' + esc(c.observacion) : ''}</p>
+    <div class="tabla-caja"><table class="tabla compacta"><thead><tr><th>#</th><th>Producto</th><th class="der">Cantidad</th><th class="der">Costo</th><th class="der">Importe</th></tr></thead>
+    <tbody>${c.detalles.map(d => `<tr><td>${d.item}</td><td>${esc(d.producto)}</td><td class="der num">${cant(d.cantidad)} ${esc(d.unidad)}</td>
+      <td class="der num">S/ ${Number(d.costo).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+      <td class="der num">${soles(d.importe)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="totales" style="padding:12px 0 0"><div><span>${c.modoIgv === 'EXONERADO' ? 'Op. exonerada' : 'Op. gravada'}</span><span>${soles(c.base)}</span></div>
+      <div><span>IGV</span><span>${soles(c.igv)}</span></div><div class="total"><span>Total</span><span>${soles(c.total)}</span></div></div>`;
+  $('cvAnular').hidden = c.anulada;
+  $('compraVer').classList.add('show');
+}
+document.addEventListener('click', e => {
+  const fila = e.target.closest('[data-compra]');
+  if (fila) verCompra(fila.dataset.compra);
+});
+$('cvCerrar').onclick = () => $('compraVer').classList.remove('show');
+$('cvAnular').onclick = async () => {
+  const c = compraVista; if (!c) return;
+  $('compraVer').classList.remove('show');
+  if (!await confirmar('Anular compra', `¿Anular la compra ${c.codigo} (${c.tipoDocumentoDescripcion.toLowerCase()} ${c.numeroDocumento})? Se retira del stock lo que ingresó con ella.`, 'Anular')) return;
+  const res = await invCall('/api/compras/' + encodeURIComponent(c.codigo) + '/anular', 'POST');
+  avisar(res.reply, !res.ok);
+  refreshInventory(); refreshCompras();
+};
+
+/* =================== Proveedores =================== */
+let proveedores = [], editandoProveedor = null;
+async function refreshProveedores() {
+  const q = $('provBuscar').value.trim();
+  const d = await traer('/api/proveedores?limite=300&q=' + encodeURIComponent(q));
+  if (!d) return;
+  proveedores = d;
+  $('provLista').innerHTML = proveedores.length
+    ? `<table class="tabla adaptable"><thead><tr><th>RUC</th><th>Razón social</th><th>Teléfono</th><th>Dirección</th><th></th></tr></thead><tbody>`
+      + proveedores.map((p, i) => `<tr data-i="${i}"><td data-t="RUC" class="num">${esc(p.ruc)}</td><td data-t="Razón social"><b>${esc(p.razonSocial)}</b></td>
+        <td data-t="Teléfono" class="num">${esc(p.telefono) || '<span style="color:var(--faint)">—</span>'}</td>
+        <td data-t="Dirección">${esc(p.direccion) || '<span style="color:var(--faint)">—</span>'}</td>
+        <td class="acciones"><button class="icono" type="button" data-prov="editar" aria-label="Editar">${icono('lapiz')}</button>
+          <button class="icono peligro" type="button" data-prov="borrar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`).join('')
+      + '</tbody></table>'
+    : `<div class="vacio"><b>${q ? 'Sin resultados' : 'Aún no hay proveedores'}</b>${q ? 'Ningún proveedor coincide.' : 'Se registran solos con la primera compra.'}</div>`;
+}
+let buscarProvEspera = null;
+$('provBuscar').addEventListener('input', () => { clearTimeout(buscarProvEspera); buscarProvEspera = setTimeout(refreshProveedores, 220); });
+function abrirProveedor(p) {
+  editandoProveedor = p;
+  $('provTitulo').textContent = p ? 'Editar proveedor' : 'Nuevo proveedor';
+  $('pRuc').value = p ? p.ruc : ''; $('pRazon').value = p ? p.razonSocial : '';
+  $('pTel').value = p ? p.telefono : ''; $('pDir').value = p ? p.direccion : '';
+  $('provErr').textContent = '';
+  $('provModal').classList.add('show');
+  setTimeout(() => $('pRuc').focus(), 50);
+}
+$('provNuevo').onclick = () => abrirProveedor(null);
+$('provCancelar').onclick = () => $('provModal').classList.remove('show');
+$('provLista').addEventListener('click', async e => {
+  const b = e.target.closest('[data-prov]'); if (!b) return;
+  const p = proveedores[b.closest('tr').dataset.i]; if (!p) return;
+  if (b.dataset.prov === 'editar') { abrirProveedor(p); return; }
+  if (await confirmar('Eliminar proveedor', `¿Eliminar a ${p.razonSocial} (RUC ${p.ruc})?`, 'Eliminar')) {
+    const res = await invCall('/api/proveedores/' + encodeURIComponent(p.ruc), 'DELETE');
+    avisar(res.reply, !res.ok);
+    refreshProveedores();
+  }
+});
+$('provForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const datos = { ruc: $('pRuc').value.trim(), razonSocial: $('pRazon').value.trim(), telefono: $('pTel').value.trim(), direccion: $('pDir').value.trim() };
+  if (!/^(10|15|17|20)\d{9}$/.test(datos.ruc)) { $('provErr').textContent = 'El RUC tiene 11 dígitos y empieza con 10, 15, 17 o 20.'; return; }
+  if (!datos.razonSocial) { $('provErr').textContent = 'Escriba la razón social.'; return; }
+  $('provGuardar').disabled = true;
+  const res = editandoProveedor
+    ? await invCall('/api/proveedores/' + encodeURIComponent(editandoProveedor.ruc), 'PATCH', datos)
+    : await invCall('/api/proveedores', 'POST', datos);
+  $('provGuardar').disabled = false;
+  if (!res.ok) { $('provErr').textContent = res.reply; return; }
+  $('provModal').classList.remove('show');
+  avisar(res.reply);
+  refreshProveedores();
+});
+
 /* =================== Confirmación =================== */
 let confirmarResolver = null;
 function confirmar(titulo, texto, boton) {
@@ -1640,6 +1960,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
+  ['compraModal', 'compraVer', 'provModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
@@ -1836,6 +2157,7 @@ function refrescarDatos() {
   if (vista === 'comprobantes') refreshComprobantes();
   if (vista === 'clientes') refreshClientes();
   if (vista === 'inicio') refreshResumen();
+  if (vista === 'compras') refreshCompras();
 }
 function refrescarTodo() { refreshSystem(); refrescarDatos(); }
 (async function arrancar() {
