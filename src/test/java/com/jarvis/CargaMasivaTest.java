@@ -83,7 +83,7 @@ class CargaMasivaTest {
                 Medias lote A, -5, 2
                 Casaca lote A, 90, -1
                 Cable lote A, 2, 2.5, unidades
-                Lapicero lote A, 1.5, 100, unidades, 10, sobra
+                Lapicero lote A, 1.5, 100, unidades, 10, 1, Útiles, LAP-A, 7750000000035, sobra
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.agregados").value(1))

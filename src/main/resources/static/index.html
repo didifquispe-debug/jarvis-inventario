@@ -187,7 +187,14 @@
   .modal-box.form h3 { color: var(--cyan); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
-  .form-grid label.full { grid-column: 1 / -1; }
+  .form-grid label.full, .form-grid .full { grid-column: 1 / -1; }
+  .form-hint { margin: -4px 0 0; font-size: .9rem; color: var(--cyan); min-height: 1.2em; }
+  .form-hint.mal { color: #ff7a7a; }
+  .form-hint:empty { display: none; }
+  .inv-meta { font-size: .78rem; opacity: .6; margin-top: 2px; word-break: break-word; }
+  .inv-head { flex-wrap: wrap; }
+  .inv-head input, .inv-head select { flex: 1 1 100%; }   /* buscador y filtro en su propio renglón, debajo de los botones */
+  .inv-head input { order: 1; } .inv-head select { order: 2; }
   .form-grid label i { font-style: normal; text-transform: none; letter-spacing: 0; opacity: .6; }
   .form-err { color: #ff7a7a; min-height: 1.3em; margin: 0 0 10px; }
   .modal-box.danger { border-color: #ff7a7a; }
@@ -289,9 +296,10 @@
 
       <h2 style="margin-top:18px">INVENTARIO</h2>
       <div class="inv-head">
-        <input class="field" id="invSearch" type="search" placeholder="Buscar producto…" autocomplete="off" hidden>
+        <input class="field" id="invSearch" type="search" placeholder="Buscar por nombre o código…" autocomplete="off" hidden>
         <button class="btn on" id="invAdd" title="Registrar un producto nuevo">＋ Agregar</button>
         <button class="btn" id="invLote" title="Registrar muchos productos de una vez">⬆ Cargar lista</button>
+        <select class="field" id="invCat" title="Filtrar por categoría" hidden></select>
       </div>
       <div class="inv-rows" id="inv-list"><div class="inv-empty">Cargando…</div></div>
     </section>
@@ -344,6 +352,15 @@
         <input class="field" id="fStock" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
       <label>Stock mínimo <i>(avisa cuando quede poco)</i>
         <input class="field" id="fMin" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+      <label>Costo (S/) <i>(lo que le cuesta a usted)</i>
+        <input class="field" id="fCosto" type="number" inputmode="decimal" min="0" step="0.01" placeholder="opcional"></label>
+      <label>Categoría
+        <input class="field" id="fCat" list="categorias" maxlength="40" autocomplete="off" placeholder="opcional: Calzado, Polos…"></label>
+      <p class="full form-hint" id="fMargen"></p>
+      <label>Código / SKU
+        <input class="field" id="fCodigo" maxlength="40" autocomplete="off" placeholder="opcional: ZAP-NK-40"></label>
+      <label>Código de barras <i>(puede usar el escáner)</i>
+        <input class="field" id="fBarras" maxlength="40" autocomplete="off" placeholder="opcional"></label>
       <label class="full">Otros nombres <i>(opcional, separados por coma: cómo lo piden los clientes)</i>
         <input class="field" id="fAlias" maxlength="300" autocomplete="off" placeholder="polo rojo, polera roja mediana"></label>
     </div>
@@ -354,6 +371,7 @@
     </div>
   </form>
 </div>
+<datalist id="categorias"></datalist>
 <datalist id="unidades">
   <option value="unidades"><option value="pares"><option value="metros"><option value="kilos"><option value="litros">
   <option value="cajas"><option value="paquetes"><option value="docenas"><option value="bolsas"><option value="rollos">
@@ -365,13 +383,15 @@
     <h3>⬆ CARGAR LISTA DE PRODUCTOS</h3>
     <p class="lote-ayuda">Una línea por producto, en este orden: <code>Nombre, Precio, Stock, Unidad, Stock mínimo</code>.
       Puede separar con coma o con punto y coma (o pegar las columnas directo desde Excel). Si falta la unidad se usa
-      “unidades”; si falta el stock, 0. Las líneas que empiezan con # se ignoran. Los productos que ya existen no se tocan.</p>
+      “unidades”; si falta el stock, 0. Las líneas que empiezan con # se ignoran. Los productos que ya existen no se tocan.
+      Al final puede agregar, si quiere: <code>Costo, Categoría, Código, Código de barras</code>.</p>
     <p class="lote-ayuda">Con <b>🎙 DICTAR</b> diga un producto por frase, por ejemplo “polo blanco M <b>a</b> 25 <b>soles</b> 10 unidades”
       o “polo blanco M <b>coma</b> 25 <b>coma</b> 10 <b>coma</b> unidades”. Cada frase se escribe como una línea en el cuadro:
       revísela o corríjala; nada se guarda hasta tocar CARGAR.</p>
     <span class="lote-ej">Polo blanco M, 25, 10, unidades
 Zapatilla Nike 40; 180; 5; pares; 2
-Tela drill; 12,50; 30; metros</span>
+Tela drill; 12,50; 30; metros
+Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</span>
     <textarea class="field lote-txt" id="loteTxt" spellcheck="false" autocomplete="off" aria-label="Lista de productos"
               placeholder="Pegue aquí su lista…"></textarea>
     <div class="lote-voz-fila">
@@ -655,13 +675,19 @@ function renderInventory() {
       <button class="btn" data-act="lote">⬆ Cargar lista</button></div>`;
     return;
   }
+  renderCategorias();
+  const cat = $('invCat').value, qCod = $('invSearch').value.trim().toLowerCase();
   const lista = invItems.map((p, i) => ({ p, i }))
-    .filter(x => !q || sinTildes(x.p.nombre).includes(q) || (x.p.alias || []).some(a => a.includes(q)));
+    .filter(x => !cat || x.p.categoria === cat)
+    .filter(x => !q || sinTildes(x.p.nombre).includes(q) || (x.p.alias || []).some(a => a.includes(q))
+      || sinTildes(x.p.categoria).includes(q)
+      || [x.p.codigo, x.p.codigoBarras].some(c => c && c.toLowerCase() === qCod));
   if (!lista.length) { box.innerHTML = '<div class="inv-empty">Ningún producto coincide con la búsqueda.</div>'; return; }
   box.innerHTML = lista.map(({ p, i }) => {
     const bajo = p.stock <= p.stockMin;
     return `<div class="inv-row${bajo ? ' low' : ''}" data-i="${i}">
       <div class="inv-top"><span class="inv-name">${esc(p.nombre)}${bajo ? ' ⚠' : ''}</span><small>${soles(p.precio)}</small></div>
+      ${metaDe(p)}
       <div class="inv-bot">
         <button class="ibtn" data-act="menos" title="Restar 1 (sin venta)" aria-label="Restar 1">－</button>
         <span class="inv-stock">${p.stock} ${esc(p.unidad)}</span>
@@ -671,6 +697,22 @@ function renderInventory() {
         <button class="ibtn del" data-act="borrar" title="Eliminar" aria-label="Eliminar">🗑</button>
       </div></div>`;
   }).join('');
+}
+
+/* Categoría y códigos bajo el nombre (nada si el producto no tiene ninguno) */
+function metaDe(p) {
+  const partes = [p.categoria, p.codigo, p.codigoBarras].filter(Boolean).map(esc);
+  return partes.length ? `<div class="inv-meta">${partes.join(' · ')}</div>` : '';
+}
+
+/* Categorías que ya existen: para el filtro y para sugerirlas en el formulario */
+function renderCategorias() {
+  const cats = [...new Set(invItems.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const sel = $('invCat'), actual = sel.value;
+  sel.hidden = !cats.length;
+  sel.innerHTML = '<option value="">Todas las categorías</option>'
+    + cats.map(c => `<option${c === actual ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  $('categorias').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
 }
 
 /* Llama a la API de productos y muestra la respuesta. Devuelve { ok, reply }. */
@@ -700,6 +742,7 @@ $('inv-list').addEventListener('click', async e => {
 });
 $('invAdd').onclick = () => openProduct(null);
 $('invSearch').addEventListener('input', renderInventory);
+$('invCat').addEventListener('change', renderInventory);
 
 /* ---- formulario de alta / edición ---- */
 let editando = null;   // producto que se edita (null = nuevo)
@@ -717,11 +760,30 @@ function openProduct(p) {
   $('fStock').value = p ? p.stock : '';
   $('fMin').value = p ? p.stockMin : '';
   $('fAlias').value = p ? aliasPropios(p).join(', ') : '';
+  $('fCosto').value = p && p.costo != null ? p.costo : '';
+  $('fCat').value = p ? p.categoria || '' : $('invCat').value;
+  $('fCodigo').value = p ? p.codigo || '' : '';
+  $('fBarras').value = p ? p.codigoBarras || '' : '';
+  mostrarMargen();
   $('prodErr').textContent = '';
   $('prodModal').classList.add('show');
   setTimeout(() => $('fNombre').focus(), 50);
 }
 function closeProduct() { $('prodModal').classList.remove('show'); editando = null; }
+
+/* Ganancia por unidad mientras se escriben el precio y el costo */
+function mostrarMargen() {
+  const precio = numOrNull($('fPrecio').value), costo = numOrNull($('fCosto').value), out = $('fMargen');
+  out.classList.remove('mal');
+  if (precio === null || costo === null || isNaN(precio) || isNaN(costo)) { out.textContent = ''; return; }
+  const g = precio - costo;
+  if (g < 0) { out.classList.add('mal'); out.textContent = `Vende por debajo del costo: pierde ${soles(-g)} en cada uno.`; return; }
+  out.textContent = `Ganancia: ${soles(g)} en cada uno` + (precio > 0 ? ` (${Math.round(g / precio * 100)}% del precio).` : '.');
+}
+$('fPrecio').addEventListener('input', mostrarMargen);
+$('fCosto').addEventListener('input', mostrarMargen);
+/* El escáner "teclea" el código y luego Enter: que no envíe el formulario, solo pase al botón Guardar */
+$('fBarras').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('prodSave').focus(); } });
 $('prodCancel').onclick = closeProduct;
 
 $('prodForm').addEventListener('submit', async e => {
@@ -729,13 +791,16 @@ $('prodForm').addEventListener('submit', async e => {
   const nombre = $('fNombre').value.trim(), unidad = $('fUnidad').value.trim();
   const precio = numOrNull($('fPrecio').value), stock = numOrNull($('fStock').value), stockMin = numOrNull($('fMin').value);
   const alias = $('fAlias').value.split(',').map(a => a.trim()).filter(Boolean);
+  const costo = numOrNull($('fCosto').value), categoria = $('fCat').value.trim();
+  const codigo = $('fCodigo').value.trim(), codigoBarras = $('fBarras').value.trim();
   // revisión rápida aquí; el servidor vuelve a validar todo
   const err = !nombre ? 'Escriba el nombre del producto.'
     : precio === null || isNaN(precio) ? 'Escriba el precio (puede ser 0).'
     : precio < 0 ? 'El precio no puede ser negativo.'
     : !unidad ? 'Escriba la unidad (unidades, pares, metros…).'
     : (stock !== null && (isNaN(stock) || stock < 0)) ? 'El stock no puede ser negativo.'
-    : (stockMin !== null && (isNaN(stockMin) || stockMin < 0)) ? 'El stock mínimo no puede ser negativo.' : '';
+    : (stockMin !== null && (isNaN(stockMin) || stockMin < 0)) ? 'El stock mínimo no puede ser negativo.'
+    : (costo !== null && (isNaN(costo) || costo < 0)) ? 'El costo no puede ser negativo.' : '';
   if (err) { $('prodErr').textContent = err; return; }
   let cambios = null;
   if (editando) {   // solo lo que cambió, para que el historial no se llene de cambios que no lo son
@@ -746,13 +811,18 @@ $('prodForm').addEventListener('submit', async e => {
     if (stockMin !== null && stockMin !== Number(p.stockMin)) c.stockMin = stockMin;
     if (unidad.toLowerCase() !== p.unidad) c.unidad = unidad;
     if (alias.join(',') !== aliasPropios(p).join(',')) c.alias = alias;
+    if (categoria !== (p.categoria || '')) c.categoria = categoria;
+    if (codigo !== (p.codigo || '')) c.codigo = codigo;
+    if (codigoBarras !== (p.codigoBarras || '')) c.codigoBarras = codigoBarras;
+    if (costo === null && p.costo != null) c.quitarCosto = true;
+    else if (costo !== null && costo !== Number(p.costo ?? NaN)) c.costo = costo;
     if (Object.keys(c).length === 1) { closeProduct(); return; }
     cambios = c;
   }
   $('prodSave').disabled = true;
   const res = editando
     ? await invCall('/api/inventory/productos', 'PATCH', cambios)
-    : await invCall('/api/inventory/productos', 'POST', { nombre, precio, stock, stockMin, unidad, alias });
+    : await invCall('/api/inventory/productos', 'POST', { nombre, precio, stock, stockMin, unidad, alias, costo, categoria, codigo, codigoBarras });
   $('prodSave').disabled = false;
   if (!res.ok) { $('prodErr').textContent = res.reply; return; }
   closeProduct();

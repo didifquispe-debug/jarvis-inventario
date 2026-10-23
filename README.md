@@ -167,22 +167,35 @@ para empezar de cero, bórralo con JARVIS apagado.)
 ### Agregar y editar productos por pantalla
 En el panel **INVENTARIO** (a la izquierda; en el celular, debajo del reactor):
 - **＋ Agregar**: abre un formulario con *nombre*, *precio*, *stock inicial*, *unidad* (unidades, pares,
-  metros, kilos…), *stock mínimo* y *otros nombres* (cómo lo piden los clientes). Nombre, precio y
-  unidad son obligatorios; no acepta precios ni stock negativos, ni dos productos con el mismo nombre
-  (da igual mayúsculas o tildes: "Pantalón" y "pantalon" son el mismo).
-- **✎ Editar**: cambia nombre, precio, stock, mínimo, unidad u otros nombres.
+  metros, kilos…), *stock mínimo*, *costo*, *categoría*, *código / SKU*, *código de barras* y *otros nombres*
+  (cómo lo piden los clientes). Nombre, precio y unidad son obligatorios; no acepta precios, costos ni stock
+  negativos, ni dos productos con el mismo nombre (da igual mayúsculas o tildes: "Pantalón" y "pantalon" son
+  el mismo) ni con el mismo código.
+- **Costo y ganancia:** al escribir precio y costo, el formulario muestra la ganancia por unidad, y avisa en rojo
+  si vende por debajo del costo (se permite, por ejemplo en una liquidación). Cada venta guarda el costo que tenía
+  el producto ese día, así un cambio de costo posterior no altera la ganancia de ventas pasadas.
+- **Códigos:** el código interno (SKU) y el código de barras se guardan como texto (no pierden ceros a la izquierda).
+  En el campo *Código de barras* puede usar un **lector de código de barras** (de los que se conectan por USB y
+  "escriben" el código). En el buscador del inventario, el código exacto muestra ese producto. En las órdenes
+  también sirve: *"vendí 2 7750182000123"* o *"¿cuántas tengo de ZAP-NK-40?"*. Los números de hasta 5 cifras se
+  leen siempre como cantidad o talla, no como código.
+- **Categorías:** cuando hay productos con categoría aparece un filtro *Todas las categorías* sobre la lista; el
+  formulario sugiere las que ya existen.
+- **✎ Editar**: cambia cualquiera de esos datos. Deje vacío un campo opcional para borrarlo.
 - **－ / ＋**: ajuste rápido de stock de 1 en 1 (no es una venta: no emite comprobante; queda como AJUSTE en el historial).
 - **🗑 Eliminar**: pide confirmación. Las ventas pasadas se conservan.
 - **⬆ Cargar lista**: registra muchos productos de una vez (ver abajo).
-- Con 6 o más productos aparece un **buscador**. Los productos con poco stock salen en ámbar con ⚠.
+- Con 6 o más productos aparece un **buscador** (por nombre, categoría o código). Los productos con poco stock salen en ámbar con ⚠.
 
 ### Cargar muchos productos de una vez (⬆ Cargar lista)
 Toque **⬆ Cargar lista**, pegue su lista (o elija un archivo `.csv` / `.txt`) y toque **CARGAR**.
 Una línea por producto, en este orden:
 
 ```
-Nombre, Precio, Stock, Unidad, Stock mínimo
+Nombre, Precio, Stock, Unidad, Stock mínimo, Costo, Categoría, Código, Código de barras
 ```
+
+Las cinco primeras columnas son las de siempre; las cuatro últimas son opcionales (las listas viejas siguen sirviendo).
 
 ```
 # mercadería de octubre
@@ -190,12 +203,17 @@ Polo blanco M, 25, 10, unidades
 Zapatilla Nike 40; 180; 5; pares; 2
 Tela drill; 12,50; 30; metros
 Vela, 2
+Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123
 ```
 
 - **Separador:** coma o punto y coma. También puede copiar las columnas directamente desde Excel (van con tabulador).
   Con coma como separador, los decimales van con punto (`12.50`); con punto y coma o desde Excel, puede usar `12,50`.
   Si un nombre lleva coma, escríbalo entre comillas: `"Polo, rayas", 25, 3`.
-- **Obligatorios:** nombre y precio. Sin unidad se usa `unidades`; sin stock, `0`; el stock mínimo es opcional.
+- **Obligatorios:** nombre y precio. Sin unidad se usa `unidades`; sin stock, `0`; el resto es opcional.
+  Para dejar vacía una columna del medio, deje el espacio entre separadores: `Vela; 2; 10; unidades; ; ; Velas`.
+- **Códigos repetidos:** un código que ya es de otro producto (o que ya vino en otra línea de la lista) es un error.
+- **Desde Excel:** dé formato de *Texto* a la columna del código de barras antes de guardar como CSV; si no, Excel
+  puede escribirlo como `7.75018E+12` y se pierde.
 - Se ignoran las líneas vacías, las que empiezan con `#` y una primera fila de títulos ("Nombre, Precio, …").
 - **No pisa nada:** si el producto ya existe (sin importar mayúsculas ni tildes) se **omite**; si un nombre se
   repite dentro de la lista, se registra el primero y se omiten los demás.
@@ -272,6 +290,8 @@ Todas piden la cabecera `X-Jarvis-Token` y responden `{ ok, reply }` (400 si fal
 `POST /api/inventory/productos` (crear), `PATCH /api/inventory/productos` (editar),
 `POST /api/inventory/productos/ajuste` (`{"nombre": "...", "cantidad": -1}`),
 `DELETE /api/inventory/productos?nombre=...`. Detalles en `InventoryController.java`.
+Al crear o editar también se aceptan `categoria`, `codigo`, `codigoBarras` y `costo`; al editar, un texto `""`
+borra ese dato y `"quitarCosto": true` borra el costo.
 
 Alta masiva: `POST /api/inventory/productos/lote`, con un arreglo JSON
 (`Content-Type: application/json`, `[{"nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2}, …]`)

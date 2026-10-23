@@ -3,6 +3,7 @@ package com.jarvis.core;
 import com.jarvis.ai.AiBrain;
 import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
+import com.jarvis.inventory.InventoryService;
 import com.jarvis.skills.DiccionarioSkill;
 import com.jarvis.skills.InventorySkill;
 import com.jarvis.skills.Skill;
@@ -28,14 +29,16 @@ public class JarvisService {
     private final InventorySkill inventario;
     private final Diccionario diccionario;
     private final DiccionarioSkill ensenar;
+    private final InventoryService inventarioDatos;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
-                         Diccionario diccionario, DiccionarioSkill ensenar) {
+                         Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
         this.diccionario = diccionario;
         this.ensenar = ensenar;
+        this.inventarioDatos = inventarioDatos;
     }
 
     public String process(String original) {
@@ -47,6 +50,8 @@ public class JarvisService {
         Optional<String> aprendido = ensenar.handle(cmd, original.trim());
         if (aprendido.isPresent()) return aprendido.get();
         cmd = diccionario.aplicar(cmd);
+        // "vendí 2 7750182000123": el código (escrito o escaneado) se cambia por el nombre, si no se leería como cantidad
+        cmd = inventarioDatos.codigosANombres(cmd);
 
         if (cmd.contains("ayuda") || cmd.contains("que puedes hacer")) return help();
 
