@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.*;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -174,6 +175,7 @@ public class InventoryService {
     private final TipoComprobante tipoPorDefecto;
     private final Igv.Modo igvPorDefecto;
     private final Clientes clientes;
+    private final Compras compras;
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
@@ -201,6 +203,7 @@ public class InventoryService {
         this.archivoJson = esBase ? ruta.resolveSibling(nombre.replaceFirst("\\.db$", ".json")) : ruta;
         this.almacen = new Almacen(esBase ? ruta : ruta.resolveSibling(nombre.replaceFirst("\\.json$", "") + ".db"));
         this.clientes = new Clientes(almacen.baseDatos());
+        this.compras = new Compras(almacen.baseDatos());
         cargar();
     }
 
@@ -212,6 +215,8 @@ public class InventoryService {
     public Path archivoBaseDatos() { return almacen.archivo(); }
 
     public Clientes clientes() { return clientes; }
+
+    public Compras compras() { return compras; }
 
     public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
 
@@ -340,17 +345,135 @@ public class InventoryService {
      * vuelve a leer la base (que quedó como antes), así lo que se ve es siempre lo que está guardado.
      */
     private String persistir(String msg) {
+        return guardarTodo(null) ? msg : NO_GUARDADO;
+    }
+
+    private static final String NO_GUARDADO =
+            "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
+
+    /** Guarda los cambios y {@code extra} (filas de otras tablas) en una sola transacción. false = no se guardó nada. */
+    private boolean guardarTodo(BaseDatos.Trabajo<?> extra) {
         almacen.respaldoDiario();   // el primero del día copia el estado de antes de este cambio
         try {
-            almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar);
-            return msg;
+            almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar, extra);
+            return true;
         } catch (SQLException | RuntimeException e) {
             log.error("No pude guardar en la base de datos {}: {}", almacen.archivo(), e.toString());
             recargar();
-            return "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
+            return false;
         } finally {
             porRegistrar.clear();
         }
+    }
+
+    // ---------------------------------------------------------------- compras a proveedores
+
+    private static final BigDecimal UNO_MAS_IGV = BigDecimal.ONE.add(Igv.TASA);
+
+    /**
+     * Registra una compra (como CompraService del sistema de referencia): valida todo, suma el stock de cada producto,
+     * recalcula su costo promedio ponderado y guarda la compra, todo en una transacción. El costo que se promedia es sin
+     * IGV (el IGV de la compra es crédito fiscal). Si el RUC es nuevo, el proveedor se registra con la razón social dada.
+     */
+    public synchronized Resultado registrarCompra(Compras.NuevaCompra c) {
+        if (c == null) return Resultado.error("Faltan los datos de la compra.");
+        String ruc = c.ruc() == null ? "" : c.ruc().trim();
+        if (!ruc.matches(Compras.PATRON_RUC)) return Resultado.error("Ingrese un RUC de proveedor válido (11 dígitos, empieza con 10, 15, 17 o 20).");
+        Optional<Compras.Proveedor> registrado = compras.proveedor(ruc);
+        String razon = registrado.map(Compras.Proveedor::razonSocial)
+                .orElse(c.razonSocial() == null ? "" : c.razonSocial().trim().replaceAll("\\s+", " "));
+        if (razon.isEmpty()) return Resultado.error("El RUC " + ruc + " no está registrado: escriba la razón social del proveedor.");
+        if (razon.length() > 150) return Resultado.error("La razón social es muy larga (máximo 150 letras).");
+        Compras.TipoDocumento tipo = c.tipoDocumento() == null || c.tipoDocumento().isBlank()
+                ? Compras.TipoDocumento.FACTURA : Compras.TipoDocumento.de(c.tipoDocumento());
+        if (tipo == null) return Resultado.error("El documento del proveedor es factura, boleta, guía de remisión o nota de venta.");
+        String numeroDoc = c.numeroDocumento() == null ? "" : c.numeroDocumento().trim().toUpperCase().replaceAll("\\s+", "");
+        if (numeroDoc.isEmpty()) return Resultado.error("Ingrese la serie y número del documento del proveedor (por ejemplo F001-452).");
+        if (numeroDoc.length() > 20) return Resultado.error("El número de documento es muy largo (máximo 20 caracteres).");
+        LocalDate fechaDoc;
+        try {
+            fechaDoc = c.fechaDocumento() == null || c.fechaDocumento().isBlank() ? LocalDate.now() : LocalDate.parse(c.fechaDocumento().trim());
+        } catch (RuntimeException e) {
+            return Resultado.error("La fecha del documento debe ser AAAA-MM-DD.");
+        }
+        if (fechaDoc.isAfter(LocalDate.now())) return Resultado.error("La fecha del documento no puede ser posterior a hoy.");
+        Igv.Modo modo = c.igv() == null || c.igv().isBlank() ? Igv.Modo.INCLUIDO : Igv.Modo.de(c.igv());
+        if (c.items() == null || c.items().isEmpty()) return Resultado.error("Agregue al menos un producto a la compra.");
+        if (c.items().size() > 500) return Resultado.error("La compra tiene demasiadas líneas (máximo 500).");
+        if (compras.documentoRegistrado(ruc, tipo, numeroDoc))
+            return Resultado.error("Ya se registró la " + tipo.descripcion.toLowerCase() + " " + numeroDoc + " de " + razon + ".");
+
+        // 1) validar todas las líneas antes de tocar nada
+        List<Producto> prods = new ArrayList<>();
+        List<BigDecimal> cantidades = new ArrayList<>(), costos = new ArrayList<>(), importes = new ArrayList<>();
+        for (Compras.LineaCompra l : c.items()) {
+            if (l == null) return Resultado.error("Hay una línea vacía en la compra.");
+            Producto p = porNombre(l.producto());
+            if (p == null) return Resultado.noEncontrado("No existe el producto " + l.producto() + ". Regístrelo primero; no guardé la compra.");
+            if (cantidadInvalida(l.cantidad())) return Resultado.error("La cantidad de " + p.nombre + " debe ser mayor que cero.");
+            BigDecimal cant = Num.cantidad(l.cantidad());
+            String error = errorDecimales(p, cant);
+            if (error != null) return Resultado.error(error);
+            if (l.costo() == null || l.costo().signum() <= 0) return Resultado.error("El costo de " + p.nombre + " debe ser mayor que cero.");
+            BigDecimal costo = l.costo().setScale(4, RoundingMode.HALF_UP);
+            prods.add(p); cantidades.add(cant); costos.add(costo); importes.add(Num.monto(costo, cant));
+        }
+        Igv.Totales totales = Igv.calcular(importes, modo);
+
+        // 2) stock y costo promedio
+        int numero = compras.siguienteNumero();
+        String codigo = Compras.codigo(numero);
+        List<Compras.Detalle> detalles = new ArrayList<>();
+        for (int i = 0; i < prods.size(); i++) {
+            Producto p = prods.get(i);
+            BigDecimal cant = cantidades.get(i);
+            BigDecimal sinIgv = modo == Igv.Modo.INCLUIDO ? costos.get(i).divide(UNO_MAS_IGV, 4, RoundingMode.HALF_UP) : costos.get(i);
+            BigDecimal anterior = p.stock.max(BigDecimal.ZERO);
+            p.costo = Num.dinero(p.costo == null || anterior.signum() == 0 ? sinIgv
+                    : p.costo.multiply(anterior).add(sinIgv.multiply(cant)).divide(anterior.add(cant), 4, RoundingMode.HALF_UP));
+            p.stock = Num.cantidad(p.stock.add(cant));
+            registrar("COMPRA", p, cant, codigo + " · " + tipo.descripcion.toLowerCase() + " " + numeroDoc + " de " + razon
+                    + ", costo " + Num.dinero(sinIgv) + ", stock " + Num.txt(p.stock));
+            detalles.add(new Compras.Detalle(i + 1, p.nombre, p.unidad, cant, costos.get(i), importes.get(i), p.id));
+        }
+        Compras.Registro reg = new Compras.Registro(numero, LocalDate.now().toString(),
+                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), ruc, razon, tipo, numeroDoc, fechaDoc.toString(), modo,
+                totales, c.observacion() == null ? "" : c.observacion().trim(), ClientSession.usuario(), detalles);
+        if (!guardarTodo(cx -> { compras.insertar(cx, reg); return null; })) return Resultado.error(NO_GUARDADO);
+        return Resultado.ok(String.format("Compra %s registrada: %s %s de %s por %.2f soles. Ingresaron %d %s al stock.",
+                codigo, tipo.descripcion.toLowerCase(), numeroDoc, razon, totales.total(), detalles.size(),
+                detalles.size() == 1 ? "producto" : "productos"));
+    }
+
+    /**
+     * Anula una compra y retira del stock lo que ingresó con ella. Como en el sistema de referencia, no se puede
+     * si parte de esa mercadería ya se vendió (no hay stock suficiente para retirarla).
+     */
+    public synchronized Resultado anularCompra(String codigoONumero) {
+        Optional<Compras.Compra> encontrada = compras.obtener(codigoONumero);
+        if (encontrada.isEmpty()) return Resultado.noEncontrado("No encontré la compra " + codigoONumero + ".");
+        Compras.Compra c = encontrada.get();
+        if (c.anulada()) return Resultado.error("La compra " + c.codigo() + " ya estaba anulada.");
+        Map<Producto, BigDecimal> retiro = new LinkedHashMap<>();
+        for (Compras.Detalle d : c.detalles()) {
+            Producto p = productos.stream().filter(x -> d.productoId() != null && d.productoId().equals(x.id)).findFirst()
+                    .orElseGet(() -> porNombre(d.producto()));
+            if (p == null) return Resultado.error(d.producto() + " ya no existe en el inventario: no puedo anular la compra " + c.codigo() + ".");
+            retiro.merge(p, d.cantidad(), BigDecimal::add);
+        }
+        List<String> faltan = new ArrayList<>();
+        retiro.forEach((p, cant) -> {
+            if (cant.compareTo(p.stock) > 0)
+                faltan.add(p.nombre + " (disponible " + Num.txt(p.stock.max(BigDecimal.ZERO)) + ", se requieren " + Num.txt(cant) + ")");
+        });
+        if (!faltan.isEmpty())
+            return Resultado.error("No se puede anular: parte de la mercadería ya se vendió. Stock insuficiente: " + String.join("; ", faltan) + ".");
+        retiro.forEach((p, cant) -> {
+            p.stock = Num.cantidad(p.stock.subtract(cant));
+            registrar("ANULACION_COMPRA", p, cant, c.codigo() + " anulada, stock " + Num.txt(p.stock));
+        });
+        if (!guardarTodo(cx -> { compras.marcarAnulada(cx, c.id()); return null; })) return Resultado.error(NO_GUARDADO);
+        return Resultado.ok("Compra " + c.codigo() + " anulada: retiré del stock lo que había ingresado.");
     }
 
     /** Vuelve a lo guardado. Las ventas en curso y las preguntas pendientes se cancelan: apuntan a datos que ya no valen. */

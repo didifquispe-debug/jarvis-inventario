@@ -161,6 +161,15 @@ final class Almacen {
      */
     void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
                  Map<String, Integer> contadores, List<Pendiente> movimientos) throws SQLException {
+        guardar(productos, ventas, cabeceras, contadores, movimientos, null);
+    }
+
+    /**
+     * Como {@link #guardar(List, List, Map, Map, List)} y además {@code extra} (p. ej. las filas de una compra) en la
+     * misma transacción, después de los productos: o se guarda todo o nada.
+     */
+    void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
+                 Map<String, Integer> contadores, List<Pendiente> movimientos, BaseDatos.Trabajo<?> extra) throws SQLException {
         Map<Producto, Long> idsNuevos = new IdentityHashMap<>();
         Map<Producto, FilaProducto> fotosP = new IdentityHashMap<>();
         Map<InventoryService.Venta, Long> idsVentas = new IdentityHashMap<>();
@@ -259,6 +268,8 @@ final class Almacen {
                         anulado ? 1 : 0, Num.aEntero(t.base(), Num.CENT), Num.aEntero(t.igv(), Num.CENT),
                         Num.aEntero(t.total(), Num.CENT), cid);
             }
+
+            if (extra != null) extra.hacer(cx);
 
             // 3) historial y correlativo
             for (Pendiente m : movimientos) {
