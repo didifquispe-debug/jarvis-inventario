@@ -35,7 +35,7 @@ final class BaseDatos {
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
 
     static final int RESPALDOS = 7;
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -177,11 +177,12 @@ final class BaseDatos {
             if (version > VERSION)
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
-            if (version < 3) {
+            if (version < 4) {
                 cx.setAutoCommit(false);   // en SQLite los cambios de tablas también son transaccionales
                 try {
                     if (version < 2) migrarAVersion2(st);
-                    migrarAVersion3(st);
+                    if (version < 3) migrarAVersion3(st);
+                    migrarAVersion4(st);
                     cx.commit();
                 } catch (SQLException e) {
                     cx.rollback();
@@ -189,6 +190,17 @@ final class BaseDatos {
                 }
             }
         }
+    }
+
+    /**
+     * Versión 4: kardex. Cada movimiento de stock guarda cuánto entró o salió (delta, con signo), el saldo que quedó y el
+     * costo promedio de ese momento. Los movimientos anteriores quedan sin saldo (no se puede reconstruir con certeza).
+     */
+    private static void migrarAVersion4(Statement st) throws SQLException {
+        st.execute("ALTER TABLE movimiento ADD COLUMN delta_mil INTEGER");
+        st.execute("ALTER TABLE movimiento ADD COLUMN saldo_mil INTEGER");
+        st.execute("ALTER TABLE movimiento ADD COLUMN costo_dm INTEGER");
+        st.execute("PRAGMA user_version = 4");
     }
 
     /** Versión 3: proveedores y compras (cada compra suma stock y actualiza el costo promedio). */

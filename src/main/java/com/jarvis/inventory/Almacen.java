@@ -18,8 +18,17 @@ import java.util.*;
  */
 final class Almacen {
 
-    /** Un movimiento del historial y el producto al que se refiere (null si ya no existe o es general). */
-    record Pendiente(Movimiento movimiento, Producto producto) {}
+    /**
+     * Un movimiento del historial y el producto al que se refiere (null si es general). En los que mueven stock:
+     * {@code delta} (+ entra, − sale), {@code saldo} (stock que quedó) y {@code costo} (costo promedio de ese momento).
+     */
+    record Pendiente(Movimiento movimiento, Producto producto, BigDecimal delta, BigDecimal saldo, BigDecimal costo) {
+        Pendiente(Movimiento movimiento, Producto producto) { this(movimiento, producto, null, null, null); }
+    }
+
+    /** Cómo mueven el stock los tipos de movimiento (para los antiguos, que no guardaban el delta). CORRECCION_VENTA no se sabe. */
+    static final Map<String, Integer> SIGNO = Map.of("ENTRADA", 1, "VENTA", -1, "ANULACION", 1, "COMPRA", 1,
+            "ANULACION_COMPRA", -1, "AJUSTE", 1, "ELIMINAR", -1, "CORRECCION_VENTA", 0);
 
     /**
      * @param cabeceras  datos de cada comprobante que no están en sus líneas (tipo, serie, cliente, IGV), por número
@@ -153,6 +162,52 @@ final class Almacen {
         });
     }
 
+    /**
+     * Kardex: los movimientos de stock, del más antiguo al más reciente (los últimos {@code limite}). Con
+     * {@code productoId} null, de todos los productos ordenados por producto. Los movimientos antiguos sin producto
+     * enlazado se reconocen por el nombre.
+     */
+    List<FilaKardex> kardex(Long productoId, String nombre, int limite) {
+        String tipos = SIGNO.keySet().stream().map(t -> "'" + t + "'").collect(java.util.stream.Collectors.joining(","));
+        String donde = "tipo IN (" + tipos + ")" + (productoId == null && nombre == null ? ""
+                : " AND (producto_id = ? OR (producto_id IS NULL AND producto = ?))");
+        String sql = productoId == null && nombre == null
+                ? "SELECT * FROM movimiento WHERE " + donde + " ORDER BY producto, id LIMIT ?"
+                : "SELECT * FROM (SELECT * FROM movimiento WHERE " + donde + " ORDER BY id DESC LIMIT ?) ORDER BY id";
+        return db.leer(cx -> {
+            List<FilaKardex> out = new ArrayList<>();
+            try (PreparedStatement ps = cx.prepareStatement(sql)) {
+                int i = 1;
+                if (productoId != null || nombre != null) { ps.setObject(i++, productoId); ps.setString(i++, nombre); }
+                ps.setInt(i, Math.min(Math.max(limite, 1), 100_000));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String tipo = rs.getString("tipo");
+                        BigDecimal delta = decimal(rs, "delta_mil", Num.MIL);
+                        if (delta == null) {   // movimiento antiguo: el delta sale del tipo y la cantidad
+                            BigDecimal cant = decimal(rs, "cantidad_mil", Num.MIL);
+                            int signo = SIGNO.getOrDefault(tipo, 0);
+                            delta = cant == null || signo == 0 ? null : "AJUSTE".equals(tipo) ? cant : cant.multiply(BigDecimal.valueOf(signo));
+                        }
+                        BigDecimal costo = decimal(rs, "costo_dm", Num.DM);
+                        out.add(new FilaKardex(rs.getString("fecha"), tipo, rs.getString("producto"), rs.getString("detalle"),
+                                delta == null || delta.signum() < 0 ? BigDecimal.ZERO : Num.cantidad(delta),
+                                delta == null || delta.signum() > 0 ? BigDecimal.ZERO : Num.cantidad(delta.negate()),
+                                decimal(rs, "saldo_mil", Num.MIL), costo == null ? null : Num.dinero(costo), rs.getString("usuario")));
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    private static BigDecimal decimal(ResultSet rs, String columna, int escala) throws SQLException {
+        long v = rs.getLong(columna);
+        if (rs.wasNull()) return null;
+        BigDecimal d = Num.deEntero(v, escala);
+        return escala == Num.MIL ? Num.cantidad(d) : d;
+    }
+
     // ---------------------------------------------------------------- escritura
 
     /**
@@ -276,10 +331,11 @@ final class Almacen {
                 Movimiento mv = m.movimiento();
                 Long pid = m.producto() == null ? null : m.producto().id != null ? m.producto().id : idsNuevos.get(m.producto());
                 insertar(cx, """
-                        INSERT INTO movimiento (fecha, tipo, producto, producto_id, cantidad_mil, detalle, usuario)
-                        VALUES (?,?,?,?,?,?,?)""",
+                        INSERT INTO movimiento (fecha, tipo, producto, producto_id, cantidad_mil, detalle, usuario, delta_mil, saldo_mil, costo_dm)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)""",
                         mv.fecha(), mv.tipo(), mv.producto(), pid, Num.aEntero(mv.cantidad(), Num.MIL),
-                        mv.detalle() == null ? "" : mv.detalle(), mv.usuario() == null ? "" : mv.usuario());
+                        mv.detalle() == null ? "" : mv.detalle(), mv.usuario() == null ? "" : mv.usuario(),
+                        Num.aEntero(m.delta(), Num.MIL), Num.aEntero(m.saldo(), Num.MIL), Num.aEntero(m.costo(), Num.DM));
             }
             for (Map.Entry<String, Integer> c : contadores.entrySet())
                 if (!c.getValue().equals(contadoresGuardados.get(c.getKey())))

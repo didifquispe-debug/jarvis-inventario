@@ -213,8 +213,10 @@ public class InventoryController {
 
     /** Los últimos comprobantes, del más reciente al más antiguo. */
     @GetMapping("/comprobantes")
-    public List<InventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite) {
-        return inv.comprobantes(limite);
+    public List<InventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite,
+                                                               @RequestParam(defaultValue = "") String desde,
+                                                               @RequestParam(defaultValue = "") String hasta) {
+        return inv.comprobantes(limite, desde, hasta);
     }
 
     @GetMapping("/comprobantes/{numero}")

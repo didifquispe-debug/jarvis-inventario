@@ -215,6 +215,20 @@ solo con su razón social), documento (factura, boleta, guía de remisión o not
 - Todo se guarda en una sola operación: la compra, el stock y el costo, o nada.
 - Un proveedor con compras no se puede eliminar. API: `/api/proveedores` y `/api/compras` (ver `ComprasController.java`).
 
+### Inventario valorizado, kardex y Excel
+- **Inventario valorizado:** en *Inventario* se ve el valor al costo promedio, el valor a precio de venta y el margen
+  (solo de los productos con costo registrado), y cada producto muestra su valor al costo.
+- **Kardex:** el botón de kardex de cada producto muestra cada entrada y salida (alta, compra, venta, anulación,
+  corrección, ajuste, baja) con el **saldo** que quedó y el costo promedio de ese momento. Los movimientos registrados
+  antes de esta versión salen con su entrada o salida pero sin saldo (no se guardaba y no se inventa).
+- **Exportar Excel** (con filtros y totales que respetan el filtro):
+  - *Inventario:* inventario valorizado con resumen, y el kardex de todos los productos.
+  - *Kardex:* el de un producto, desde su ventana.
+  - *Comprobantes:* las ventas del periodo elegido y su detalle con el **costo y la ganancia de cada línea**,
+    calculada sin IGV (venta sin IGV − costo). Los anulados figuran con importe 0.
+  - *Compras:* las compras del periodo (y del filtro) con su detalle.
+- API: `/api/inventory/valorizado`, `/api/inventory/kardex?nombre=…` y `/api/reportes/*.xlsx` (ver `ReportesController.java`).
+
 ### Clientes
 Se registran por la API (`/api/clientes`, ver abajo): DNI de 8 dígitos o RUC de 11 (que empiece con 10, 15, 17 o
 20), nombre, y opcionalmente correo, teléfono (6 a 9 dígitos) y dirección. No se repite el documento, y un cliente
