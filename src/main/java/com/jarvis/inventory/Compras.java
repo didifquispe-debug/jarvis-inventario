@@ -169,6 +169,11 @@ public class Compras {
         });
     }
 
+    /** Como {@link #listar} pero cada compra con su detalle (para el Excel). */
+    public synchronized List<Compra> listarConDetalle(String texto, String desde, String hasta, int limite) {
+        return listar(texto, desde, hasta, limite).stream().map(c -> obtener(c.codigo()).orElse(c)).toList();
+    }
+
     /** Totales de las compras registradas (no anuladas) que cumplen el mismo filtro que {@link #listar}. */
     public synchronized Totales totalizar(String texto, String desde, String hasta) {
         Filtro f = filtro(texto, desde, hasta);

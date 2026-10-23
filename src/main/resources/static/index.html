@@ -368,6 +368,8 @@
     <symbol id="i-recibo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2Z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/></symbol>
     <symbol id="i-camion" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v10H2zM13 9h4.5l3.5 4v3h-8"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></symbol>
     <symbol id="i-fabrica" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l6 4V10l6 4V4h6v17Z"/><path d="M7 17h2M12 17h2M17 17h2"/></symbol>
+    <symbol id="i-kardex" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11M13 13h4M13 16.5h4"/></symbol>
+    <symbol id="i-excel" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M9 13l4 5M13 13l-4 5"/></symbol>
     <symbol id="i-equipo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></symbol>
     <symbol id="i-libro" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5Z"/><path d="M4 19.5V4.5"/></symbol>
     <symbol id="i-luna" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
@@ -492,6 +494,7 @@
       <header>
         <div><h1>Inventario</h1><p class="sub" id="invCuenta">—</p></div>
         <div class="rapido">
+          <button class="boton" type="button" id="invExcel" title="Inventario valorizado y kardex en Excel"><svg><use href="#i-excel"/></svg>Exportar Excel</button>
           <button class="boton" type="button" id="invLote"><svg><use href="#i-subir"/></svg>Cargar lista</button>
           <button class="boton primario" type="button" id="invAdd"><svg><use href="#i-mas"/></svg>Agregar producto</button>
         </div>
@@ -504,6 +507,7 @@
           <option value="">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option>
         </select>
       </div>
+      <div class="cifras" id="invCifras"></div>
       <div class="tarjeta tabla-caja" id="inv-list"></div>
     </section>
 
@@ -524,12 +528,17 @@
     <section class="pagina" id="v-comprobantes" hidden>
       <header>
         <div><h1>Comprobantes</h1><p class="sub">Toque uno para verlo, imprimirlo o sacar su PDF.</p></div>
-        <button class="boton" type="button" id="anularUltima">Anular la última venta</button>
+        <div class="rapido">
+          <button class="boton" type="button" id="compExcel" title="Ventas del periodo con costo y ganancia"><svg><use href="#i-excel"/></svg>Exportar Excel</button>
+          <button class="boton" type="button" id="anularUltima">Anular la última venta</button>
+        </div>
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
           <input class="campo" id="compBuscar" type="search" placeholder="Buscar por serie o cliente…" autocomplete="off"></div>
         <select class="campo" id="compTipo"><option value="">Todos</option><option value="BOLETA">Boletas</option><option value="NOTA_VENTA">Notas de venta</option></select>
+        <input class="campo" id="compDesde" type="date" title="Desde">
+        <input class="campo" id="compHasta" type="date" title="Hasta">
       </div>
       <div class="tarjeta tabla-caja" id="compLista"></div>
     </section>
@@ -537,7 +546,10 @@
     <section class="pagina" id="v-compras" hidden>
       <header>
         <div><h1>Compras</h1><p class="sub">Cada compra suma stock y actualiza el costo promedio de sus productos.</p></div>
-        <button class="boton primario" type="button" id="compraNueva"><svg><use href="#i-mas"/></svg>Nueva compra</button>
+        <div class="rapido">
+          <button class="boton" type="button" id="comprasExcel" title="Compras del periodo en Excel"><svg><use href="#i-excel"/></svg>Exportar Excel</button>
+          <button class="boton primario" type="button" id="compraNueva"><svg><use href="#i-mas"/></svg>Nueva compra</button>
+        </div>
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
@@ -773,6 +785,18 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </form>
 </div>
 
+<div id="kardexModal" class="modal">
+  <div class="modal-box ancho">
+    <h3 id="kxTitulo">Kardex</h3>
+    <p id="kxSub"></p>
+    <div class="tabla-caja" id="kxTabla" style="max-height:58vh;overflow-y:auto"></div>
+    <div class="modal-btns">
+      <button class="boton" type="button" id="kxCerrar">Cerrar</button>
+      <button class="boton primario" type="button" id="kxExcel"><svg><use href="#i-excel"/></svg>Exportar Excel</button>
+    </div>
+  </div>
+</div>
+
 <div id="confirmModal" class="modal">
   <div class="modal-box">
     <h3 id="confTitulo">¿Confirma?</h3>
@@ -888,7 +912,7 @@ function irA(v) {
   if (v === 'clientes') refreshClientes();
   if (v === 'comprobantes') refreshComprobantes();
   if (v === 'vender') { renderPos(); setTimeout(() => $('posBuscar').focus(), 30); }
-  if (v === 'inventario') renderInventory();
+  if (v === 'inventario') { renderInventory(); refreshValorizado(); }
   if (v === 'compras') refreshCompras();
   if (v === 'proveedores') refreshProveedores();
 }
@@ -1288,10 +1312,20 @@ async function refreshInventory() {
   if (!d) return;
   invItems = d;
   renderInventory();
+  if (vista === 'inventario') refreshValorizado();
   $('productosLista').innerHTML = invItems.map(p => `<option value="${esc(p.nombre)}">`).join('');
   if (vista === 'vender') renderResultados();
   if (vista === 'inicio') refreshResumen();
 }
+async function refreshValorizado() {
+  const v = await traer('/api/inventory/valorizado');
+  if (!v) return;
+  $('invCifras').innerHTML = !v.productos ? '' : `<div class="tarjeta"><span>Valor al costo</span><b>${soles(v.valorCosto)}</b></div>
+    <div class="tarjeta"><span>Valor a precio de venta</span><b>${soles(v.valorVenta)}</b></div>
+    <div class="tarjeta"><span>Margen</span><b>${soles(v.margen)}</b></div>
+    ${v.sinCosto ? `<div class="tarjeta"><span>Sin costo registrado</span><b>${v.sinCosto} ${v.sinCosto === 1 ? 'producto' : 'productos'}</b></div>` : ''}`;
+}
+
 function renderInventory() {
   const box = $('inv-list'), q = sinTildes($('invSearch').value.trim()), qCod = $('invSearch').value.trim().toLowerCase();
   renderCategorias();
@@ -1311,7 +1345,7 @@ function renderInventory() {
     .filter(x => !q || sinTildes(x.p.nombre).includes(q) || (x.p.alias || []).some(a => a.includes(q))
       || sinTildes(x.p.categoria).includes(q) || [x.p.codigo, x.p.codigoBarras].some(c => c && c.toLowerCase() === qCod));
   if (!lista.length) { box.innerHTML = '<div class="vacio"><b>Sin resultados</b>Ningún producto coincide con la búsqueda.</div>'; return; }
-  box.innerHTML = `<table class="tabla adaptable"><thead><tr><th>Producto</th><th>Stock</th><th class="der">Precio</th><th class="der">Costo</th><th></th></tr></thead><tbody>`
+  box.innerHTML = `<table class="tabla adaptable"><thead><tr><th>Producto</th><th>Stock</th><th class="der">Precio</th><th class="der">Costo</th><th class="der">Valor al costo</th><th></th></tr></thead><tbody>`
     + lista.map(({ p, i }) => {
       const sin = Number(p.stock) <= 0, bajo = !sin && Number(p.stock) <= Number(p.stockMin);
       const meta = [p.categoria, p.codigo, p.codigoBarras].filter(Boolean).map(esc).join(' · ');
@@ -1321,7 +1355,9 @@ function renderInventory() {
           <span>${cant(p.stock)} ${esc(p.unidad)}</span><button type="button" data-act="mas" title="Sumar 1" aria-label="Sumar 1">+</button></span></td>
         <td data-t="Precio" class="der num">${soles(p.precio)}</td>
         <td data-t="Costo" class="der num">${p.costo != null ? soles(p.costo) : '<span style="color:var(--faint)">—</span>'}</td>
-        <td class="acciones"><button class="icono" type="button" data-act="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
+        <td data-t="Valor al costo" class="der num">${p.costo != null ? soles(Math.max(0, Number(p.stock)) * Number(p.costo)) : '<span style="color:var(--faint)">—</span>'}</td>
+        <td class="acciones"><button class="icono" type="button" data-act="kardex" title="Kardex" aria-label="Kardex">${icono('kardex')}</button>
+          <button class="icono" type="button" data-act="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
           <button class="icono peligro" type="button" data-act="borrar" title="Eliminar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`;
     }).join('') + '</tbody></table>';
 }
@@ -1340,6 +1376,7 @@ $('inv-list').addEventListener('click', async e => {
   if (b.dataset.act === 'lote') { openLote(); return; }
   const p = invItems[b.closest('tr').dataset.i]; if (!p) return;
   if (b.dataset.act === 'editar') { openProduct(p); return; }
+  if (b.dataset.act === 'kardex') { verKardex(p.nombre); return; }
   if (b.dataset.act === 'borrar') {
     if (await confirmar('Eliminar producto', `¿Eliminar “${p.nombre}” del inventario? Quedan ${cant(p.stock)} ${p.unidad}. Sus ventas pasadas se conservan.`, 'Eliminar')) {
       const res = await invCall('/api/inventory/productos?nombre=' + encodeURIComponent(p.nombre), 'DELETE');
@@ -1711,7 +1748,7 @@ $('cliForm').addEventListener('submit', async e => {
 /* =================== Comprobantes =================== */
 let comprobantes = [];
 async function refreshComprobantes() {
-  const d = await traer('/api/inventory/comprobantes?limite=300');
+  const d = await traer('/api/inventory/comprobantes?' + new URLSearchParams({ limite: 1000, desde: $('compDesde').value, hasta: $('compHasta').value }));
   if (!d) return;
   comprobantes = d;
   renderComprobantes();
@@ -1728,6 +1765,9 @@ function renderComprobantes() {
 }
 $('compBuscar').addEventListener('input', renderComprobantes);
 $('compTipo').addEventListener('change', renderComprobantes);
+$('compDesde').addEventListener('change', refreshComprobantes);
+$('compHasta').addEventListener('change', refreshComprobantes);
+$('compExcel').onclick = () => descargar('/api/reportes/ventas.xlsx?' + new URLSearchParams({ desde: $('compDesde').value, hasta: $('compHasta').value }), 'ventas.xlsx');
 $('anularUltima').onclick = async () => {
   const ultimo = comprobantes[0];   // la lista viene de la más reciente a la más antigua
   if (!ultimo) { avisar('No hay ventas para anular.', true); return; }
@@ -1784,6 +1824,8 @@ function abrirCompra() {
   setTimeout(() => $('coRuc').focus(), 50);
 }
 $('compraNueva').onclick = abrirCompra;
+$('comprasExcel').onclick = () => descargar('/api/reportes/compras.xlsx?' + new URLSearchParams({ q: $('comprasBuscar').value.trim(),
+  desde: $('comprasDesde').value, hasta: $('comprasHasta').value }), 'compras.xlsx');
 $('coCancelar').onclick = () => $('compraModal').classList.remove('show');
 async function buscarProveedorCompra() {
   const ruc = $('coRuc').value.trim();
@@ -1940,6 +1982,49 @@ $('provForm').addEventListener('submit', async e => {
   refreshProveedores();
 });
 
+/* =================== Kardex =================== */
+const MOVIMIENTO = { ENTRADA: 'Entrada', VENTA: 'Venta', ANULACION: 'Anulación de venta', CORRECCION_VENTA: 'Corrección de venta',
+  AJUSTE: 'Ajuste', COMPRA: 'Compra', ANULACION_COMPRA: 'Anulación de compra', ELIMINAR: 'Baja del producto' };
+let kardexDe = null;
+async function verKardex(nombre) {
+  const k = await traer('/api/inventory/kardex?' + new URLSearchParams({ nombre, limite: 500 }));
+  if (!k) { avisar('No pude abrir el kardex.', true); return; }
+  kardexDe = k.producto;
+  $('kxTitulo').textContent = 'Kardex · ' + k.producto;
+  $('kxSub').textContent = `Stock actual: ${cant(k.stock)} ${k.unidad}` + (k.costo != null ? ` · costo promedio ${soles(k.costo)} · valor ${soles(Math.max(0, Number(k.stock)) * Number(k.costo))}` : ' · sin costo registrado');
+  const filas = k.filas.slice().reverse();   // lo más reciente arriba
+  $('kxTabla').innerHTML = filas.length
+    ? `<table class="tabla compacta"><thead><tr><th>Fecha</th><th>Movimiento</th><th class="der">Entrada</th><th class="der">Salida</th><th class="der">Saldo</th><th class="der">Costo prom.</th></tr></thead><tbody>`
+      + filas.map(f => `<tr title="${esc(f.detalle)}"><td class="num">${fechaCorta((f.fecha || '').slice(0, 10))} ${esc((f.fecha || '').slice(11, 16))}</td>
+        <td>${esc(MOVIMIENTO[f.tipo] || f.tipo)}<small style="display:block;color:var(--faint)">${esc(f.detalle)}</small></td>
+        <td class="der num" style="color:var(--ok)">${Number(f.entrada) ? '+' + cant(f.entrada) : ''}</td>
+        <td class="der num" style="color:var(--danger)">${Number(f.salida) ? '−' + cant(f.salida) : ''}</td>
+        <td class="der num"><b>${f.saldo != null ? cant(f.saldo) : '—'}</b></td>
+        <td class="der num">${f.costo != null ? soles(f.costo) : ''}</td></tr>`).join('') + '</tbody></table>'
+    : '<div class="vacio"><b>Sin movimientos</b>Este producto aún no tiene entradas ni salidas registradas.</div>';
+  $('kardexModal').classList.add('show');
+}
+$('kxCerrar').onclick = () => $('kardexModal').classList.remove('show');
+$('kxExcel').onclick = () => kardexDe && descargar('/api/reportes/kardex.xlsx?' + new URLSearchParams({ nombre: kardexDe }), 'kardex.xlsx');
+$('invExcel').onclick = () => descargar('/api/reportes/inventario.xlsx', 'inventario.xlsx');
+
+/* Descarga un archivo de la API (con la clave) con el nombre que propone el servidor. */
+async function descargar(url, nombre) {
+  try {
+    const r = await api(url);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); avisar(d.reply || 'No pude generar el archivo.', true); return; }
+    const m = (r.headers.get('Content-Disposition') || '').match(/filename\*=UTF-8''([^;]+)/);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = m ? decodeURIComponent(m[1]) : nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    avisar('Descargado: ' + a.download);
+  } catch (e) {
+    avisar('Sin conexión con el núcleo de JARVIS.', true);
+  }
+}
+
 /* =================== Confirmación =================== */
 let confirmarResolver = null;
 function confirmar(titulo, texto, boton) {
@@ -1960,7 +2045,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
-  ['compraModal', 'compraVer', 'provModal'].forEach(id => $(id).classList.remove('show'));
+  ['compraModal', 'compraVer', 'provModal', 'kardexModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 

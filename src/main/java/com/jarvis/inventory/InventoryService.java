@@ -487,8 +487,19 @@ public class InventoryService {
     }
 
     private void registrar(String tipo, Producto p, BigDecimal cantidad, String detalle) {
+        int signo = Almacen.SIGNO.getOrDefault(tipo, 0);
+        registrar(tipo, p, cantidad, detalle, cantidad == null || signo == 0 ? null : cantidad.multiply(BigDecimal.valueOf(signo)));
+    }
+
+    /**
+     * Deja el movimiento en el historial. {@code delta}: cuánto cambió el stock (+ entra, − sale; null si no lo mueve).
+     * Se llama DESPUÉS de cambiar el stock: así el saldo del kardex es el stock que quedó.
+     */
+    private void registrar(String tipo, Producto p, BigDecimal cantidad, String detalle, BigDecimal delta) {
+        BigDecimal saldo = delta == null ? null : "ELIMINAR".equals(tipo) ? BigDecimal.ZERO : p.stock;
         porRegistrar.add(new Almacen.Pendiente(new Movimiento(LocalDateTime.now().withNano(0).toString(), tipo, p.nombre,
-                cantidad == null ? null : Num.cantidad(cantidad), detalle, ClientSession.usuario()), p));
+                cantidad == null ? null : Num.cantidad(cantidad), detalle, ClientSession.usuario()), p,
+                delta == null ? null : Num.cantidad(delta), saldo == null ? null : Num.cantidad(saldo), delta == null ? null : p.costo));
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }
@@ -596,8 +607,14 @@ public class InventoryService {
 
     /** Los últimos comprobantes emitidos, del más reciente al más antiguo. */
     public synchronized List<FilaComprobante> comprobantes(int limite) {
+        return comprobantes(limite, null, null);
+    }
+
+    /** Los últimos comprobantes de un periodo (AAAA-MM-DD; vacías = sin límite), del más reciente al más antiguo. */
+    public synchronized List<FilaComprobante> comprobantes(int limite, String desde, String hasta) {
         Map<Integer, List<Venta>> porNumero = new TreeMap<>(Comparator.reverseOrder());
-        for (Venta v : ventas) if (v.numero > 0) porNumero.computeIfAbsent(v.numero, k -> new ArrayList<>()).add(v);
+        for (Venta v : ventas)
+            if (v.numero > 0 && enPeriodo(v.fecha, desde, hasta)) porNumero.computeIfAbsent(v.numero, k -> new ArrayList<>()).add(v);
         List<FilaComprobante> out = new ArrayList<>();
         for (Map.Entry<Integer, List<Venta>> e : porNumero.entrySet()) {
             if (out.size() >= Math.min(Math.max(limite, 1), 1000)) break;
@@ -638,6 +655,70 @@ public class InventoryService {
         }
         return new Resumen(ventasHoy, total, igv, anuladas, productos.size(), bajo, sin, Num.dinero(valorVenta), Num.dinero(valorCosto),
                 clientes.contar(), igvPorDefecto.name(), tipoPorDefecto.name());
+    }
+
+    // ---------------------------------------------------------------- kardex e inventario valorizado
+
+    /** Kardex de un producto: sus datos de hoy y los movimientos de stock (los últimos {@code limite}). */
+    public record Kardex(String producto, String unidad, BigDecimal stock, BigDecimal costo, List<FilaKardex> filas) {}
+
+    public synchronized Kardex kardex(String nombre, int limite) {
+        Producto p = porNombre(nombre);
+        if (p == null) return null;
+        return new Kardex(p.nombre, p.unidad, p.stock, p.costo, almacen.kardex(p.id, p.nombre, limite));
+    }
+
+    /** Kardex de todos los productos (para el Excel), ordenado por producto. */
+    public synchronized List<FilaKardex> kardexCompleto() {
+        return almacen.kardex(null, null, 100_000);
+    }
+
+    /** Una fila del inventario valorizado. {@code estado}: OK, BAJO o SIN_STOCK. Sin costo: valorCosto null. */
+    public record FilaValorizada(String producto, String categoria, String codigo, String unidad, BigDecimal stock, BigDecimal stockMin,
+                                 String estado, BigDecimal costo, BigDecimal valorCosto, BigDecimal precio, BigDecimal valorVenta) {}
+
+    /** {@code margen}: valor a precio de venta − valor al costo, solo de los productos con costo. */
+    public record Valorizado(List<FilaValorizada> filas, int productos, int sinCosto, int stockBajo, int sinStock,
+                             BigDecimal valorCosto, BigDecimal valorVenta, BigDecimal margen) {}
+
+    /** Inventario valorizado al costo promedio y a precio de venta (como el del sistema de referencia). */
+    public synchronized Valorizado valorizado() {
+        List<FilaValorizada> filas = new ArrayList<>();
+        int sinCosto = 0, bajo = 0, sin = 0;
+        BigDecimal costoTotal = BigDecimal.ZERO, ventaTotal = BigDecimal.ZERO, ventaConCosto = BigDecimal.ZERO;
+        List<Producto> orden = new ArrayList<>(productos);
+        orden.sort(Comparator.comparing((Producto p) -> p.categoria.isEmpty() ? "\uffff" : Palabras.norm(p.categoria))
+                .thenComparing(p -> Palabras.norm(p.nombre)));
+        for (Producto p : orden) {
+            BigDecimal stock = p.stock.max(BigDecimal.ZERO);
+            String estado = p.stock.signum() <= 0 ? "SIN_STOCK" : p.stockBajo() ? "BAJO" : "OK";
+            if (estado.equals("SIN_STOCK")) sin++; else if (estado.equals("BAJO")) bajo++;
+            BigDecimal valorVenta = Num.dinero(p.precio.multiply(stock));
+            BigDecimal valorCosto = p.costo == null ? null : Num.dinero(p.costo.multiply(stock));
+            if (valorCosto == null) sinCosto++;
+            else { costoTotal = costoTotal.add(valorCosto); ventaConCosto = ventaConCosto.add(valorVenta); }
+            ventaTotal = ventaTotal.add(valorVenta);
+            filas.add(new FilaValorizada(p.nombre, p.categoria, p.codigo, p.unidad, p.stock, p.stockMin, estado, p.costo,
+                    valorCosto, p.precio, valorVenta));
+        }
+        return new Valorizado(filas, filas.size(), sinCosto, bajo, sin, Num.dinero(costoTotal), Num.dinero(ventaTotal),
+                Num.dinero(ventaConCosto.subtract(costoTotal)));
+    }
+
+    /** Comprobantes completos (con sus líneas) de un periodo, del más antiguo al más reciente. Fechas AAAA-MM-DD; vacías = sin límite. */
+    public synchronized List<Comprobante> ventasPeriodo(String desde, String hasta) {
+        Map<Integer, List<Venta>> porNumero = new TreeMap<>();
+        for (Venta v : ventas)
+            if (v.numero > 0 && enPeriodo(v.fecha, desde, hasta)) porNumero.computeIfAbsent(v.numero, k -> new ArrayList<>()).add(v);
+        List<Comprobante> out = new ArrayList<>();
+        porNumero.forEach((n, items) -> out.add(new Comprobante(n, items.get(0).fecha, items.get(0).hora, items, Almacen.cabecera(cabeceras, n))));
+        return out;
+    }
+
+    private static boolean enPeriodo(String fecha, String desde, String hasta) {
+        String f = fecha == null ? "" : fecha;
+        return (desde == null || desde.isBlank() || f.compareTo(desde.trim()) >= 0)
+                && (hasta == null || hasta.isBlank() || f.compareTo(hasta.trim()) <= 0);
     }
 
     /** El comprobante con ese número interno de venta (el de {@code Comprobante.numero}), o null. */
@@ -1033,7 +1114,7 @@ public class InventoryService {
             linea.cantidad = nueva;
             linea.monto = Num.monto(linea.precioUnitario, nueva);
         }
-        registrar("CORRECCION_VENTA", p, nueva, c.codigo + ": antes " + Num.txt(antes) + ", stock " + Num.txt(p.stock));
+        registrar("CORRECCION_VENTA", p, nueva, c.codigo + ": antes " + Num.txt(antes) + ", stock " + Num.txt(p.stock), diferencia.negate());
         Comprobante corregido = comprobante(c.numero);
         sesion().comprobanteNuevo = corregido;
         String que = nueva.signum() == 0 ? "quité " + p.nombre : p.nombre + " ahora es " + Num.txt(nueva) + " " + p.unidad;
@@ -1229,8 +1310,9 @@ public class InventoryService {
         BigDecimal nuevo = Num.cantidad(p.stock.add(cantidad));
         if (nuevo.signum() < 0)
             return Resultado.error("No se puede: solo quedan " + Num.txt(p.stock) + " " + p.unidad + " de " + p.nombre + ".");
-        registrar("AJUSTE", p, cantidad, Num.txt(p.stock) + " -> " + Num.txt(nuevo));
+        BigDecimal antes = p.stock;
         p.stock = nuevo;
+        registrar("AJUSTE", p, cantidad, Num.txt(antes) + " -> " + Num.txt(nuevo));
         return Resultado.ok(persistir("Stock de " + p.nombre + ": " + Num.txt(p.stock) + " " + p.unidad + "."
                 + (p.stockBajo() ? " Atención: stock bajo." : "")));
     }
@@ -1300,9 +1382,9 @@ public class InventoryService {
         }
         String unidadFinal = nuevaUnidad != null ? nuevaUnidad : p.unidad;
         if (c.stock() != null && c.stock().compareTo(p.stock) != 0) {
-            BigDecimal nuevo = Num.cantidad(c.stock());
-            registrar("AJUSTE", p, Num.cantidad(nuevo.subtract(p.stock)), Num.txt(p.stock) + " -> " + Num.txt(nuevo));
+            BigDecimal nuevo = Num.cantidad(c.stock()), antes = p.stock;
             p.stock = nuevo;
+            registrar("AJUSTE", p, Num.cantidad(nuevo.subtract(antes)), Num.txt(antes) + " -> " + Num.txt(nuevo));
             hecho.add("Stock de " + p.nombre + ": " + Num.txt(p.stock) + " " + unidadFinal + ".");
         }
         if (c.stockMin() != null) {
