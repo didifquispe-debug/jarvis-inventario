@@ -190,10 +190,8 @@ class CargaMasivaTest {
         assertTrue(movs.stream().anyMatch(m -> m.tipo().equals("NUEVO_PRODUCTO") && m.producto().equals("Plato lote H")));
         Movimiento entrada = movs.stream().filter(m -> m.tipo().equals("ENTRADA") && m.producto().equals("Taza lote H")).findFirst().orElseThrow();
         assertEquals(new BigDecimal("12"), entrada.cantidad());
-        // quedó en disco: otro servicio que lee el mismo archivo los ve
-        Path historial = inv.carpetaHistorial();   // <archivo>-historial, junto al archivo del inventario
-        Path archivo = historial.resolveSibling(historial.getFileName().toString().replaceFirst("-historial$", "") + ".json");
-        InventoryService releido = new InventoryService(archivo.toString(), 90);
+        // quedó en disco: otro servicio que lee la misma base de datos los ve
+        InventoryService releido = new InventoryService(inv.archivoBaseDatos().toString());
         assertTrue(releido.productos().stream().anyMatch(p -> p.nombre.equals("Plato lote H")));
     }
 

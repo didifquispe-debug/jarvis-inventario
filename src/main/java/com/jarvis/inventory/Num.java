@@ -43,6 +43,19 @@ public final class Num {
         return v != null && cantidad(v).scale() > 0;
     }
 
+    /** Escalas con que se guardan en la base de datos: céntimos, milésimas y diezmilésimas. */
+    static final int CENT = 2, MIL = 3, DM = 4;
+
+    /** 25.50 con escala 2 → 2550 (exacto: así se guarda en la base de datos). null → null. */
+    static Long aEntero(BigDecimal v, int escala) {
+        return v == null ? null : v.setScale(escala, RoundingMode.HALF_UP).unscaledValue().longValueExact();
+    }
+
+    /** 2550 con escala 2 → 25.50. */
+    static BigDecimal deEntero(long n, int escala) {
+        return BigDecimal.valueOf(n, escala);
+    }
+
     /** "2,5" o "2.5" → 2.5 ; null si no es un número. */
     public static BigDecimal parse(String s) {
         if (s == null) return null;

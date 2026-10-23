@@ -13,9 +13,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.*;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -24,13 +23,10 @@ import java.util.*;
 
 /**
  * Cerebro del inventario: productos, entradas, salidas, consultas, alertas, correcciones y cierre.
- * Guarda todo en ~/jarvis-inventario.json (o jarvis.inventory.file) para que no se pierda al cerrar:
- * <ul>
- *   <li>Guardado atómico: se escribe un .tmp y se reemplaza el archivo de una vez, así un corte de
- *       luz a mitad nunca deja el inventario a medias. Antes se copia la versión anterior a .bak.</li>
- *   <li>Si al arrancar el archivo está dañado, se recupera del .bak (el dañado se conserva aparte).</li>
- *   <li>Cada cambio queda en el historial de movimientos; las ventas antiguas se archivan por mes.</li>
- * </ul>
+ * Guarda todo en la base de datos ~/jarvis-inventario.db ({@link BaseDatos}): cada operación se guarda
+ * entera o no se guarda, con respaldo diario. La primera vez importa el inventario de las versiones
+ * anteriores (~/jarvis-inventario.json y su carpeta de historial), que se conservan tal cual.
+ * Cada cambio queda en el historial de movimientos.
  * El "sí/no" pendiente, la venta en curso y el comprobante por mostrar son de cada sesión
  * (dispositivo/pestaña), no globales: ver {@link ClientSession}.
  */
@@ -59,6 +55,7 @@ public class InventoryService {
         public BigDecimal precioUnitario; public BigDecimal monto;
         public BigDecimal costoUnitario;   // costo del producto al momento de vender (null = no registrado), para la ganancia
         public boolean anulada;            // anulada: no cuenta en el cierre, el stock se devolvió
+        Long id, comprobanteId;            // en la base de datos (no salen en la API)
         public Venta() {}
         public Venta(int n, String f, String h, Producto p, BigDecimal c) {
             numero = n; fecha = f; hora = h; producto = p.nombre; cantidad = Num.cantidad(c); unidad = p.unidad;
@@ -114,26 +111,25 @@ public class InventoryService {
             .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
             .enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-    private final Path file, bak, tmp;
-    private final Historial historial;
-    private final int diasVentas;
+    private final Path archivoJson;                 // inventario de versiones anteriores (solo para importarlo)
+    private final Almacen almacen;
 
     private List<Producto> productos = new ArrayList<>();
     private List<Venta> ventas = new ArrayList<>();
-    private int ultimoNumero;                       // último comprobante emitido (aunque su venta ya esté archivada)
-    private boolean archivoValido = true;           // false si el archivo en disco está dañado: no se copia a .bak
-    private LocalDate compactadoEl;
+    private int ultimoNumero;                       // último comprobante emitido
     private final Map<String, Sesion> sesiones = new HashMap<>();
-    private final List<Movimiento> porRegistrar = new ArrayList<>();
+    private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
-    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
-                            @Value("${jarvis.inventory.dias-ventas:90}") int diasVentas) {
-        this.file = Paths.get(archivo);
-        String nombre = file.getFileName().toString();
-        this.bak = file.resolveSibling(nombre + ".bak");
-        this.tmp = file.resolveSibling(nombre + ".tmp");
-        this.historial = new Historial(file.resolveSibling(nombre.replaceFirst("\\.json$", "") + "-historial"));
-        this.diasVentas = Math.max(1, diasVentas);
+    /**
+     * @param archivo la base de datos ({@code .db}) o, como en versiones anteriores, el inventario {@code .json}:
+     *                entonces la base es el mismo nombre con {@code .db}, y el JSON se importa si la base está vacía.
+     */
+    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo) {
+        Path ruta = Paths.get(archivo);
+        String nombre = ruta.getFileName().toString();
+        boolean esBase = nombre.endsWith(".db");
+        this.archivoJson = esBase ? ruta.resolveSibling(nombre.replaceFirst("\\.db$", ".json")) : ruta;
+        this.almacen = new Almacen(esBase ? ruta : ruta.resolveSibling(nombre.replaceFirst("\\.json$", "") + ".db"));
         cargar();
     }
 
@@ -141,8 +137,8 @@ public class InventoryService {
 
     public synchronized List<Producto> productos() { return new ArrayList<>(productos); }
 
-    /** Carpeta de los archivos de historial (movimientos y ventas archivadas). */
-    public Path carpetaHistorial() { return historial.dir(); }
+    /** El archivo de la base de datos del inventario. */
+    public Path archivoBaseDatos() { return almacen.archivo(); }
 
     // ---------------------------------------------------------------- sesiones
 
@@ -156,6 +152,7 @@ public class InventoryService {
 
     // ---------------------------------------------------------------- persistencia
 
+    /** El inventario JSON de las versiones anteriores (solo para importarlo). */
     private static class Datos {
         public List<Producto> productos = new ArrayList<>();
         public List<Venta> ventas = new ArrayList<>();
@@ -163,25 +160,56 @@ public class InventoryService {
     }
 
     private void cargar() {
-        if (Files.exists(file)) {
-            Datos d = leer(file);
-            if (d == null) {
-                archivoValido = false;
-                Path copia = conservarDanado();
-                d = Files.exists(bak) ? leer(bak) : null;
-                if (d != null)
-                    log.warn("El inventario {} estaba dañado: lo recuperé del respaldo {}. El dañado quedó en {}.", file, bak, copia);
-                else
-                    log.error("El inventario {} está dañado y no hay respaldo válido. El dañado quedó en {}. "
-                            + "Empiezo con el inventario vacío.", file, copia);
-            }
-            if (d != null) {
-                usar(d);
-                if (compactar() || !archivoValido) guardar();
-                return;
-            }
+        if (almacen.vacio()) importarJsonAntiguo();
+        usarEstado(almacen.cargar());
+        almacen.respaldoDiario();
+    }
+
+    private void usarEstado(Almacen.Estado e) {
+        productos = new ArrayList<>(e.productos());
+        ventas = new ArrayList<>(e.ventas());
+        ultimoNumero = e.ultimoNumero();
+    }
+
+    /**
+     * Pasa a la base de datos el inventario de las versiones anteriores: el .json (o su .bak si está dañado),
+     * las ventas archivadas por mes y el historial de movimientos. Los archivos no se borran: el .json se
+     * renombra a .json.migrado para que no se vuelva a importar.
+     */
+    private void importarJsonAntiguo() {
+        Path bak = archivoJson.resolveSibling(archivoJson.getFileName() + ".bak");
+        if (!Files.exists(archivoJson) && !Files.exists(bak)) return;
+        Datos d = Files.exists(archivoJson) ? leer(archivoJson) : null;
+        if (d == null && Files.exists(bak)) {
+            d = leer(bak);
+            if (d != null) log.warn("El inventario {} estaba dañado o vacío: importo su respaldo {}.", archivoJson, bak);
         }
-        guardar();   // primera vez (o dañado sin respaldo): inventario vacío, sin productos de ejemplo
+        if (d == null) {
+            log.error("No pude leer el inventario antiguo {} ni su respaldo: empiezo vacío. Los archivos se conservan.", archivoJson);
+            return;
+        }
+        Historial h = new Historial(archivoJson.resolveSibling(archivoJson.getFileName().toString()
+                .replaceFirst("\\.json$", "") + "-historial"));
+        List<Venta> archivadas = h.ventasArchivadas();
+        List<Venta> todas = new ArrayList<>(archivadas);
+        if (d.ventas != null) todas.addAll(d.ventas);
+        d.ventas = todas;
+        usar(d);
+        List<Almacen.Pendiente> movimientos = h.movimientos().stream().map(m -> new Almacen.Pendiente(m, null)).toList();
+        try {
+            almacen.guardar(productos, ventas, ultimoNumero, movimientos);
+        } catch (SQLException e) {
+            throw new IllegalStateException("No pude importar el inventario antiguo a la base de datos: " + e.getMessage(), e);
+        }
+        try {
+            if (Files.exists(archivoJson))
+                Files.move(archivoJson, archivoJson.resolveSibling(archivoJson.getFileName() + ".migrado"),
+                        StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            log.warn("Importé {} pero no pude renombrarlo: {}", archivoJson, e.getMessage());
+        }
+        log.info("Pasé el inventario antiguo a la base de datos {}: {} productos, {} líneas de venta ({} archivadas) y {} movimientos.",
+                almacen.archivo(), productos.size(), ventas.size(), archivadas.size(), movimientos.size());
     }
 
     private Datos leer(Path p) {
@@ -207,98 +235,37 @@ public class InventoryService {
         ultimoNumero = Math.max(d.ultimoNumero, ventas.stream().mapToInt(v -> v.numero).max().orElse(0));
     }
 
-    /** Copia el archivo dañado aparte (no se pierde nada: se puede revisar o reparar a mano). */
-    private Path conservarDanado() {
-        Path copia = file.resolveSibling(file.getFileName() + ".danado-" + LocalDateTime.now().format(SELLO));
-        try {
-            Files.copy(file, copia, StandardCopyOption.REPLACE_EXISTING);
-            return copia;
-        } catch (IOException e) {
-            log.error("No pude copiar el inventario dañado: {}", e.getMessage());
-            return null;
-        }
-    }
-
     /**
-     * Guardado atómico: 1) escribe todo en .tmp y lo fuerza a disco, 2) copia el archivo actual
-     * (que está sano) a .bak, 3) reemplaza el archivo por el .tmp con un solo movimiento atómico.
-     * En ningún momento existe un inventario escrito a medias.
+     * Guarda en la base lo que cambió y los movimientos pendientes, en una transacción. Si no se pudo guardar,
+     * vuelve a leer la base (que quedó como antes), así lo que se ve es siempre lo que está guardado.
      */
-    private boolean guardar() {
-        try {
-            Datos d = new Datos(); d.productos = productos; d.ventas = ventas; d.ultimoNumero = ultimoNumero;
-            byte[] bytes = json.writerWithDefaultPrettyPrinter().writeValueAsBytes(d);
-            if (file.getParent() != null) Files.createDirectories(file.getParent());
-            try (FileChannel ch = FileChannel.open(tmp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.WRITE)) {
-                ByteBuffer buf = ByteBuffer.wrap(bytes);
-                while (buf.hasRemaining()) ch.write(buf);
-                ch.force(true);
-            }
-            if (archivoValido && Files.exists(file)) Files.copy(file, bak, StandardCopyOption.REPLACE_EXISTING);
-            mover(tmp, file);
-            archivoValido = true;
-            return true;
-        } catch (Exception e) {
-            log.error("No pude guardar el inventario en {}: {}", file, e.toString());
-            return false;
-        }
-    }
-
-    private static void mover(Path origen, Path destino) throws IOException {
-        for (int intento = 1; ; intento++) {
-            try {
-                try {
-                    Files.move(origen, destino, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-                } catch (AtomicMoveNotSupportedException e) {
-                    Files.move(origen, destino, StandardCopyOption.REPLACE_EXISTING);
-                }
-                return;
-            } catch (FileSystemException e) {
-                // OneDrive o el antivirus pueden tener el archivo abierto un instante: se reintenta
-                if (intento >= 5) throw e;
-                try { Thread.sleep(100L * intento); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); throw e; }
-            }
-        }
-    }
-
-    /** Guarda y escribe los movimientos pendientes. Si no se pudo guardar, lo dice en la respuesta. */
     private String persistir(String msg) {
-        boolean ok = guardar();
-        for (Movimiento m : porRegistrar)
-            historial.registrar(ok ? m : new Movimiento(m.fecha(), m.tipo(), m.producto(), m.cantidad(),
-                    m.detalle() + " (NO SE PUDO GUARDAR)", m.usuario()));
-        porRegistrar.clear();
-        return ok ? msg : msg + " Atención: no pude guardarlo en disco, señor. Revise jarvis.log.";
+        almacen.respaldoDiario();   // el primero del día copia el estado de antes de este cambio
+        try {
+            almacen.guardar(productos, ventas, ultimoNumero, porRegistrar);
+            return msg;
+        } catch (SQLException | RuntimeException e) {
+            log.error("No pude guardar en la base de datos {}: {}", almacen.archivo(), e.toString());
+            recargar();
+            return "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
+        } finally {
+            porRegistrar.clear();
+        }
+    }
+
+    /** Vuelve a lo guardado. Las ventas en curso y las preguntas pendientes se cancelan: apuntan a datos que ya no valen. */
+    private void recargar() {
+        try {
+            usarEstado(almacen.cargar());
+        } catch (RuntimeException e) {
+            log.error("Tampoco pude volver a leer la base de datos: {}", e.toString());
+        }
+        for (Sesion s : sesiones.values()) { s.carrito = null; s.pendiente = null; s.comprobanteNuevo = null; }
     }
 
     private void registrar(String tipo, Producto p, BigDecimal cantidad, String detalle) {
-        porRegistrar.add(new Movimiento(LocalDateTime.now().withNano(0).toString(), tipo, p.nombre,
-                cantidad == null ? null : Num.cantidad(cantidad), detalle, ClientSession.usuario()));
-    }
-
-    /**
-     * Pasa al archivo histórico (ventas-AAAA-MM.jsonl) las ventas de hace más de
-     * jarvis.inventory.dias-ventas días, para que el archivo principal no crezca sin límite.
-     * Se hace al arrancar y una vez al día. Si no se pudo archivar, no se borra nada.
-     */
-    private boolean compactar() {
-        LocalDate hoy = LocalDate.now();
-        compactadoEl = hoy;
-        String limite = hoy.minusDays(diasVentas).toString();   // fechas ISO: se comparan como texto
-        List<Venta> viejas = ventas.stream().filter(v -> v.fecha != null && v.fecha.compareTo(limite) < 0).toList();
-        if (viejas.isEmpty()) return false;
-        try {
-            historial.archivarVentas(viejas);
-        } catch (IOException e) {
-            log.error("No pude archivar las ventas antiguas en {}: {}", historial.dir(), e.toString());
-            return false;
-        }
-        Set<Venta> fuera = Collections.newSetFromMap(new IdentityHashMap<>());
-        fuera.addAll(viejas);
-        ventas.removeIf(fuera::contains);
-        log.info("Archivé {} líneas de venta anteriores a {} en {}.", viejas.size(), limite, historial.dir());
-        return true;
+        porRegistrar.add(new Almacen.Pendiente(new Movimiento(LocalDateTime.now().withNano(0).toString(), tipo, p.nombre,
+                cantidad == null ? null : Num.cantidad(cantidad), detalle, ClientSession.usuario()), p));
     }
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }
@@ -400,7 +367,6 @@ public class InventoryService {
             if (e.getValue().compareTo(p.stock) > 0)
                 return "Atención: stock insuficiente. Solo quedan " + Num.txt(p.stock) + " " + p.unidad + " de " + p.nombre + ". No registré la venta.";
         }
-        if (!LocalDate.now().equals(compactadoEl)) compactar();   // primera venta del día
 
         int numero = ++ultimoNumero;
         String fecha = LocalDate.now().toString(), hora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -1075,21 +1041,22 @@ public class InventoryService {
 
     /**
      * Empieza un inventario nuevo: quita todos los productos y las ventas, y cancela las ventas en curso.
-     * Antes copia el archivo actual a {@code jarvis-inventario.json.antes-de-nuevo-<fecha>}; si esa copia falla, no borra nada.
+     * Antes copia la base actual a {@code jarvis-inventario.db.antes-de-nuevo-<fecha>}; si esa copia falla, no borra nada.
      * Se conserva el correlativo de comprobantes (no se repiten números) y el historial de movimientos.
      */
     public synchronized Resultado empezarDeCero() {
-        Path copia = file.resolveSibling(file.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
+        Path base = almacen.archivo();
+        Path copia = base.resolveSibling(base.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
         try {
-            if (!guardar()) throw new IOException("no pude guardar el estado actual");
-            Files.copy(file, copia, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
+            almacen.copiarA(copia);
+        } catch (SQLException e) {
             log.error("No empecé el inventario nuevo: falló la copia de respaldo {}: {}", copia, e.getMessage());
             return Resultado.error("No pude guardar la copia del inventario actual, así que no borré nada, señor.");
         }
         int n = productos.size();
-        porRegistrar.add(new Movimiento(LocalDateTime.now().withNano(0).toString(), "NUEVO_INVENTARIO", "(todos)", null,
-                n + " productos y " + ventas.size() + " líneas de venta; copia en " + copia.getFileName(), ClientSession.usuario()));
+        porRegistrar.add(new Almacen.Pendiente(new Movimiento(LocalDateTime.now().withNano(0).toString(), "NUEVO_INVENTARIO",
+                "(todos)", null, n + " productos y " + ventas.size() + " líneas de venta; copia en " + copia.getFileName(),
+                ClientSession.usuario()), null));
         productos = new ArrayList<>();
         ventas = new ArrayList<>();
         for (Sesion s : sesiones.values()) { s.carrito = null; s.comprobanteNuevo = null; }
@@ -1099,7 +1066,7 @@ public class InventoryService {
 
     /** Últimos movimientos del historial, del más reciente al más antiguo. */
     public List<Movimiento> movimientos(int n) {
-        synchronized (this) { return historial.ultimos(Math.min(Math.max(n, 1), 1000)); }
+        synchronized (this) { return almacen.ultimosMovimientos(Math.min(Math.max(n, 1), 1000)); }
     }
 
     /**
@@ -1202,15 +1169,31 @@ public class InventoryService {
 
     /** Similitud entre la consulta y un producto (nombre + alias). */
     private double puntaje(String q, Producto p) {
-        double best = sim(q, Palabras.norm(p.nombre));
-        for (String a : p.alias) best = Math.max(best, sim(q, Palabras.norm(a)));
+        double best = sim(q, normalizado(p.nombre));
+        for (String a : p.alias) best = Math.max(best, sim(q, normalizado(a)));
         return best;
+    }
+
+    /** Nombres ya normalizados: cada búsqueda recorre todos los productos y normalizar cuesta (con miles se notaba). */
+    private final Map<String, String> normalizados = new HashMap<>();
+
+    private String normalizado(String s) {
+        if (normalizados.size() > 100_000) normalizados.clear();
+        return normalizados.computeIfAbsent(s, Palabras::norm);
+    }
+
+    /** Lo mismo con las palabras de cada nombre ya normalizado. */
+    private final Map<String, Set<String>> palabras = new HashMap<>();
+
+    private Set<String> palabrasDe(String normalizado) {
+        if (palabras.size() > 100_000) palabras.clear();
+        return palabras.computeIfAbsent(normalizado, this::tokens);
     }
 
     private double sim(String q, String cand) {
         if (cand.isBlank()) return 0;
         if (q.equals(cand)) return 1.0;                                   // nombre exacto: gana siempre
-        Set<String> qt = tokens(q), ct = tokens(cand);
+        Set<String> qt = tokens(q), ct = palabrasDe(cand);
         if (distintos(qt, ct, InventoryService::esTalla)) return 0;       // la 39 nunca es la 40, la S nunca es la M
         if (distintos(qt, ct, InventoryService::esColor)) return 0;       // ni la roja es la azul
         String qb = " " + q + " ", cb = " " + cand + " ";

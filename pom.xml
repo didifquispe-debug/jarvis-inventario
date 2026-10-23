@@ -53,6 +53,12 @@
             <artifactId>onnxruntime-engine</artifactId>
         </dependency>
 
+        <!-- ===== Base de datos: un solo archivo SQLite, sin instalar nada (la versión la fija Spring Boot) ===== -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+        </dependency>
+
         <!-- ===== Asistente con IA (Claude) cuando hay internet y clave; sin ellos se usan las reglas ===== -->
         <dependency>
             <groupId>com.anthropic</groupId>

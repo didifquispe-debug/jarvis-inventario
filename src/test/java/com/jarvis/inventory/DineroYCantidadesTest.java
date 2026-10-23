@@ -17,7 +17,7 @@ class DineroYCantidadesTest {
 
     @TempDir Path dir;
 
-    private InventoryService inv() { return Ejemplos.sembrar(new InventoryService(dir.resolve("inv.json").toString(), 90)); }
+    private InventoryService inv() { return Ejemplos.sembrar(new InventoryService(dir.resolve("inv.json").toString())); }
 
     private static BigDecimal stock(InventoryService inv, String prefijo) {
         return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow().stock;

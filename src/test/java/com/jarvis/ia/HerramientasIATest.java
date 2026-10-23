@@ -31,7 +31,7 @@ class HerramientasIATest {
 
     @BeforeEach
     void preparar() {
-        inv = new InventoryService(dir.resolve("inv.json").toString(), 90);
+        inv = new InventoryService(dir.resolve("inv.json").toString());
         h = new HerramientasIA(inv);
         assertTrue(inv.crearProducto("Polera roja M", new BigDecimal("25"), new BigDecimal("10"), "unidades", null, null,
                 new Producto.Ficha("Poleras", "POL-R-M", null, new BigDecimal("12"))).ok());
@@ -115,15 +115,25 @@ class HerramientasIATest {
         assertTrue(r.contains("inventario nuevo"), r);
         assertTrue(inv.productos().isEmpty());
         try (Stream<Path> s = Files.list(dir)) {
-            Path copia = s.filter(p -> p.getFileName().toString().startsWith("inv.json.antes-de-nuevo-")).findFirst().orElseThrow();
-            assertTrue(Files.readString(copia).contains("Polera roja M"), "la copia tiene el inventario anterior");
+            Path copia = s.filter(p -> p.getFileName().toString().startsWith("inv.db.antes-de-nuevo-")).findFirst().orElseThrow();
+            assertEquals(List.of("Polera roja M", "Zapatilla Nike 40"), nombresEn(copia), "la copia tiene el inventario anterior");
         }
         assertEquals("NUEVO_INVENTARIO", inv.movimientos(1).get(0).tipo());
 
         assertTrue(inv.crearProducto("Vela", BigDecimal.ONE, BigDecimal.TEN, "unidades", null, null).ok());
         inv.salida(BigDecimal.ONE, "Vela", false);
         assertEquals(comprobante + 1, inv.tomarComprobanteNuevo().numero, "los números de comprobante no se repiten");
-        assertEquals(1, new InventoryService(dir.resolve("inv.json").toString(), 90).productos().size(), "queda guardado");
+        assertEquals(1, new InventoryService(dir.resolve("inv.json").toString()).productos().size(), "queda guardado");
+    }
+
+    /** Los productos guardados en otra base de datos (la copia de respaldo). */
+    private static List<String> nombresEn(Path base) throws Exception {
+        List<String> out = new ArrayList<>();
+        try (var cx = java.sql.DriverManager.getConnection("jdbc:sqlite:" + base.toAbsolutePath());
+             var rs = cx.createStatement().executeQuery("SELECT nombre FROM producto ORDER BY id")) {
+            while (rs.next()) out.add(rs.getString(1));
+        }
+        return out;
     }
 
     @ParameterizedTest

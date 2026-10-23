@@ -59,7 +59,7 @@ class MultiplicadoresTest {
     }
 
     @Test void productoContadoEnParesNoSeDuplica() {
-        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString(), 90);
+        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString());
         InventorySkill voz = new InventorySkill(inv);
         assertTrue(inv.crearProducto("Zapatilla Nike Air 40", new BigDecimal("250"), new BigDecimal("6"), "pares", null, null).ok());
         assertTrue(inv.crearProducto("Medias blancas", new BigDecimal("5"), new BigDecimal("50"), "unidades", null, null).ok());
@@ -78,7 +78,7 @@ class MultiplicadoresTest {
     }
 
     @Test void productoNuevoEnParesTomaLosParesDichos() {
-        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString(), 90);
+        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString());
         String r = new InventorySkill(inv).handle(Palabras.norm("llegaron 3 pares de zapatillas puma 41"), "").orElseThrow();
         assertTrue(r.startsWith("Producto nuevo registrado"), r);
         assertEquals(new BigDecimal("3"), inv.productos().get(0).stock);

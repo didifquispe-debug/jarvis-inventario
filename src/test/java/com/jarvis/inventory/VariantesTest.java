@@ -19,7 +19,7 @@ class VariantesTest {
     InventorySkill voz;
 
     @BeforeEach void tienda() {
-        inv = new InventoryService(dir.resolve("inv.json").toString(), 90);
+        inv = new InventoryService(dir.resolve("inv.json").toString());
         voz = new InventorySkill(inv);
         crear("Zapatilla Nike Air 39", "250", "5", "pares");
         crear("Zapatilla Nike Air 40", "250", "6", "pares");
