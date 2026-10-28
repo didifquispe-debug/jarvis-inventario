@@ -1,5 +1,7 @@
 # J.A.R.V.I.S. en Java
 
+> **¿Eres del equipo?** Lee la [guía para el equipo](CONTRIBUTING.md): cómo bajar el proyecto, correrlo y subir tus cambios.
+
 Asistente con voz e **inventario para cualquier negocio** (tienda de ropa, zapatería, bodega,
 ferretería…) que corre en tu laptop. Funciona **100% offline, sin claves de API**, y se controla desde **cualquier dispositivo**
 (la misma laptop, tu celular, una tablet u otra PC) a través del navegador.
