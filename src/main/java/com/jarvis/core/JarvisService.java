@@ -52,7 +52,7 @@ public class JarvisService {
     }
 
     public String process(String original) {
-        if (original == null || original.isBlank()) return "No escuché nada, señor.";
+        if (original == null || original.isBlank()) return "No escuché nada, Didì.";
         // Preguntas sobre JARVIS ("qué eres", "qué puedes hacer", "cómo registro una compra"): respuesta fija, al instante
         Optional<String> sobreJarvis = inventario.esperandoConfirmacion() ? Optional.empty()
                 : acercaDe.responder(normalize(original), asistente.disponible());
@@ -68,7 +68,7 @@ public class JarvisService {
 
     /** Las reglas de siempre (sin IA). También las usa la IA, con la herramienta ejecutar_orden. */
     public String procesarConReglas(String original) {
-        if (original == null || original.isBlank()) return "No escuché nada, señor.";
+        if (original == null || original.isBlank()) return "No escuché nada, Didì.";
         String cmd = normalize(original);
 
         // 0) "aprende que chompa significa polera" va antes del diccionario (si no, se traduciría a sí misma);

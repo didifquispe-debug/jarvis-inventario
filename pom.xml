@@ -80,6 +80,13 @@
             <version>2.34.0</version>
         </dependency>
 
+        <!-- ===== Reconocimiento de voz sin Internet (Vosk, con un modelo en español en la carpeta del usuario) ===== -->
+        <dependency>
+            <groupId>com.alphacephei</groupId>
+            <artifactId>vosk</artifactId>
+            <version>0.3.45</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
