@@ -61,8 +61,14 @@ public class VozLocal {
                     @Value("${jarvis.voz.vosk-model:${jarvis.voz.modelo-dir:${user.home}/jarvis-voz/vosk/vosk-model-small-es-0.42}}") String dir,
                     @Value("${jarvis.voz.motor:auto}") String motor) {
         this.habilitado = habilitado;
-        this.dir = Paths.get(dir);
+        this.dir = conModelo(Paths.get(dir));
         this.motor = leerMotor(motor);
+    }
+
+    /** La carpeta antigua (~/jarvis-models/vosk-es) sigue valiendo si en la configurada no hay modelo. */
+    static Path conModelo(Path dir) {
+        Path antigua = Paths.get(System.getProperty("user.home"), "jarvis-models", "vosk-es");
+        return !Files.isDirectory(dir.resolve("am")) && Files.isDirectory(antigua.resolve("am")) ? antigua : dir;
     }
 
     static Motor leerMotor(String s) {
