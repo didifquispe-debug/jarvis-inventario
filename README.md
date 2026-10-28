@@ -9,7 +9,7 @@ ferretería…) que corre en tu laptop. Funciona **100% offline, sin claves de A
 ## Cómo funciona
 
 ```
- Celular / Tablet / PC  ──(Wi-Fi, navegador)──►  Laptop: servidor Spring Boot (puerto 8080)
+ Celular / Tablet / PC  ──(Wi-Fi, navegador)──►  Laptop: servidor Spring Boot (puerto 8081)
    - micrófono y voz                                 ├─ JarvisService  (decide quién responde)
    - se instala como app                             ├─ Skills         (hora, web, apps, notas, cálculo…)
                                                      ├─ LaptopActions  (abre programas/navegador en la laptop)
@@ -33,7 +33,7 @@ Si le dices desde el celular "abre YouTube", **se abre en la laptop**.
 4. Abre `src/main/resources/application.properties` y **cambia `jarvis.token`** por una clave tuya.
 5. Abre `JarvisApplication.java` y pulsa ▶ junto a `main`.
 
-En tu laptop entra a **http://localhost:8080** — te pedirá la clave una sola vez.
+En tu laptop entra a **http://localhost:8081** — te pedirá la clave una sola vez.
 
 ## La pantalla
 
@@ -81,7 +81,7 @@ Como el programa no tiene consola, sus mensajes quedan en `C:\Users\<tú>\jarvis
 2. Averigua la IP de la laptop:
    - Windows: `ipconfig` → "Dirección IPv4" (ej. `192.168.1.35`)
    - macOS/Linux: `ip a` o `ifconfig`
-3. En el celular abre `http://192.168.1.35:8080`.
+3. En el celular abre `http://192.168.1.35:8081`.
 4. Si Windows pregunta por el Firewall al arrancar, permite **redes privadas**.
 5. Para tenerlo como app: en Chrome ⋮ → *Agregar a la pantalla principal*.
 
@@ -90,9 +90,9 @@ Los navegadores solo dejan usar el micrófono en `localhost` o con **HTTPS**.
 Desde el celular por `http://192.168…` podrás **escribir** pero no hablar. Soluciones:
 
 - **Rápida (Chrome Android):** abre `chrome://flags/#unsafely-treat-insecure-origin-as-secure`,
-  agrega `http://192.168.1.35:8080`, actívalo y reinicia Chrome.
+  agrega `http://192.168.1.35:8081`, actívalo y reinicia Chrome.
 - **Desde cualquier lugar (incluso fuera de casa):** instala [Tailscale](https://tailscale.com) en laptop y
-  celular, o usa un túnel HTTPS como `ngrok http 8080` / Cloudflare Tunnel.
+  celular, o usa un túnel HTTPS como `ngrok http 8081` / Cloudflare Tunnel.
   Si lo expones a Internet, usa una clave larga en `jarvis.token`.
 
 ## 4. Comandos incluidos
