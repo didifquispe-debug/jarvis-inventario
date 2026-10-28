@@ -75,6 +75,21 @@ pega ahí el acceso directo de JARVIS.
 Si cambias algo del código o de `application.properties`, repite los pasos 2 y 3.
 Como el programa no tiene consola, sus mensajes quedan en `C:\Users\<tú>\jarvis.log`.
 
+### Instalador para vender (JARVIS-Setup.exe)
+
+Así el cliente instala JARVIS con la voz y la IA incluidas, sin instalar Vosk, Piper ni Ollama aparte:
+1. **Una sola vez:** doble clic en `packaging\preparar-componentes.bat`. Junta Vosk, Piper, la voz,
+   Ollama portable y el modelo `llama3.2:3b` en `packaging\incluir\` (unos 4 GB, necesita Internet;
+   si ya tienes `jarvis-voz` en tu usuario, copia de ahí). Para un instalador sin IA:
+   `preparar-componentes.bat sin-ia`.
+2. Instala **Inno Setup 6** (`winget install JRSoftware.InnoSetup`).
+3. Pasos 2 y 3 de arriba (**package** y **`crear-exe.bat`**). Ahora también crea
+   `dist\instalador\JARVIS-Setup-0.1.0.exe`. Si incluye la IA, el instalador pasa de 2 GB y va
+   acompañado de archivos `.bin`: hay que repartir la carpeta completa.
+
+En la PC del cliente JARVIS usa lo que está en su carpeta (`voz\` e `ia\`) y arranca y apaga
+Ollama solo. La IA es opcional al instalar. Si Ollama ya está abierto en esa PC, JARVIS usa ese.
+
 ## 3. Usarlo desde el celular u otros dispositivos
 
 1. Conecta el celular a **la misma red Wi-Fi** que la laptop.

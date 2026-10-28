@@ -6,6 +6,7 @@ package com.jarvis.ia;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jarvis.ComponentesIncluidos;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.inventory.Palabras;
 import com.jarvis.inventory.Producto;
@@ -99,6 +100,7 @@ public class AsistenteIA {
 
     private void comprobarServidor() {
         try {
+            ComponentesIncluidos.esperarOllama(20_000);
             List<String> modelos = cliente.modelos();
             if (!modelos.isEmpty() && modelos.stream().noneMatch(m -> m.equals(cliente.modelo()) || m.equals(cliente.modelo() + ":latest"))) {
                 log.warn("El servidor de IA local ({}) no tiene el modelo {} (tiene {}). Ejecute: ollama pull {}",
