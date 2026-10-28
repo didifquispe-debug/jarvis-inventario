@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import com.jarvis.ai.EntityExtractor;
@@ -18,11 +22,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Entiende las órdenes de inventario habladas y las manda a InventoryService.
- * Va primero (@Order(-10)) para atrapar "sí/no" cuando hay una confirmación pendiente
- * y los productos que se dictan durante una venta con varios productos.
- */
 @Component
 @Order(-10)
 public class InventorySkill implements Skill {
@@ -39,32 +38,27 @@ public class InventorySkill implements Skill {
                 + " / Cambia la unidad de la tela a metros / Elimina el producto polera M";
     }
 
-    // palabras que indican cada acción.
-    // OJO: "compre/compramos" = yo compré al proveedor (entrada); "compro/compraron" = el cliente compró (venta).
     private static final Pattern ENTRADA = Pattern.compile("\\b(entro|entraron|llego|llegaron|ingreso|ingresaron|entrada|compre|compramos|recibi|recibieron|agrega|agregar|sumar|repuse)\\b");
     private static final Pattern SALIDA  = Pattern.compile("\\b(salio|salieron|vende|venden|vendeme|vender|vendo|vendemos|vendimos|vendi|vendieron|vendio|vendidas?|vendidos?"
             + "|venta|salida|despacha|despache|se llevaron|resta|restar|saque|sacaron|entregue|cobra|cobrar|cobre|cobramos|compro|compraron)\\b");
-    // Consulta de stock. OJO: evita chocar con la calculadora ("cuanto es 25 por 4").
     private static final Pattern CONSULTA = Pattern.compile(
-            "\\b(stock|quedan|queda|disponibles?)\\b" +            // palabras claras de inventario
-            "|\\b(cuantos|cuantas)\\b" +                            // plural: "cuantas poleras"
-            "|\\bcuanto\\b.*\\b(hay|tengo)\\b");                    // "cuanto arroz tengo"
+            "\\b(stock|quedan|queda|disponibles?)\\b" +
+            "|\\b(cuantos|cuantas)\\b" +
+            "|\\bcuanto\\b.*\\b(hay|tengo)\\b");
     private static final Pattern ES_CALCULO = Pattern.compile("\\bcuanto es\\b|\\bcalcula\\b");
     private static final Pattern CIERRE = Pattern.compile("\\b(cierre|cierra|reporte|resumen)\\b.*\\b(caja|dia|diario|jornada|ventas)\\b|\\bcierre de caja\\b|\\bcierre del dia\\b");
     private static final Pattern RECIBO = Pattern.compile("\\b(comprobante|recibo|boleta|ticket)\\b");
     private static final Pattern LISTA = Pattern.compile("\\b(inventario|lista de productos|que productos|todo el stock|stock general)\\b");
 
-    // precios
     private static final Pattern LISTA_PRECIOS = Pattern.compile("\\b(lista de precios|precios)\\b");
     private static final Pattern CAMBIAR_PRECIO = Pattern.compile(
-            "\\b(cambia|cambiar|cambiale|actualiza|actualizar|pon|ponle|nuevo)\\b.*\\bprecio\\b" +   // "cambia el precio de la polera a 30"
-            "|\\b(cuesta|cuestan|vale|valen)\\s+\\d");                                              // "la polera cuesta 30 soles"
+            "\\b(cambia|cambiar|cambiale|actualiza|actualizar|pon|ponle|nuevo)\\b.*\\bprecio\\b" +
+            "|\\b(cuesta|cuestan|vale|valen)\\s+\\d");
     private static final Pattern PRECIO = Pattern.compile("\\b(precio|cuesta|cuestan|vale|valen|a como)\\b");
     private static final Pattern NUMERO = Pattern.compile("(\\d+(?:[.,]\\d+)?)");
     private static final Pattern CANTIDAD_DICHA = Pattern.compile("\\d|\\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez"
             + "|once|doce|quince|veinte|veinti\\w+|treinta|cuarenta|cincuenta|cien|ciento|medio|media|docena)\\b");
 
-    // correcciones (van antes que las ventas: "anula la última venta" también dice "venta")
     private static final String ULTIMA = "\\b(ultima venta|ultimo comprobante|ultima boleta|ultimo recibo)\\b";
     private static final Pattern ANULAR_ULTIMA = Pattern.compile(
             "\\b(anula|anular|anulale|cancela|cancelar|elimina|eliminar|borra|borrar|deshaz|deshacer|revierte|revertir)\\b.*" + ULTIMA);
@@ -78,8 +72,6 @@ public class InventorySkill implements Skill {
     private static final String VERBOS_ELIMINAR = "elimina|eliminar|eliminame|borra|borrar|borrame|suprime|suprimir|quita|quitar|retira|retirar";
     private static final Pattern ELIMINAR_PRODUCTO = Pattern.compile(
             "\\b(" + VERBOS_ELIMINAR + ")\\b.*\\b(producto|del inventario)\\b|\\bda(r)? de baja\\b");
-    // "elimina la polera roja m" (sin decir "producto"): "elimina…" siempre es eliminar; "borra…" solo si
-    // lo que sigue es un producto que existe, así "borra mis notas" sigue llegando a las notas
     private static final Pattern NUEVO_INVENTARIO = Pattern.compile(
             "\\b(nuevo inventario|inventario (nuevo|de cero|desde cero)|empezar (el inventario )?de cero"
             + "|vaciar (el |todo el )?inventario|borrar todo el inventario|borra todo el inventario)\\b");
@@ -95,9 +87,6 @@ public class InventorySkill implements Skill {
     private static final Set<String> PALABRAS_PRECIO = Set.of("precio", "cuesta", "cuestan", "vale", "valen", "cambia", "cambiar",
             "cambiale", "actualiza", "actualizar", "pon", "ponle", "nuevo", "como", "esta", "estan", "en", "cual", "es", "dime", "dame");
 
-    // venta con varios productos
-    // tipo de comprobante y cliente de una venta: "con boleta", "con nota de venta", "para el DNI 12345678".
-    // El documento solo cuenta con la palabra DNI/RUC/cliente delante: así nunca se confunde con una cantidad.
     private static final Pattern TIPO_DICHO = Pattern.compile("\\b(?:con |en |por )?(?:una |la )?(boleta|nota de venta)\\b|\\bcon nota\\b");
     private static final Pattern DOCUMENTO_DICHO = Pattern.compile(
             "\\b(?:para |a |al )?(?:el |la )?(?:cliente )?(?:con )?(?:dni|ruc|documento|cliente)(?: numero)? (\\d{11}|\\d{8})\\b");
@@ -108,9 +97,7 @@ public class InventorySkill implements Skill {
     private static final Pattern CANCELAR_VENTA = Pattern.compile("\\b(cancela|cancelar|anula|anular|borra)\\b.*\\bventa\\b");
     private static final Pattern QUITAR = Pattern.compile("\\b(quita|quitar|quitale|saca|sacar|elimina|eliminar|retira|retirar)\\b");
     private static final Pattern VER_VENTA = Pattern.compile("\\b(cuanto va|cuanto llevo|cuanto llevamos|que llevo|que llevamos|ver (la )?venta|total parcial|el total)\\b");
-    // "agrega 3 gorras" durante una venta significa añadir al carrito, no una entrada de mercadería
     private static final Pattern AGREGAR = Pattern.compile("\\b(agrega|agregar|agregale|sumar|anade|anadir)\\b");
-    // separadores entre productos: "2 poleras y 3 gorras", "… mas 5 medias", "… tambien 2 correas"
     private static final Set<String> SEPARADORES = Set.of("y", "mas", "tambien", "ademas");
 
     private static final Set<String> SI = Set.of("si", "sip", "claro", "confirmo", "correcto", "dale", "afirmativo", "exacto", "ok", "okay", "confirmado");
@@ -118,25 +105,20 @@ public class InventorySkill implements Skill {
 
     @Override
     public Optional<String> handle(String cmdRaw, String original) {
-        String cmd = Palabras.norm(cmdRaw);   // sin tildes, sin comas, minúsculas
-        // 1) ¿Esperando confirmación? Atender sí/no.
+        String cmd = Palabras.norm(cmdRaw);
         if (inv.hayPendiente()) {
             String c = cmd.trim();
             if (SI.contains(c) || SI.stream().anyMatch(c::startsWith)) return Optional.ofNullable(inv.resolver(true));
             if (NO.contains(c) || NO.stream().anyMatch(c::startsWith)) return Optional.ofNullable(inv.resolver(false));
-            // si dice otra cosa, recordamos la pregunta
             return Optional.of("Antes necesito que confirme. Diga sí o no, señor.");
         }
 
         List<String> palabras = new ArrayList<>(Arrays.asList(cmd.split(" ")));
         Palabras.Cantidad qty = Palabras.buscarCantidad(palabras);
 
-        // 2) Correcciones: anular/corregir la última venta, stock mínimo, unidad, eliminar producto
         Optional<String> correccion = correcciones(cmd, palabras);
         if (correccion.isPresent()) return correccion;
 
-        // 3) Comprobante y cliente de esta venta ("con boleta para el DNI 12345678"): se quitan de la frase
-        //    antes de buscar cantidad y producto.
         InventoryService.Opciones op = InventoryService.Opciones.POR_DEFECTO;
         if (SALIDA.matcher(cmd).find() || NUEVA_VENTA.matcher(cmd).find() || inv.ventaAbierta()) {
             Dichas d = opcionesDichas(cmd);
@@ -148,7 +130,6 @@ public class InventorySkill implements Skill {
             }
         }
 
-        // 4) Venta con varios productos: abrir, y mientras está abierta, ver / cancelar / cobrar
         if (NUEVA_VENTA.matcher(cmd).find()) return Optional.of(inv.abrirVenta(op));
         if (inv.ventaAbierta()) {
             if (!op.vacia()) {
@@ -160,7 +141,6 @@ public class InventorySkill implements Skill {
             if (COBRAR.matcher(cmd).find() && !qty.hay()) return Optional.of(inv.cobrar());
         }
 
-        // 4) Órdenes que no mueven stock
         if (RECIBO.matcher(cmd).find() && !SALIDA.matcher(cmd).find()) return Optional.of(inv.ultimoComprobante());
         if (CIERRE.matcher(cmd).find()) return Optional.of(reporteDiario());
         if (LISTA_PRECIOS.matcher(cmd).find()) return Optional.of(inv.listaPrecios());
@@ -171,7 +151,6 @@ public class InventorySkill implements Skill {
         }
         if (LISTA.matcher(cmd).find()) return Optional.of(inv.inventario());
 
-        // 5) Durante una venta abierta: quitar productos o añadirlos al carrito
         if (inv.ventaAbierta()) {
             if (QUITAR.matcher(cmd).find()) {
                 String producto = EntityExtractor.producto(palabras, qty);
@@ -181,9 +160,8 @@ public class InventorySkill implements Skill {
             if (qty.hay() && !entradaReal && !CONSULTA.matcher(cmd).find()) return Optional.of(agregarAlCarrito(palabras));
         }
 
-        if (ES_CALCULO.matcher(cmd).find()) return Optional.empty();   // deja la calculadora en paz
+        if (ES_CALCULO.matcher(cmd).find()) return Optional.empty();
 
-        // Si aparecen palabras de entrada y de salida, manda la que se dijo primero
         int iEntrada = posicion(ENTRADA, cmd), iSalida = posicion(SALIDA, cmd);
         boolean esEntrada = iEntrada >= 0 && (iSalida < 0 || iEntrada < iSalida);
         boolean esSalida = iSalida >= 0 && !esEntrada;
@@ -206,13 +184,11 @@ public class InventorySkill implements Skill {
                 return Optional.of("No logré identificar la cantidad ni el producto, señor. Por favor repita la orden.");
             return Optional.of(inv.salida(cantidad(qty, producto, palabras), producto, false, op));
         }
-        // consulta: aquí no hay cantidad, así que un número es la talla ("cuántas zapatillas 40 quedan")
         producto = EntityExtractor.producto(palabras, Palabras.Cantidad.NINGUNA);
         if (producto.isBlank()) return Optional.of("¿De qué producto desea saber el stock, señor?");
         return Optional.of(consultarStock(producto));
     }
 
-    /** Anular/corregir la última venta, stock mínimo, unidad y eliminar producto. Vacío si no es una corrección. */
     private Optional<String> correcciones(String cmd, List<String> palabras) {
         if (ANULAR_ULTIMA.matcher(cmd).find()) return Optional.of(inv.pedirAnularUltimaVenta());
         if (NUEVO_INVENTARIO.matcher(cmd).find()) return Optional.of(inv.pedirNuevoInventario());
@@ -249,7 +225,6 @@ public class InventorySkill implements Skill {
         }
 
         if (STOCK_MINIMO.matcher(cmd).find() && !ES_CALCULO.matcher(cmd).find()) {
-            // el último número es el mínimo ("stock mínimo de la zapatilla 40 en 3" → 3)
             int iNumero = -1;
             for (int i = 0; i < palabras.size(); i++) if (Palabras.esNumero(palabras.get(i))) iNumero = i;
             List<String> resto = new ArrayList<>();
@@ -262,10 +237,6 @@ public class InventorySkill implements Skill {
         return Optional.empty();
     }
 
-    /**
-     * "un par de medias" son 2 unidades, pero "un par de zapatillas" es 1 si el producto se cuenta en pares.
-     * Si el producto aún no existe, manda la unidad dicha ("llegaron 3 pares de…" crea el producto en pares).
-     */
     private BigDecimal cantidad(Palabras.Cantidad q, String producto, List<String> palabras) {
         if (!q.enPares()) return q.valor();
         String unidad = inv.unidadDe(producto);
@@ -277,10 +248,6 @@ public class InventorySkill implements Skill {
         return m.find() ? m.start() : -1;
     }
 
-    /**
-     * Corta "vendí 2 poleras y 3 gorras" en ["vendí 2 poleras", "3 gorras"]. Solo corta en "y/más/también"
-     * si después viene una cantidad, y nunca dentro de un número ("treinta y cinco").
-     */
     static List<List<String>> dividirProductos(List<String> palabras) {
         List<List<String>> partes = new ArrayList<>();
         List<String> actual = new ArrayList<>();
@@ -314,7 +281,6 @@ public class InventorySkill implements Skill {
         return inv.venderVarios(cantidades, productos, op);
     }
 
-    /** El tipo de comprobante y el documento del cliente dichos en la frase, y la frase sin ellos. */
     record Dichas(InventoryService.Opciones opciones, String resto) {}
 
     static Dichas opcionesDichas(String cmd) {
@@ -333,7 +299,6 @@ public class InventorySkill implements Skill {
         return new Dichas(new InventoryService.Opciones(tipo, doc, null), resto.replaceAll("\\s+", " ").trim());
     }
 
-    /** ¿Después de quitar el comprobante y el cliente no queda nada más que decir? ("con boleta", "para el cliente…") */
     private static boolean soloOpciones(String resto) {
         for (String w : resto.split(" ")) if (!w.isBlank() && !RELLENO_OPCIONES.contains(w)) return false;
         return true;
@@ -350,7 +315,6 @@ public class InventorySkill implements Skill {
         return String.join(" ", respuestas);
     }
 
-    /** "cambia el precio de la polera M a 30 soles" / "la polera M cuesta 30.50". El número se toma del texto original para no perder decimales. */
     private String cambiarPrecio(String cmd, String original) {
         Matcher m = NUMERO.matcher(original);
         String numero = null;
@@ -366,10 +330,6 @@ public class InventorySkill implements Skill {
         return EntityExtractor.producto(limpias, Palabras.Cantidad.NINGUNA);
     }
 
-    /**
-     * ¿La frase trae palabras clave claras de inventario? En ese caso deciden las reglas y el
-     * modelo local no interviene (evita que una similitud engañosa cambie una venta por otra cosa).
-     */
     public boolean ordenExplicita(String cmdRaw) {
         String cmd = Palabras.norm(cmdRaw);
         if (ES_CALCULO.matcher(cmd).find()) return false;
@@ -378,10 +338,6 @@ public class InventorySkill implements Skill {
                 .stream().anyMatch(p -> p.matcher(cmd).find());
     }
 
-    /**
-     * ¿La orden solo consulta (stock, precios, inventario) sin cambiar nada? Las órdenes que propone el asistente
-     * con IA y no son consultas piden un "sí" antes de pasar a las reglas.
-     */
     public boolean soloConsulta(String cmdRaw) {
         String cmd = Palabras.norm(cmdRaw);
         boolean cambia = Set.of(NUEVA_VENTA, ENTRADA, SALIDA, ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD,
@@ -390,26 +346,16 @@ public class InventorySkill implements Skill {
         return !cambia && Set.of(CONSULTA, LISTA, LISTA_PRECIOS, PRECIO).stream().anyMatch(p -> p.matcher(cmd).find());
     }
 
-    /**
-     * ¿Es una venta, una entrada o un cambio de cantidad o precio? Dicha por voz se confirma antes, porque el
-     * reconocimiento confunde números ("vendí tres" / "veintitrés"). Eliminar y empezar de cero ya piden su "sí";
-     * abrir una venta, cobrar, comprobantes y el cierre no llevan cantidades.
-     */
     public boolean delicadaPorVoz(String cmdRaw) {
         String cmd = Palabras.norm(cmdRaw);
         if (Set.of(ES_CALCULO, NUEVA_VENTA, CIERRE, RECIBO, ANULAR_ULTIMA, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO, NUEVO_INVENTARIO)
                 .stream().anyMatch(p -> p.matcher(cmd).find()) || soloConsulta(cmd)) return false;
-        // "cobrar" a secas cierra el carrito; "cobra 2 bolsas de cemento" es una venta con cantidad
         if (COBRAR.matcher(cmd).find() && !CANTIDAD_DICHA.matcher(cmd).find()) return false;
         return Set.of(SALIDA, ENTRADA, CORREGIR_ULTIMA, CAMBIAR_PRECIO, STOCK_MINIMO).stream().anyMatch(p -> p.matcher(cmd).find());
     }
 
-    // ---------------------------------------------------------------- acciones (las usa también el clasificador DJL)
-
-    /** ¿Hay una operación esperando "sí/no"? Mientras tanto no se debe clasificar con el modelo. */
     public boolean esperandoConfirmacion() { return inv.hayPendiente(); }
 
-    /** ¿Hay una venta con varios productos abierta? Mientras tanto se dictan productos y no se clasifica con el modelo. */
     public boolean ventaEnCurso() { return inv.ventaAbierta(); }
 
     public String registrarEntrada(BigDecimal cantidad, String producto, BigDecimal precio) {
@@ -422,11 +368,6 @@ public class InventorySkill implements Skill {
 
     public String reporteDiario() { return inv.cierre(); }
 
-    /**
-     * Ejecuta una intención reconocida por el modelo local. Devuelve vacío si faltan datos
-     * o el producto no existe, para que JARVIS recurra al procesador de reglas clásico
-     * (que es quien crea productos nuevos y pide repetir la orden).
-     */
     public Optional<String> ejecutar(IntentResult r) {
         return switch (r.intent()) {
             case REGISTRAR_ENTRADA -> r.tieneCantidad() && conoce(r)

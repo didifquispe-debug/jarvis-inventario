@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.desktop.AppWindow;
@@ -18,7 +22,6 @@ import java.util.Properties;
 @SpringBootApplication
 public class JarvisApplication {
 
-    /** Puerto por defecto si application.properties no dice otro (debe coincidir con server.port). */
     public static final int PUERTO_POR_DEFECTO = 8081;
 
     public static void main(String[] args) {
@@ -28,25 +31,18 @@ public class JarvisApplication {
                 .replace("${user.home}", System.getProperty("user.home"));
         String token = AccessToken.resolverSinGenerar(cfg.getProperty("jarvis.token", ""), archivoClave);
 
-        // Navegador en el que se abre la ventana de escritorio (chrome | edge | auto)
         AppWindow.setPreferred(cfg.getProperty("jarvis.browser", "chrome"));
 
-        // Si JARVIS ya está encendido (por ejemplo, le diste doble clic otra vez),
-        // solo abre su ventana en lugar de fallar con "Port ... was already in use".
         if (alreadyRunning(port)) {
             AppWindow.open(DesktopShell.localUrl(port, token));
             System.exit(0);
         }
 
         new SpringApplicationBuilder(JarvisApplication.class)
-                .headless(false)   // necesario para el ícono de bandeja y abrir programas
+                .headless(false)
                 .run(args);
     }
 
-    /**
-     * Lee application.properties igual que Spring: como ISO-8859-1 (por eso la ñ va como ñ).
-     * Si se leyera como UTF-8, una ñ escrita a mano valdría distinto aquí que en Spring.
-     */
     static Properties loadConfig() {
         Properties p = new Properties();
         try (InputStream in = JarvisApplication.class.getResourceAsStream("/application.properties")) {

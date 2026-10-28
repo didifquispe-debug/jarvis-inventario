@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -8,14 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Proveedores y compras, guardados directo en la base (como en el sistema de referencia: CompraService y
- * ProveedorService). Registrar o anular una compra cambia el stock, así que eso lo hace {@link InventoryService},
- * que usa los métodos de escritura de esta clase dentro de su misma transacción.
- */
 public class Compras {
 
-    /** Documento que entrega el proveedor y respalda la compra. */
     public enum TipoDocumento {
         FACTURA("Factura"), BOLETA("Boleta de venta"), GUIA_REMISION("Guía de remisión"), NOTA_VENTA("Nota de venta");
 
@@ -23,7 +21,6 @@ public class Compras {
 
         TipoDocumento(String descripcion) { this.descripcion = descripcion; }
 
-        /** "factura", "FACTURA", "guia", "guía de remisión", "boleta", "nota"…; null si no se reconoce. */
         public static TipoDocumento de(String texto) {
             String t = texto == null ? "" : Palabras.norm(texto).replace('_', ' ');
             if (t.startsWith("fact")) return FACTURA;
@@ -36,16 +33,10 @@ public class Compras {
 
     public record Proveedor(long id, String ruc, String razonSocial, String direccion, String telefono) {}
 
-    /** Para crear o editar un proveedor. En una edición, null = no tocar y "" = borrar (salvo RUC y razón social). */
     public record DatosProveedor(String ruc, String razonSocial, String direccion, String telefono) {}
 
-    /** Una línea de una compra nueva: producto (nombre exacto), cantidad y costo unitario tal como figura en el documento. */
     public record LineaCompra(String producto, BigDecimal cantidad, BigDecimal costo) {}
 
-    /**
-     * Una compra nueva. {@code razonSocial} solo hace falta si el RUC aún no está registrado. {@code fechaDocumento}:
-     * AAAA-MM-DD (vacía = hoy). {@code igv}: incluido (por defecto), agregado o exonerado.
-     */
     public record NuevaCompra(String ruc, String razonSocial, String tipoDocumento, String numeroDocumento, String fechaDocumento,
                               String igv, String observacion, List<LineaCompra> items) {}
 
@@ -57,7 +48,6 @@ public class Compras {
                          String fechaDocumento, String modoIgv, BigDecimal base, BigDecimal igv, BigDecimal total, boolean anulada,
                          String observacion, List<Detalle> detalles) {}
 
-    /** Totales de las compras registradas (sin anuladas) de una consulta. */
     public record Totales(int compras, BigDecimal base, BigDecimal igv, BigDecimal total) {}
 
     private static final int MAX_RAZON = 150, MAX_DIRECCION = 200;
@@ -69,15 +59,12 @@ public class Compras {
 
     static String codigo(int numero) { return "CP-" + String.format("%08d", numero); }
 
-    // ---------------------------------------------------------------- proveedores
-
     public synchronized Optional<Proveedor> proveedor(String ruc) {
         String r = ruc == null ? "" : ruc.trim();
         List<Proveedor> l = proveedores("SELECT * FROM proveedor WHERE ruc = ?", r);
         return l.isEmpty() ? Optional.empty() : Optional.of(l.get(0));
     }
 
-    /** Por RUC (que empiece así) si son dígitos; si no, cada palabra debe estar en la razón social. */
     public synchronized List<Proveedor> buscarProveedores(String texto, int limite) {
         String t = texto == null ? "" : texto.trim();
         int lim = Math.min(Math.max(limite, 1), 500);
@@ -133,7 +120,6 @@ public class Compras {
         return InventoryService.Resultado.ok("Guardé los datos de " + razon + ".");
     }
 
-    /** Un proveedor con compras no se elimina (sus compras lo nombran). */
     public synchronized InventoryService.Resultado eliminarProveedor(String ruc) {
         Optional<Proveedor> p = proveedor(ruc);
         if (p.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un proveedor con el RUC " + ruc + ".");
@@ -149,12 +135,6 @@ public class Compras {
         }
     }
 
-    // ---------------------------------------------------------------- consultas de compras
-
-    /**
-     * Compras de la más reciente a la más antigua (sin su detalle). {@code texto}: código, RUC, proveedor o número de
-     * documento; {@code desde}/{@code hasta}: AAAA-MM-DD, vacíos = sin límite.
-     */
     public synchronized List<Compra> listar(String texto, String desde, String hasta, int limite) {
         Filtro f = filtro(texto, desde, hasta);
         List<Object> v = new ArrayList<>(f.valores());
@@ -169,12 +149,10 @@ public class Compras {
         });
     }
 
-    /** Como {@link #listar} pero cada compra con su detalle (para el Excel). */
     public synchronized List<Compra> listarConDetalle(String texto, String desde, String hasta, int limite) {
         return listar(texto, desde, hasta, limite).stream().map(c -> obtener(c.codigo()).orElse(c)).toList();
     }
 
-    /** Totales de las compras registradas (no anuladas) que cumplen el mismo filtro que {@link #listar}. */
     public synchronized Totales totalizar(String texto, String desde, String hasta) {
         Filtro f = filtro(texto, desde, hasta);
         return db.leer(cx -> {
@@ -190,7 +168,6 @@ public class Compras {
         });
     }
 
-    /** Una compra con su detalle, por código (CP-00000012) o número (12). */
     public synchronized Optional<Compra> obtener(String codigoONumero) {
         String t = codigoONumero == null ? "" : codigoONumero.trim().toUpperCase();
         Integer numero = t.matches("\\d+") ? Integer.valueOf(t) : t.matches("CP-\\d+") ? Integer.valueOf(t.substring(3)) : null;
@@ -211,25 +188,20 @@ public class Compras {
         return db.leer(cx -> contar(cx, "SELECT COUNT(*) FROM proveedor"));
     }
 
-    // ---------------------------------------------------------------- escritura (dentro de la transacción de InventoryService)
-
     synchronized int siguienteNumero() {
         return db.leer(cx -> contar(cx, "SELECT COALESCE(MAX(numero), 0) FROM compra")) + 1;
     }
 
-    /** ¿Ya se registró (y no se anuló) ese documento de ese proveedor? */
     synchronized boolean documentoRegistrado(String ruc, TipoDocumento tipo, String numeroDocumento) {
         return db.leer(cx -> contar(cx, """
                 SELECT COUNT(*) FROM compra WHERE proveedor_ruc = ? AND tipo_documento = ? AND numero_documento = ? AND anulada = 0""",
                 ruc, tipo.name(), numeroDocumento) > 0);
     }
 
-    /** Lo que se guarda de una compra ya validada; las líneas con el id del producto (o null). */
     record Registro(int numero, String fecha, String hora, String ruc, String razonSocial, TipoDocumento tipo, String numeroDocumento,
                     String fechaDocumento, Igv.Modo modo, Igv.Totales totales, String observacion, String usuario,
                     List<Detalle> detalles) {}
 
-    /** Inserta la compra (y el proveedor, si su RUC es nuevo) usando la conexión de la transacción en curso. */
     void insertar(Connection cx, Registro r) throws SQLException {
         Long proveedorId = null;
         try (PreparedStatement ps = cx.prepareStatement("SELECT id FROM proveedor WHERE ruc = ?")) {
@@ -255,8 +227,6 @@ public class Compras {
     void marcarAnulada(Connection cx, long compraId) throws SQLException {
         ejecutar(cx, "UPDATE compra SET anulada = 1 WHERE id = ?", compraId);
     }
-
-    // ---------------------------------------------------------------- apoyo
 
     private record Filtro(String where, List<Object> valores) {}
 
@@ -302,7 +272,6 @@ public class Compras {
         return out;
     }
 
-    /** Costo unitario del documento: con 2 decimales si los tiene ("12.50"), si no con los 4 que se guardaron ("3.3333"). */
     private static BigDecimal costo(long diezmilesimas) {
         BigDecimal c = Num.deEntero(diezmilesimas, Num.DM);
         return c.stripTrailingZeros().scale() <= 2 ? Num.dinero(c) : c;

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.system;
 
 import org.springframework.stereotype.Component;
@@ -8,10 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Todo lo que toca el sistema operativo de la laptop vive aquí.
- * Detecta Windows / macOS / Linux y usa el comando adecuado.
- */
 @Component
 public class LaptopActions {
 
@@ -19,7 +19,6 @@ public class LaptopActions {
     private static final boolean WIN = OS.contains("win");
     private static final boolean MAC = OS.contains("mac");
 
-    /** nombre hablado -> {windows, mac, linux} */
     private static final Map<String, String[]> APPS = Map.of(
             "calculadora",    new String[]{"calc",     "Calculator",  "gnome-calculator"},
             "bloc de notas",  new String[]{"notepad",  "TextEdit",    "gedit"},
@@ -30,11 +29,6 @@ public class LaptopActions {
             "intellij",       new String[]{"idea64",   "IntelliJ IDEA", "idea"}
     );
 
-    /**
-     * Abre una web. La URL viene de lo que dice el usuario, así que solo se aceptan http/https y
-     * NUNCA pasa por cmd.exe: con "cmd /c start <url>" un "&" en la URL ejecutaría otro comando
-     * en la laptop.
-     */
     public boolean openUrl(String url) {
         URI uri = urlSegura(url);
         if (uri == null) return false;
@@ -52,7 +46,6 @@ public class LaptopActions {
         }
     }
 
-    /** La URL como URI si es http(s) con host y sin caracteres raros; si no, null. */
     static URI urlSegura(String url) {
         if (url == null || url.isBlank() || url.chars().anyMatch(c -> c < 0x21 || "\"<>^`{|}\\".indexOf(c) >= 0)) return null;
         try {
@@ -65,7 +58,6 @@ public class LaptopActions {
         }
     }
 
-    /** Devuelve el nombre de la app abierta, o vacío si no la conoce. */
     public Optional<String> openApp(String spoken) {
         for (var e : APPS.entrySet()) {
             if (spoken.contains(e.getKey())) {

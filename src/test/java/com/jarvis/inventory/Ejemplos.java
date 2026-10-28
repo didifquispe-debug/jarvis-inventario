@@ -1,13 +1,12 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Solo para las pruebas: el inventario ahora arranca vacío, así que las pruebas de ventas,
- * correcciones y persistencia cargan estos productos con el mismo alta que usa la pantalla.
- * Si el producto ya existe (otra prueba del mismo contexto lo creó) no se toca.
- */
 public final class Ejemplos {
 
     private Ejemplos() {}

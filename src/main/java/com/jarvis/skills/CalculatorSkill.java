@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import org.springframework.core.annotation.Order;
@@ -5,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-/** Calcula expresiones: "cuánto es 25 por 4 más 10". */
 @Component
 @Order(5)
 public class CalculatorSkill implements Skill {
@@ -29,7 +32,6 @@ public class CalculatorSkill implements Skill {
         }
     }
 
-    /** Parser recursivo simple: + - * / ^ y paréntesis. */
     private static class Parser {
         private final String s; private int pos = -1, ch;
         Parser(String s) { this.s = s; next(); }

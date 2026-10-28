@@ -1,8 +1,4 @@
 @echo off
-REM ============================================================
-REM  Crea JARVIS.exe (programa de escritorio para Windows)
-REM  Antes: en IntelliJ, panel Maven > jarvis > Lifecycle > package
-REM ============================================================
 setlocal
 cd /d "%~dp0"
 
@@ -15,7 +11,6 @@ if not exist "target\jarvis-0.1.0.jar" (
   exit /b 1
 )
 
-REM --- Buscar jpackage (viene incluido en el JDK) ---
 set "JP="
 if defined JAVA_HOME if exist "%JAVA_HOME%\bin\jpackage.exe" set "JP=%JAVA_HOME%\bin\jpackage.exe"
 if not defined JP for /f "delims=" %%i in ('where jpackage 2^>nul') do if not defined JP set "JP=%%i"
@@ -27,13 +22,11 @@ if not defined JP (
 )
 echo Usando: %JP%
 
-REM --- Preparar carpetas ---
 if exist "target\dist" rmdir /s /q "target\dist"
 if exist "dist\JARVIS" rmdir /s /q "dist\JARVIS"
 mkdir "target\dist"
 copy /y "target\jarvis-0.1.0.jar" "target\dist\" >nul
 
-REM --- Crear el programa (incluye su propio Java: no hace falta instalar nada en otra PC) ---
 "%JP%" --type app-image ^
   --name JARVIS ^
   --app-version 0.1.0 ^

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.junit.jupiter.api.Test;
@@ -13,7 +17,6 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Base de datos: guardado, importación del inventario JSON antiguo, respaldos y recuperación de un archivo dañado. */
 class PersistenciaTest {
 
     @TempDir Path dir;
@@ -24,7 +27,6 @@ class PersistenciaTest {
 
     private InventoryService nuevo() { return new InventoryService(json().toString()); }
 
-    /** Inventario con los productos de prueba (la primera vez; después ya están en la base). */
     private InventoryService conEjemplos() { return Ejemplos.sembrar(nuevo()); }
 
     private static BigDecimal stock(InventoryService inv, String prefijo) {
@@ -95,7 +97,7 @@ class PersistenciaTest {
                 "las ventas antiguas eran notas de venta: su numeración sigue");
         assertTrue(inv.salida(BigDecimal.ONE, "cemento", false).contains("Boleta número 1"), "las boletas empiezan en 1");
 
-        Files.copy(dir.resolve("inv.json.migrado"), json());   // aunque vuelva a aparecer el JSON…
+        Files.copy(dir.resolve("inv.json.migrado"), json());
         assertEquals(new BigDecimal("8"), stock(nuevo(), "Cemento"), "…la base ya tiene datos y no se importa de nuevo");
     }
 
@@ -128,9 +130,9 @@ class PersistenciaTest {
     }
 
     @Test void respaldoDiarioYRecuperacionDeUnaBaseDanada() throws Exception {
-        conEjemplos().salida(new BigDecimal("5"), "cemento", false);   // stock 45
+        conEjemplos().salida(new BigDecimal("5"), "cemento", false);
         borrarRespaldos();
-        nuevo();                                                       // al arrancar hace el respaldo del día
+        nuevo();
         assertEquals(1, archivos("inv\\.db\\.respaldo-\\d{8}").size());
 
         Files.writeString(base(), "esto ya no es una base de datos");

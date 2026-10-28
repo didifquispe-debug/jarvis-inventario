@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.jarvis.ai.EntityExtractor;
@@ -12,7 +16,6 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Dinero sin errores de redondeo y cantidades decimales donde la unidad lo permite. */
 class DineroYCantidadesTest {
 
     @TempDir Path dir;
@@ -30,11 +33,10 @@ class DineroYCantidadesTest {
         assertEquals(new BigDecimal("0.13"), Num.dinero(new BigDecimal("0.125")), "HALF_UP, como en caja");
     }
 
-    /** Con double, 30 ventas de 0.10 sumaban 3.0000000000000013. Con BigDecimal el cierre cuadra al céntimo. */
     @Test void cierreDeCajaSinErroresDeRedondeo() {
         InventoryService inv = inv();
-        for (int i = 0; i < 30; i++) inv.salida(BigDecimal.ONE, "clavo", false);   // clavo = 0.10 soles
-        inv.salida(new BigDecimal("2.5"), "cable", false);                           // 2.5 m × 3.50 = 8.75
+        for (int i = 0; i < 30; i++) inv.salida(BigDecimal.ONE, "clavo", false);
+        inv.salida(new BigDecimal("2.5"), "cable", false);
         assertTrue(inv.cierre().contains("31 ventas por un total de 11.75 soles"), inv.cierre());
     }
 
@@ -81,7 +83,6 @@ class DineroYCantidadesTest {
     }
 
     @Test void precioConDecimalesYaNoSeParte() {
-        // antes la normalización borraba el punto: "a 28.50" se leía como 28
         assertEquals(new BigDecimal("28.50"), EntityExtractor.extraer("llegaron 20 bolsas de cemento a 28.50 soles").precio());
         assertEquals(new BigDecimal("28.50"), EntityExtractor.extraer("llegaron 20 bolsas de cemento a 28,50 soles").precio());
     }

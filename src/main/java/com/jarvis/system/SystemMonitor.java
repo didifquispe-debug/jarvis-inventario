@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.system;
 
 import org.springframework.stereotype.Component;
@@ -11,7 +15,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Datos en vivo de la laptop para los paneles de la HUD. */
 @Component
 public class SystemMonitor {
 
@@ -48,7 +51,6 @@ public class SystemMonitor {
         try { return InetAddress.getLocalHost().getHostName(); } catch (Exception e) { return "desconocido"; }
     }
 
-    /** IP de la laptop en el Wi-Fi (la que se usa desde el celular). Prefiere 192.168.x.x */
     private static String lanIp() {
         String fallback = null;
         try {

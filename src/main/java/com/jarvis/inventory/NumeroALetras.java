@@ -1,9 +1,12 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** Importe en letras para la leyenda "SON: ... SOLES" del comprobante. Adaptado del sistema de referencia. */
 public final class NumeroALetras {
 
     private static final String[] UNIDADES = {"", "UNO", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE",
@@ -17,7 +20,6 @@ public final class NumeroALetras {
 
     private NumeroALetras() {}
 
-    /** 1250.50 → "MIL DOSCIENTOS CINCUENTA CON 50/100 SOLES". */
     public static String importe(BigDecimal valor) {
         BigDecimal redondeado = valor.setScale(2, RoundingMode.HALF_UP);
         long entero = redondeado.longValue();
@@ -49,7 +51,6 @@ public final class NumeroALetras {
         return (CENTENAS[n / 100] + " " + decena).trim();
     }
 
-    /** "UNO" delante de MIL/MILLONES se dice "UN" (veintiún mil, treinta y un mil). */
     private static String apocopar(String texto) {
         return texto.endsWith("UNO") ? texto.substring(0, texto.length() - 1) : texto;
     }
