@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.ia;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,34 +24,18 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-/**
- * Asistente con IA LOCAL (Ollama con llama3.2:3b, u otro servidor compatible con OpenAI en esta computadora):
- * entiende frases libres que las reglas no entendieron. Sin internet en ningún momento.
- *
- * <p>El modelo nunca toca el inventario. Solo puede hacer dos cosas:</p>
- * <ul>
- *   <li>Contestar con palabras (conversar, aconsejar con los datos del inventario que se le pasan).</li>
- *   <li>Traducir la frase a una orden de JARVIS ("vendí 2 polera roja M"), que ejecutan las reglas de siempre.
- *       Si la orden cambia algo (vender, registrar, borrar…), antes se le pregunta al usuario "¿Lo hago?"
- *       ({@link OrdenesPorConfirmar}) y solo con su "sí" pasa a las reglas. Las consultas (stock, precios) se responden al instante.</li>
- * </ul>
- *
- * <p>Si el servidor local no está o no responde, {@link #responder} devuelve vacío y JARVIS sigue con sus reglas
- * y su diccionario. Tras un fallo de conexión espera un minuto antes de volver a intentarlo.</p>
- */
 @Component
 public class AsistenteIA {
 
     private static final Logger log = LoggerFactory.getLogger(AsistenteIA.class);
 
-    private static final int MAX_HISTORIAL = 8;               // mensajes recordados por sesión (el modelo es pequeño)
-    private static final int MAX_PRODUCTOS = 40;              // productos que se le cuentan al modelo
-    private static final long INACTIVA_MS = 30 * 60 * 1000L;  // 30 min sin hablar: se empieza otra conversación
+    private static final int MAX_HISTORIAL = 8;
+    private static final int MAX_PRODUCTOS = 40;
+    private static final long INACTIVA_MS = 30 * 60 * 1000L;
     private static final long ESPERA_SIN_SERVIDOR_MS = 60 * 1000L;
 
     static final String NO_PUDE = "No supe cómo hacer eso, señor. Dígalo de otra forma o diga \"ayuda\".";
 
-    /** Diálogos de ejemplo: a un modelo pequeño le enseñan el formato mejor que las instrucciones. */
     private static final List<ClienteLLM.Mensaje> EJEMPLOS = List.of(
             new ClienteLLM.Mensaje("user", "despacha tres gorras negras"),
             new ClienteLLM.Mensaje("assistant", "{\"orden\": \"vendí 3 gorra negra\"}"),
@@ -58,10 +46,6 @@ public class AsistenteIA {
             new ClienteLLM.Mensaje("user", "hola, cómo estás"),
             new ClienteLLM.Mensaje("assistant", "{\"respuesta\": \"Muy bien, señor. ¿En qué le ayudo?\"}"));
 
-    /**
-     * "Vendí", "se registró", "listo, enviado"…: una respuesta con palabras que dice que algo se hizo. El modelo no
-     * puede hacer nada por sí mismo, así que sería falso; esa respuesta nunca se muestra.
-     */
     private static final java.util.regex.Pattern AFIRMA_ACCION = java.util.regex.Pattern.compile(
             "\\b(vendi|vendido|vendida|vendidos|vendidas|se vendio|se vendieron|registre|registrado|registrada|registrados"
             + "|agregue|agregado|agregados|anadi|anadido|elimine|eliminado|eliminada|borre|borrado|anule|anulado|anulada"
@@ -75,7 +59,7 @@ public class AsistenteIA {
 
     private final InventoryService inv;
     private final Predicate<String> soloConsulta;
-    private final ClienteLLM cliente;   // null = apagado (jarvis.ia.enabled=false o dirección no local)
+    private final ClienteLLM cliente;
     private final String owner;
     private final String negocio;
     private final ObjectMapper json = new ObjectMapper();
@@ -108,12 +92,11 @@ public class AsistenteIA {
         this.cliente = c;
         if (cliente != null) {
             Thread t = new Thread(this::comprobarServidor, "jarvis-ia-arranque");
-            t.setDaemon(true);   // nunca demora el arranque del programa
+            t.setDaemon(true);
             t.start();
         }
     }
 
-    /** Al arrancar: ¿está el servidor y tiene el modelo? Si sí, lo carga en memoria para que la 1ª orden sea rápida. */
     private void comprobarServidor() {
         try {
             List<String> modelos = cliente.modelos();
@@ -134,18 +117,10 @@ public class AsistenteIA {
         }
     }
 
-    /** ¿Está encendido y el servidor local respondió la última vez? */
     public boolean disponible() {
         return cliente != null && System.currentTimeMillis() >= sinServidorHasta;
     }
 
-    // ---------------------------------------------------------------- responder
-
-    /**
-     * Responde una frase que las reglas no entendieron. Vacío si el asistente no está disponible o falló.
-     *
-     * @param reglas el procesador clásico de órdenes: solo él toca el inventario
-     */
     public Optional<String> responder(String texto, Function<String, String> reglas) {
         if (!disponible() || texto == null || texto.isBlank()) return Optional.empty();
         Conversacion c = conversacion();
@@ -176,8 +151,6 @@ public class AsistenteIA {
                 return Optional.empty();
             }
             String r = interpretar(contenido, reglas);
-            // Solo se recuerda la conversación. Ni las órdenes (el modelo creería que ya se hicieron, aunque el usuario
-            // dijera que no; el stock real le llega en cada turno) ni las respuestas descartadas.
             JsonNode j = leerJson(contenido);
             if (r != null && !r.equals(NO_PUDE) && (j == null || textoDe(j, "orden") == null)) {
                 recordar(c, new ClienteLLM.Mensaje("user", texto.trim()));
@@ -187,7 +160,6 @@ public class AsistenteIA {
         }
     }
 
-    /** Lo que respondió el modelo: {"orden": "..."} para las reglas o {"respuesta": "..."} para el usuario. */
     String interpretar(String contenido, Function<String, String> reglas) {
         JsonNode r = leerJson(contenido);
         String orden = r == null ? null : textoDe(r, "orden");
@@ -200,7 +172,7 @@ public class AsistenteIA {
             return porConfirmar.proponer(orden);
         }
         if (respuesta == null && r == null && contenido != null && !contenido.isBlank() && !contenido.strip().startsWith("{"))
-            respuesta = contenido.strip();   // el modelo olvidó el JSON pero contestó con palabras
+            respuesta = contenido.strip();
         if (respuesta == null) return null;
         if (AFIRMA_ACCION.matcher(Palabras.norm(respuesta)).find()) {
             log.debug("IA: descarto una respuesta que dice que hizo algo: {}", respuesta);
@@ -209,7 +181,6 @@ public class AsistenteIA {
         return respuesta;
     }
 
-    /** El JSON de la respuesta, aunque venga entre ```json … ``` o con texto alrededor; null si no hay. */
     private JsonNode leerJson(String contenido) {
         if (contenido == null) return null;
         int a = contenido.indexOf('{'), b = contenido.lastIndexOf('}');
@@ -242,7 +213,6 @@ public class AsistenteIA {
         while (c.historial.size() > MAX_HISTORIAL) c.historial.removeFirst();
     }
 
-    /** Las instrucciones, con el inventario actual (resumido: el modelo es pequeño). */
     String sistema() {
         String n = negocio.isEmpty() ? "un negocio" : negocio;
         return """
@@ -274,7 +244,6 @@ public class AsistenteIA {
         List<Producto> ps = inv.productos();
         if (ps.isEmpty()) return "(el inventario está vacío)";
         StringBuilder sb = new StringBuilder();
-        // primero los de stock bajo: son los que más se preguntan ("qué me conviene reponer")
         List<Producto> orden = new ArrayList<>(ps);
         orden.sort(Comparator.comparing((Producto p) -> !p.stockBajo()));
         for (Producto p : orden.subList(0, Math.min(MAX_PRODUCTOS, orden.size()))) {

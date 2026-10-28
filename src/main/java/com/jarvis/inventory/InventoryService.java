@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -23,15 +27,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-/**
- * Cerebro del inventario: productos, entradas, salidas, consultas, alertas, correcciones y cierre.
- * Guarda todo en la base de datos ~/jarvis-inventario.db ({@link BaseDatos}): cada operación se guarda
- * entera o no se guarda, con respaldo diario. La primera vez importa el inventario de las versiones
- * anteriores (~/jarvis-inventario.json y su carpeta de historial), que se conservan tal cual.
- * Cada cambio queda en el historial de movimientos.
- * El "sí/no" pendiente, la venta en curso y el comprobante por mostrar son de cada sesión
- * (dispositivo/pestaña), no globales: ver {@link ClientSession}.
- */
 @Service
 public class InventoryService {
 
@@ -39,26 +34,21 @@ public class InventoryService {
 
     public enum Tipo { ENTRADA, SALIDA, ANULAR, ELIMINAR, NUEVO_INVENTARIO }
 
-    /** Operación que quedó esperando un "sí/no" del usuario. */
     public static class Pendiente {
         public Tipo tipo; public Producto producto; public BigDecimal cantidad; public BigDecimal precio; public String unidad;
-        public int numero;                 // comprobante a anular
-        public Opciones opciones;          // tipo de comprobante y cliente de la venta que espera el "sí"
+        public int numero;
+        public Opciones opciones;
         public String pregunta;
     }
 
-    /**
-     * Una línea vendida. Las líneas con el mismo {@code numero} forman un comprobante.
-     * La lista de ventas guarda líneas, así el cierre del día suma por producto.
-     */
     public static class Venta {
-        public int numero;                 // correlativo del comprobante (0 en ventas antiguas)
+        public int numero;
         public String fecha; public String hora;
         public String producto; public BigDecimal cantidad; public String unidad;
         public BigDecimal precioUnitario; public BigDecimal monto;
-        public BigDecimal costoUnitario;   // costo del producto al momento de vender (null = no registrado), para la ganancia
-        public boolean anulada;            // anulada: no cuenta en el cierre, el stock se devolvió
-        Long id, comprobanteId;            // en la base de datos (no salen en la API)
+        public BigDecimal costoUnitario;
+        public boolean anulada;
+        Long id, comprobanteId;
         public Venta() {}
         public Venta(int n, String f, String h, Producto p, BigDecimal c) {
             numero = n; fecha = f; hora = h; producto = p.nombre; cantidad = Num.cantidad(c); unidad = p.unidad;
@@ -72,18 +62,13 @@ public class InventoryService {
         }
     }
 
-    /**
-     * Comprobante de pago (boleta o nota de venta): una o varias líneas con su base, IGV y total.
-     * numero = 0 si es la venta en curso (aún sin cobrar). {@code numero} es el número interno de la venta;
-     * lo que ve el cliente es {@code codigo} (serie y correlativo, p. ej. B001-00000012).
-     */
     public static class Comprobante {
         public int numero; public String fecha; public String hora;
-        public String tipo;                // BOLETA o NOTA_VENTA
-        public String tipoDescripcion;     // "Boleta de venta electrónica"
+        public String tipo;
+        public String tipoDescripcion;
         public String serie; public int correlativo;
-        public String codigo;              // "B001-00000012" ("" en la venta en curso)
-        public ClienteResumen cliente;     // null = clientes varios
+        public String codigo;
+        public ClienteResumen cliente;
         public String modoIgv; public String leyendaIgv;
         public BigDecimal base; public BigDecimal igv; public BigDecimal tasaIgv;
         public List<Venta> items = new ArrayList<>();
@@ -106,24 +91,16 @@ public class InventoryService {
             this.anulado = !items.isEmpty() && items.stream().allMatch(v -> v.anulada);
         }
 
-        /** Cómo se dice: "boleta número 12". (No es un getter: no sale en la API.) */
         public String hablado() { return TipoComprobante.valueOf(tipo).hablado + " número " + correlativo; }
     }
 
-    /** Cliente tal como quedó en el comprobante (si después cambia su nombre, el comprobante no cambia). */
     public record ClienteResumen(String documento, String tipoDocumento, String nombre) {}
 
-    /** Datos del comprobante que no están en sus líneas: tipo y correlativo, cliente (copiado al emitir) y modalidad de IGV. */
     record Cabecera(TipoComprobante tipo, int correlativo, Long clienteId, String clienteDoc, String clienteNombre, Igv.Modo modo) {}
 
-    /**
-     * Cómo emitir una venta. Un campo null = lo de siempre: el tipo de comprobante y el IGV configurados, sin cliente.
-     * {@code clienteDoc}: DNI o RUC de un cliente registrado.
-     */
     public record Opciones(TipoComprobante tipo, String clienteDoc, Igv.Modo modo) {
         public static final Opciones POR_DEFECTO = new Opciones(null, null, null);
 
-        /** Estas opciones con lo que trae {@code otras} encima (lo que no trae se conserva). */
         public Opciones con(Opciones otras) {
             if (otras == null) return this;
             return new Opciones(otras.tipo != null ? otras.tipo : tipo,
@@ -133,10 +110,8 @@ public class InventoryService {
         public boolean vacia() { return tipo == null && (clienteDoc == null || clienteDoc.isBlank()) && modo == null; }
     }
 
-    /** Producto y cantidad a vender (en el carrito o en una frase con varios productos). */
     public record Linea(Producto producto, BigDecimal cantidad) {}
 
-    /** Resultado de una corrección (la usan la voz y la API REST, que necesita saber si falló). */
     public enum Estado { OK, ERROR, NO_ENCONTRADO }
     public record Resultado(Estado estado, String mensaje) {
         static Resultado ok(String m) { return new Resultado(Estado.OK, m); }
@@ -145,18 +120,16 @@ public class InventoryService {
         public boolean ok() { return estado == Estado.OK; }
     }
 
-    /** Lo que es de cada dispositivo/pestaña. */
     private static class Sesion {
         Pendiente pendiente;
-        List<Linea> carrito;              // venta en curso con varios productos (null = no hay)
-        Opciones opciones = Opciones.POR_DEFECTO;   // tipo de comprobante y cliente de la venta en curso
-        Comprobante comprobanteNuevo;     // comprobante que la pantalla aún no mostró
+        List<Linea> carrito;
+        Opciones opciones = Opciones.POR_DEFECTO;
+        Comprobante comprobanteNuevo;
         long usado;
     }
 
     private static final long SESION_INACTIVA_MS = 4 * 60 * 60 * 1000L;
     private static final BigDecimal CONFIRMAR_DESDE = BigDecimal.valueOf(100);
-    /** Desde este total la SUNAT pide identificar al cliente en una boleta. */
     private static final BigDecimal BOLETA_CON_DNI_DESDE = BigDecimal.valueOf(700);
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -164,13 +137,13 @@ public class InventoryService {
             .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
             .enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-    private final Path archivoJson;                 // inventario de versiones anteriores (solo para importarlo)
+    private final Path archivoJson;
     private final Almacen almacen;
 
     private List<Producto> productos = new ArrayList<>();
     private List<Venta> ventas = new ArrayList<>();
-    private int ultimoNumero;                       // número interno de la última venta
-    private Map<Integer, Cabecera> cabeceras = new HashMap<>();   // por número de venta
+    private int ultimoNumero;
+    private Map<Integer, Cabecera> cabeceras = new HashMap<>();
     private final Map<TipoComprobante, Integer> correlativos = new EnumMap<>(TipoComprobante.class);
     private final TipoComprobante tipoPorDefecto;
     private final Igv.Modo igvPorDefecto;
@@ -179,18 +152,10 @@ public class InventoryService {
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
-    /**
-     * @param archivo la base de datos ({@code .db}) o, como en versiones anteriores, el inventario {@code .json}:
-     *                entonces la base es el mismo nombre con {@code .db}, y el JSON se importa si la base está vacía.
-     */
     public InventoryService(String archivo) {
         this(archivo, TipoComprobante.BOLETA.name(), Igv.Modo.INCLUIDO.name());
     }
 
-    /**
-     * @param tipo comprobante que se emite si no se pide otro: boleta (como el sistema de referencia) o nota de venta
-     * @param igv  incluido (los precios ya tienen IGV), agregado (se suma al precio) o exonerado
-     */
     @Autowired
     public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
                             @Value("${jarvis.comprobante.tipo:boleta}") String tipo,
@@ -211,7 +176,6 @@ public class InventoryService {
 
     public synchronized List<Producto> productos() { return new ArrayList<>(productos); }
 
-    /** El archivo de la base de datos del inventario. */
     public Path archivoBaseDatos() { return almacen.archivo(); }
 
     public Clientes clientes() { return clientes; }
@@ -222,19 +186,14 @@ public class InventoryService {
 
     public Igv.Modo igvPorDefecto() { return igvPorDefecto; }
 
-    // ---------------------------------------------------------------- sesiones
-
     private Sesion sesion() {
         long ahora = System.currentTimeMillis();
-        sesiones.values().removeIf(s -> ahora - s.usado > SESION_INACTIVA_MS);   // pestañas que ya no vuelven
+        sesiones.values().removeIf(s -> ahora - s.usado > SESION_INACTIVA_MS);
         Sesion s = sesiones.computeIfAbsent(ClientSession.id(), k -> new Sesion());
         s.usado = ahora;
         return s;
     }
 
-    // ---------------------------------------------------------------- persistencia
-
-    /** El inventario JSON de las versiones anteriores (solo para importarlo). */
     private static class Datos {
         public List<Producto> productos = new ArrayList<>();
         public List<Venta> ventas = new ArrayList<>();
@@ -254,7 +213,6 @@ public class InventoryService {
         recalcularContadores(e.contadores());
     }
 
-    /** Los últimos números usados: lo guardado como contador o lo que hay en las ventas, lo mayor. */
     private void recalcularContadores(Map<String, Integer> guardados) {
         ultimoNumero = Math.max(guardados.getOrDefault(Almacen.ULTIMO_COMPROBANTE, 0),
                 ventas.stream().mapToInt(v -> v.numero).max().orElse(0));
@@ -274,11 +232,6 @@ public class InventoryService {
         return m;
     }
 
-    /**
-     * Pasa a la base de datos el inventario de las versiones anteriores: el .json (o su .bak si está dañado),
-     * las ventas archivadas por mes y el historial de movimientos. Los archivos no se borran: el .json se
-     * renombra a .json.migrado para que no se vuelva a importar.
-     */
     private void importarJsonAntiguo() {
         Path bak = archivoJson.resolveSibling(archivoJson.getFileName() + ".bak");
         if (!Files.exists(archivoJson) && !Files.exists(bak)) return;
@@ -340,10 +293,6 @@ public class InventoryService {
         ultimoNumero = Math.max(d.ultimoNumero, ventas.stream().mapToInt(v -> v.numero).max().orElse(0));
     }
 
-    /**
-     * Guarda en la base lo que cambió y los movimientos pendientes, en una transacción. Si no se pudo guardar,
-     * vuelve a leer la base (que quedó como antes), así lo que se ve es siempre lo que está guardado.
-     */
     private String persistir(String msg) {
         return guardarTodo(null) ? msg : NO_GUARDADO;
     }
@@ -351,9 +300,8 @@ public class InventoryService {
     private static final String NO_GUARDADO =
             "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
 
-    /** Guarda los cambios y {@code extra} (filas de otras tablas) en una sola transacción. false = no se guardó nada. */
     private boolean guardarTodo(BaseDatos.Trabajo<?> extra) {
-        almacen.respaldoDiario();   // el primero del día copia el estado de antes de este cambio
+        almacen.respaldoDiario();
         try {
             almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar, extra);
             return true;
@@ -366,15 +314,8 @@ public class InventoryService {
         }
     }
 
-    // ---------------------------------------------------------------- compras a proveedores
-
     private static final BigDecimal UNO_MAS_IGV = BigDecimal.ONE.add(Igv.TASA);
 
-    /**
-     * Registra una compra (como CompraService del sistema de referencia): valida todo, suma el stock de cada producto,
-     * recalcula su costo promedio ponderado y guarda la compra, todo en una transacción. El costo que se promedia es sin
-     * IGV (el IGV de la compra es crédito fiscal). Si el RUC es nuevo, el proveedor se registra con la razón social dada.
-     */
     public synchronized Resultado registrarCompra(Compras.NuevaCompra c) {
         if (c == null) return Resultado.error("Faltan los datos de la compra.");
         String ruc = c.ruc() == null ? "" : c.ruc().trim();
@@ -403,7 +344,6 @@ public class InventoryService {
         if (compras.documentoRegistrado(ruc, tipo, numeroDoc))
             return Resultado.error("Ya se registró la " + tipo.descripcion.toLowerCase() + " " + numeroDoc + " de " + razon + ".");
 
-        // 1) validar todas las líneas antes de tocar nada
         List<Producto> prods = new ArrayList<>();
         List<BigDecimal> cantidades = new ArrayList<>(), costos = new ArrayList<>(), importes = new ArrayList<>();
         for (Compras.LineaCompra l : c.items()) {
@@ -420,7 +360,6 @@ public class InventoryService {
         }
         Igv.Totales totales = Igv.calcular(importes, modo);
 
-        // 2) stock y costo promedio
         int numero = compras.siguienteNumero();
         String codigo = Compras.codigo(numero);
         List<Compras.Detalle> detalles = new ArrayList<>();
@@ -445,10 +384,6 @@ public class InventoryService {
                 detalles.size() == 1 ? "producto" : "productos"));
     }
 
-    /**
-     * Anula una compra y retira del stock lo que ingresó con ella. Como en el sistema de referencia, no se puede
-     * si parte de esa mercadería ya se vendió (no hay stock suficiente para retirarla).
-     */
     public synchronized Resultado anularCompra(String codigoONumero) {
         Optional<Compras.Compra> encontrada = compras.obtener(codigoONumero);
         if (encontrada.isEmpty()) return Resultado.noEncontrado("No encontré la compra " + codigoONumero + ".");
@@ -476,7 +411,6 @@ public class InventoryService {
         return Resultado.ok("Compra " + c.codigo() + " anulada: retiré del stock lo que había ingresado.");
     }
 
-    /** Vuelve a lo guardado. Las ventas en curso y las preguntas pendientes se cancelan: apuntan a datos que ya no valen. */
     private void recargar() {
         try {
             usarEstado(almacen.cargar());
@@ -491,10 +425,6 @@ public class InventoryService {
         registrar(tipo, p, cantidad, detalle, cantidad == null || signo == 0 ? null : cantidad.multiply(BigDecimal.valueOf(signo)));
     }
 
-    /**
-     * Deja el movimiento en el historial. {@code delta}: cuánto cambió el stock (+ entra, − sale; null si no lo mueve).
-     * Se llama DESPUÉS de cambiar el stock: así el saldo del kardex es el stock que quedó.
-     */
     private void registrar(String tipo, Producto p, BigDecimal cantidad, String detalle, BigDecimal delta) {
         BigDecimal saldo = delta == null ? null : "ELIMINAR".equals(tipo) ? BigDecimal.ZERO : p.stock;
         porRegistrar.add(new Almacen.Pendiente(new Movimiento(LocalDateTime.now().withNano(0).toString(), tipo, p.nombre,
@@ -504,9 +434,6 @@ public class InventoryService {
 
     private static BigDecimal bd(String s) { return new BigDecimal(s); }
 
-    // ---------------------------------------------------------------- operaciones
-
-    /** Si la unidad del producto no admite decimales y la cantidad los trae, devuelve el aviso; si no, null. */
     private static String errorDecimales(Producto p, BigDecimal cantidad) {
         if (Num.tieneDecimales(cantidad) && !p.admiteDecimales())
             return p.nombre + " no admite cantidades con decimales (se maneja en " + p.unidad + "), señor. No registré nada.";
@@ -515,13 +442,12 @@ public class InventoryService {
 
     private static boolean cantidadInvalida(BigDecimal c) { return c == null || c.signum() <= 0; }
 
-    /** Registrar entrada de mercadería. Si el producto no existe, lo crea (con la unidad dicha, si la hay). */
     public synchronized String entrada(BigDecimal cantidad, String textoProducto, BigDecimal precio, String unidad, boolean confirmado) {
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor. Por favor repita la orden.";
         cantidad = Num.cantidad(cantidad);
         Match m = buscar(textoProducto);
 
-        if (m == null) {   // producto nuevo
+        if (m == null) {
             Producto p = new Producto(capitaliza(textoProducto), new ArrayList<>(List.of(Palabras.norm(textoProducto))),
                     BigDecimal.ZERO, bd("5"), precio != null ? precio : BigDecimal.ZERO, unidad != null ? unidad : "unidades");
             String error = errorDecimales(p, cantidad);
@@ -559,7 +485,6 @@ public class InventoryService {
         return salida(cantidad, textoProducto, confirmado, Opciones.POR_DEFECTO);
     }
 
-    /** Registrar salida/venta con su comprobante. Valida stock. */
     public synchronized String salida(BigDecimal cantidad, String textoProducto, boolean confirmado, Opciones opciones) {
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor. Por favor repita la orden.";
         cantidad = Num.cantidad(cantidad);
@@ -579,14 +504,8 @@ public class InventoryService {
         return emitir(List.of(new Linea(m.producto, cantidad)), opciones);
     }
 
-    /** Vende varios productos dichos en una sola frase ("2 poleras y 3 gorras") con un solo comprobante. */
-    /** Una línea de una venta por API: nombre exacto del producto y cantidad. */
     public record Pedido(String nombre, BigDecimal cantidad) {}
 
-    /**
-     * Venta desde la API o la pantalla: nombres exactos (sin búsqueda difusa: un programa no debe vender "el más
-     * parecido"). Mismas reglas que por voz: valida todo el stock antes de descontar nada.
-     */
     public synchronized Resultado vender(List<Pedido> pedido, Opciones opciones) {
         if (pedido == null || pedido.isEmpty()) return Resultado.error("La venta no tiene productos.");
         List<Linea> lineas = new ArrayList<>();
@@ -601,16 +520,13 @@ public class InventoryService {
         return msg.startsWith("Venta registrada") ? Resultado.ok(msg) : Resultado.error(msg);
     }
 
-    /** Una fila de la lista de comprobantes. {@code cliente}: nombre, o "" si fue a clientes varios. */
     public record FilaComprobante(int numero, String codigo, String tipo, String fecha, String hora, String cliente,
                                   int productos, BigDecimal total, boolean anulado) {}
 
-    /** Los últimos comprobantes emitidos, del más reciente al más antiguo. */
     public synchronized List<FilaComprobante> comprobantes(int limite) {
         return comprobantes(limite, null, null);
     }
 
-    /** Los últimos comprobantes de un periodo (AAAA-MM-DD; vacías = sin límite), del más reciente al más antiguo. */
     public synchronized List<FilaComprobante> comprobantes(int limite, String desde, String hasta) {
         Map<Integer, List<Venta>> porNumero = new TreeMap<>(Comparator.reverseOrder());
         for (Venta v : ventas)
@@ -626,7 +542,6 @@ public class InventoryService {
         return out;
     }
 
-    /** Cifras para la pantalla de inicio. Valor al costo: solo de los productos que tienen costo registrado. */
     public record Resumen(int ventasHoy, BigDecimal totalHoy, BigDecimal igvHoy, int anuladasHoy, int productos, int stockBajo,
                           int sinStock, BigDecimal valorVenta, BigDecimal valorCosto, int clientes, String igv, String tipoComprobante) {}
 
@@ -657,9 +572,6 @@ public class InventoryService {
                 clientes.contar(), igvPorDefecto.name(), tipoPorDefecto.name());
     }
 
-    // ---------------------------------------------------------------- kardex e inventario valorizado
-
-    /** Kardex de un producto: sus datos de hoy y los movimientos de stock (los últimos {@code limite}). */
     public record Kardex(String producto, String unidad, BigDecimal stock, BigDecimal costo, List<FilaKardex> filas) {}
 
     public synchronized Kardex kardex(String nombre, int limite) {
@@ -668,20 +580,16 @@ public class InventoryService {
         return new Kardex(p.nombre, p.unidad, p.stock, p.costo, almacen.kardex(p.id, p.nombre, limite));
     }
 
-    /** Kardex de todos los productos (para el Excel), ordenado por producto. */
     public synchronized List<FilaKardex> kardexCompleto() {
         return almacen.kardex(null, null, 100_000);
     }
 
-    /** Una fila del inventario valorizado. {@code estado}: OK, BAJO o SIN_STOCK. Sin costo: valorCosto null. */
     public record FilaValorizada(String producto, String categoria, String codigo, String unidad, BigDecimal stock, BigDecimal stockMin,
                                  String estado, BigDecimal costo, BigDecimal valorCosto, BigDecimal precio, BigDecimal valorVenta) {}
 
-    /** {@code margen}: valor a precio de venta − valor al costo, solo de los productos con costo. */
     public record Valorizado(List<FilaValorizada> filas, int productos, int sinCosto, int stockBajo, int sinStock,
                              BigDecimal valorCosto, BigDecimal valorVenta, BigDecimal margen) {}
 
-    /** Inventario valorizado al costo promedio y a precio de venta (como el del sistema de referencia). */
     public synchronized Valorizado valorizado() {
         List<FilaValorizada> filas = new ArrayList<>();
         int sinCosto = 0, bajo = 0, sin = 0;
@@ -705,7 +613,6 @@ public class InventoryService {
                 Num.dinero(ventaConCosto.subtract(costoTotal)));
     }
 
-    /** Comprobantes completos (con sus líneas) de un periodo, del más antiguo al más reciente. Fechas AAAA-MM-DD; vacías = sin límite. */
     public synchronized List<Comprobante> ventasPeriodo(String desde, String hasta) {
         Map<Integer, List<Venta>> porNumero = new TreeMap<>();
         for (Venta v : ventas)
@@ -721,7 +628,6 @@ public class InventoryService {
                 && (hasta == null || hasta.isBlank() || f.compareTo(hasta.trim()) <= 0);
     }
 
-    /** El comprobante con ese número interno de venta (el de {@code Comprobante.numero}), o null. */
     public synchronized Comprobante comprobantePorNumero(int numero) {
         return numero <= 0 ? null : comprobante(numero);
     }
@@ -743,10 +649,6 @@ public class InventoryService {
         return emitir(lineas, opciones);
     }
 
-    /**
-     * Registra la venta de todas las líneas con un único comprobante: valida el stock de todo
-     * antes de descontar nada, así una venta nunca queda a medias.
-     */
     private String emitir(List<Linea> lineas, Opciones opciones) {
         Opciones op = opciones == null ? Opciones.POR_DEFECTO : opciones;
         TipoComprobante tipo = op.tipo() != null ? op.tipo() : tipoPorDefecto;
@@ -806,8 +708,6 @@ public class InventoryService {
         return persistir(msg);
     }
 
-    // ---------------------------------------------------------------- venta con varios productos (carrito)
-
     public synchronized boolean ventaAbierta() { return sesion().carrito != null; }
 
     public synchronized String abrirVenta() {
@@ -818,7 +718,6 @@ public class InventoryService {
         return "Venta nueva, señor. Dígame los productos y, al terminar, diga cobrar.";
     }
 
-    /** Venta nueva con su tipo de comprobante y/o cliente ("nueva venta con boleta para el DNI 12345678"). */
     public synchronized String abrirVenta(Opciones opciones) {
         String msg = abrirVenta();
         if (opciones == null || opciones.vacia() || !msg.startsWith("Venta nueva")) return msg;
@@ -826,7 +725,6 @@ public class InventoryService {
         return r.startsWith("No tengo") ? r : msg + " " + r;
     }
 
-    /** Cambia el tipo de comprobante y/o el cliente de la venta en curso. */
     public synchronized String opcionesVenta(Opciones opciones) {
         Sesion s = sesion();
         Opciones nuevas = s.opciones.con(opciones);
@@ -888,7 +786,7 @@ public class InventoryService {
         Sesion s = sesion();
         if (s.carrito == null || s.carrito.isEmpty()) return "La venta está vacía, señor. Dígame qué productos lleva el cliente.";
         String msg = emitir(s.carrito, s.opciones);
-        if (msg.startsWith("Venta registrada")) { s.carrito = null; s.opciones = Opciones.POR_DEFECTO; }   // si faltó stock, sigue abierta
+        if (msg.startsWith("Venta registrada")) { s.carrito = null; s.opciones = Opciones.POR_DEFECTO; }
         return msg;
     }
 
@@ -900,7 +798,6 @@ public class InventoryService {
         return "Venta cancelada, señor. No se descontó nada del inventario.";
     }
 
-    /** La venta en curso de esta sesión como comprobante preliminar (numero 0), o null si no hay. */
     public synchronized Comprobante carritoActual() {
         Sesion s = sesion();
         if (s.carrito == null) return null;
@@ -915,8 +812,6 @@ public class InventoryService {
     private BigDecimal totalCarrito(Sesion s) {
         return s.carrito.stream().map(l -> Num.monto(l.producto().precio, l.cantidad())).reduce(Num.dinero(BigDecimal.ZERO), BigDecimal::add);
     }
-
-    // ---------------------------------------------------------------- precios y consultas
 
     public synchronized String listaPrecios() {
         if (productos.isEmpty()) return "El inventario está vacío, señor.";
@@ -958,11 +853,10 @@ public class InventoryService {
         return "El stock mínimo de " + m.producto.nombre + " es " + Num.txt(m.producto.stockMin) + " " + m.producto.unidad + ".";
     }
 
-    /** Consulta de stock. */
     public synchronized String consulta(String textoProducto) {
         Match m = buscar(textoProducto);
         if (m == null) return "No encontré ese producto, señor.";
-        if (m.empate()) {   // "¿cuántas zapatillas nike quedan?" -> el stock de cada talla
+        if (m.empate()) {
             StringBuilder sb = new StringBuilder("Tengo varios:");
             for (Producto x : m.empatados) sb.append(" ").append(x.nombre).append(": ").append(Num.txt(x.stock)).append(" ").append(x.unidad).append(".");
             return sb.toString();
@@ -973,7 +867,6 @@ public class InventoryService {
         return msg;
     }
 
-    /** Cierre de caja del día (las ventas anuladas no cuentan). */
     public synchronized String cierre() {
         String hoy = LocalDate.now().toString();
         List<Venta> delDia = ventas.stream().filter(v -> hoy.equals(v.fecha)).toList();
@@ -981,11 +874,9 @@ public class InventoryService {
         long anuladas = delDia.stream().filter(v -> v.anulada && v.numero > 0).map(v -> v.numero).distinct().count();
         if (validas.isEmpty())
             return "Cierre del día: no se registraron ventas hoy, señor." + (anuladas > 0 ? " Ventas anuladas: " + anuladas + "." : "");
-        // el total de cada comprobante (con el IGV si se agregó al precio); las ventas antiguas sin número, por línea
         BigDecimal total = validas.stream().filter(v -> v.numero > 0).map(v -> v.numero).distinct()
                 .map(n -> comprobante(n).total).reduce(Num.dinero(BigDecimal.ZERO), BigDecimal::add)
                 .add(validas.stream().filter(v -> v.numero == 0).map(v -> v.monto).reduce(BigDecimal.ZERO, BigDecimal::add));
-        // un comprobante = una venta (las ventas antiguas sin número cuentan una por línea)
         long n = validas.stream().filter(v -> v.numero > 0).map(v -> v.numero).distinct().count()
                 + validas.stream().filter(v -> v.numero == 0).count();
         Map<String, BigDecimal> porProducto = new HashMap<>();
@@ -995,7 +886,6 @@ public class InventoryService {
                 + (anuladas > 0 ? " Ventas anuladas: " + anuladas + "." : "");
     }
 
-    /** Lista general con alertas de stock bajo. */
     public synchronized String inventario() {
         if (productos.isEmpty()) return "El inventario está vacío, señor.";
         StringBuilder sb = new StringBuilder("Inventario actual:\n");
@@ -1007,14 +897,12 @@ public class InventoryService {
         return sb.toString().trim();
     }
 
-    /** Devuelve (y olvida) el comprobante recién emitido en esta sesión, para mostrarlo en pantalla una sola vez. */
     public synchronized Comprobante tomarComprobanteNuevo() {
         Sesion s = sesion();
         Comprobante c = s.comprobanteNuevo; s.comprobanteNuevo = null;
         return c;
     }
 
-    /** Vuelve a mostrar el último comprobante emitido. */
     public synchronized String ultimoComprobante() {
         Comprobante c = ultimo();
         if (c == null) return "Aún no se ha emitido ningún comprobante, señor.";
@@ -1022,7 +910,6 @@ public class InventoryService {
         return String.format("Mostrando la %s%s. Total: %.2f soles.", c.hablado(), c.anulado ? " (ANULADA)" : "", c.total);
     }
 
-    /** El comprobante con el número más alto que sigue en el archivo, o null. */
     private Comprobante ultimo() {
         int n = ventas.stream().mapToInt(v -> v.numero).max().orElse(0);
         return n == 0 ? null : comprobante(n);
@@ -1034,9 +921,6 @@ public class InventoryService {
         return new Comprobante(numero, items.get(0).fecha, items.get(0).hora, items, Almacen.cabecera(cabeceras, numero));
     }
 
-    // ---------------------------------------------------------------- correcciones
-
-    /** Voz: pregunta antes de anular el último comprobante (se responde con sí/no). */
     public synchronized String pedirAnularUltimaVenta() {
         Comprobante c = ultimo();
         if (c == null) return "No hay ventas para anular, señor.";
@@ -1047,7 +931,6 @@ public class InventoryService {
         return preguntar(p);
     }
 
-    /** Anula el último comprobante: devuelve el stock y lo deja fuera del cierre (queda en el historial). */
     public synchronized Resultado anularUltimaVenta() {
         Comprobante c = ultimo();
         return c == null ? Resultado.noEncontrado("No hay ventas para anular, señor.") : anular(c.numero);
@@ -1070,13 +953,6 @@ public class InventoryService {
         return Resultado.ok(persistir(msg));
     }
 
-    /**
-     * Corrige la cantidad de un producto en el último comprobante (p. ej. se dictó 2 y eran 3).
-     * Ajusta el stock por la diferencia. Cantidad 0 quita esa línea del comprobante.
-     *
-     * @param textoProducto vacío si el comprobante tiene una sola línea
-     * @param exacto        true = nombre exacto (API REST); false = búsqueda difusa (voz)
-     */
     public synchronized Resultado corregirUltimaVenta(String textoProducto, BigDecimal nueva, boolean exacto) {
         if (nueva == null || nueva.signum() < 0) return Resultado.error("No entendí la nueva cantidad, señor.");
         nueva = Num.cantidad(nueva);
@@ -1103,7 +979,7 @@ public class InventoryService {
             return Resultado.error("Es el único producto de la " + c.hablado() + ". Para quitarlo, anule la última venta, señor.");
 
         BigDecimal antes = linea.cantidad;
-        BigDecimal diferencia = nueva.subtract(antes);   // + = se vendió más, - = se devuelve al stock
+        BigDecimal diferencia = nueva.subtract(antes);
         if (diferencia.compareTo(p.stock) > 0)
             return Resultado.error("Atención: stock insuficiente. Solo quedan " + Num.txt(p.stock) + " " + p.unidad + " de " + p.nombre + ". No corregí nada.");
 
@@ -1122,10 +998,6 @@ public class InventoryService {
                 corregido.hablado(), que, corregido.total, Num.txt(p.stock))));
     }
 
-    /**
-     * Cambios de un producto desde la pantalla. Los null no se tocan. En la ficha, un texto "" borra ese dato;
-     * {@code quitarCosto} borra el costo (null en la ficha significa "no tocar").
-     */
     public record Cambios(String nombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin, String unidad, List<String> alias,
                           Producto.Ficha ficha, boolean quitarCosto) {
         public Cambios(String nombre, BigDecimal precio, BigDecimal stock, BigDecimal stockMin, String unidad, List<String> alias) {
@@ -1145,11 +1017,6 @@ public class InventoryService {
         return crearProducto(nombre, precio, stock, unidad, stockMin, alias, Producto.Ficha.VACIA);
     }
 
-    /**
-     * Crea un producto desde la pantalla. Nombre, precio y unidad son obligatorios; el stock inicial,
-     * el stock mínimo, los alias y la ficha (categoría, códigos, costo) son opcionales. No admite dos productos
-     * con el mismo nombre (sin importar mayúsculas ni tildes) ni con el mismo código.
-     */
     public synchronized Resultado crearProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad,
                                                 BigDecimal stockMin, List<String> alias, Producto.Ficha ficha) {
         String n = limpiarNombre(nombre);
@@ -1166,10 +1033,8 @@ public class InventoryService {
                 + String.format(". Precio: %.2f soles.", p.precio) + avisoCosto(p)));
     }
 
-    /** Sin espacios de más; null se queda null (en una edición, null es "no tocar"). */
     private static String limpio(String s) { return s == null ? null : s.trim().replaceAll("\\s+", " "); }
 
-    /** Por qué no sirven la categoría, los códigos o el costo, o null si sirven. Un código no puede ser de otro producto. */
     private String errorEnFicha(Producto.Ficha f, Producto excepto) {
         if (f == null) return null;
         String cat = limpio(f.categoria()), cod = limpio(f.codigo()), bar = limpio(f.codigoBarras());
@@ -1184,40 +1049,28 @@ public class InventoryService {
         return null;
     }
 
-    /** Otro producto (distinto de {@code excepto}) que ya usa este código interno o de barras, o null. */
     private Producto conCodigo(String c, Producto excepto) {
         if (c == null || c.isBlank()) return null;
         return productos.stream().filter(p -> p != excepto && p.tieneCodigo(c)).findFirst().orElse(null);
     }
 
-    /** " Atención: …" si se vende por debajo del costo; "" si no. */
     private static String avisoCosto(Producto p) {
         return p.costo != null && p.costo.compareTo(p.precio) > 0
                 ? String.format(" Atención: el costo (%.2f soles) es mayor que el precio de venta.", p.costo) : "";
     }
 
-    /** Resumen de una carga masiva. {@code omitidosDetalle}: los que no se registraron por ya existir o venir repetidos. */
     public record ResultadoLote(int agregados, List<ListaProductos.ErrorLinea> omitidosDetalle,
                                 List<ListaProductos.ErrorLinea> errores, String mensaje) {
         public int omitidos() { return omitidosDetalle.size(); }
     }
 
-    /**
-     * Alta masiva ("Cargar lista"). Valida toda la lista primero con las mismas reglas que el alta de a uno,
-     * registra solo las filas válidas y guarda el archivo UNA vez al final. Nunca pisa un producto que ya existe
-     * (sin importar mayúsculas ni tildes): lo cuenta como omitido. Si un nombre viene varias veces en la lista,
-     * se registra la primera fila válida y se omiten las demás.
-     *
-     * @param erroresDeLectura errores que ya encontró quien leyó el texto (se devuelven junto a los de aquí)
-     */
     public synchronized ResultadoLote crearProductos(List<ListaProductos.Fila> filas, List<ListaProductos.ErrorLinea> erroresDeLectura) {
         List<ListaProductos.ErrorLinea> errores = new ArrayList<>(erroresDeLectura);
         List<ListaProductos.ErrorLinea> omitidos = new ArrayList<>();
-        Map<String, Integer> enLista = new HashMap<>();   // nombre normalizado → línea donde se aceptó
-        Map<String, Integer> codigosEnLista = new HashMap<>();   // código en mayúsculas → línea donde se aceptó
+        Map<String, Integer> enLista = new HashMap<>();
+        Map<String, Integer> codigosEnLista = new HashMap<>();
         List<ListaProductos.Fila> validas = new ArrayList<>();
 
-        // 1) validar todo, sin tocar el inventario
         for (ListaProductos.Fila f : filas) {
             String n = limpiarNombre(f.nombre());
             String u = f.unidad() == null || f.unidad().isBlank() ? "unidades" : f.unidad().trim().toLowerCase();
@@ -1240,7 +1093,6 @@ public class InventoryService {
         }
         errores.sort(Comparator.comparingInt(ListaProductos.ErrorLinea::linea));
 
-        // 2) registrar los válidos y guardar una sola vez
         for (ListaProductos.Fila f : validas)
             nuevo(f.nombre(), aliasDe(f.nombre(), null), f.precio(), f.stock(), f.unidad(), f.stockMin(), f.ficha(), " (carga masiva)");
         String resumen = "Carga de productos: " + validas.size() + (validas.size() == 1 ? " agregado" : " agregados")
@@ -1249,7 +1101,6 @@ public class InventoryService {
         return new ResultadoLote(validas.size(), omitidos, errores, validas.isEmpty() ? resumen : persistir(resumen));
     }
 
-    /** Un código que ya trae una línea anterior de la misma lista, o null. */
     private static String codigoRepetidoEnLista(Producto.Ficha f, Map<String, Integer> codigosEnLista) {
         for (String c : new String[]{limpio(f.codigo()), limpio(f.codigoBarras())}) {
             Integer linea = c == null || c.isEmpty() ? null : codigosEnLista.get(c.toUpperCase(Locale.ROOT));
@@ -1260,7 +1111,6 @@ public class InventoryService {
 
     private static String limpiarNombre(String nombre) { return nombre == null ? "" : nombre.trim().replaceAll("\\s+", " "); }
 
-    /** Por qué no se puede crear este producto, o null si se puede. No revisa duplicados. Unidad ya en minúsculas. */
     private static String errorAlCrear(String n, BigDecimal precio, BigDecimal stock, String u, BigDecimal stockMin) {
         if (n.isEmpty()) return "Falta el nombre del producto.";
         if (n.length() > MAX_NOMBRE) return "El nombre es muy largo (máximo " + MAX_NOMBRE + " letras).";
@@ -1276,7 +1126,6 @@ public class InventoryService {
         return null;
     }
 
-    /** Agrega un producto ya validado y deja su alta (y el stock inicial) en el historial. No guarda el archivo. */
     private Producto nuevo(String n, List<String> alias, BigDecimal precio, BigDecimal stock, String u, BigDecimal stockMin,
                            Producto.Ficha f, String nota) {
         Producto p = new Producto(n, alias, stock == null ? BigDecimal.ZERO : stock,
@@ -1296,10 +1145,6 @@ public class InventoryService {
         return p;
     }
 
-    /**
-     * Ajuste rápido de stock desde la pantalla (botones ＋/－): suma o resta sin emitir comprobante.
-     * Queda en el historial como AJUSTE. Nombre exacto.
-     */
     public synchronized Resultado ajustarStock(String nombre, BigDecimal cantidad) {
         Producto p = porNombre(nombre);
         if (p == null) return Resultado.noEncontrado("No encontré ese producto, señor.");
@@ -1317,16 +1162,10 @@ public class InventoryService {
                 + (p.stockBajo() ? " Atención: stock bajo." : "")));
     }
 
-    /**
-     * Cambia precio, stock mínimo y/o unidad (los null no se tocan).
-     *
-     * @param exacto true = nombre exacto (API REST); false = búsqueda difusa (voz)
-     */
     public synchronized Resultado editarProducto(String nombre, boolean exacto, BigDecimal precio, BigDecimal stockMin, String unidad) {
         return editarProducto(nombre, exacto, new Cambios(null, precio, null, stockMin, unidad, null));
     }
 
-    /** Edita un producto: nombre, precio, stock, stock mínimo, unidad y/o alias. Valida todo antes de cambiar nada. */
     public synchronized Resultado editarProducto(String nombre, boolean exacto, Cambios c) {
         Producto p;
         if (exacto) {
@@ -1368,7 +1207,7 @@ public class InventoryService {
             p.alias.remove(Palabras.norm(antes));
             p.nombre = nuevoNombre;
             if (!p.alias.contains(Palabras.norm(nuevoNombre))) p.alias.add(Palabras.norm(nuevoNombre));
-            for (Venta v : ventas) if (antes.equals(v.producto)) v.producto = nuevoNombre;   // anular/corregir siguen funcionando
+            for (Venta v : ventas) if (antes.equals(v.producto)) v.producto = nuevoNombre;
             hecho.add(antes + " ahora se llama " + nuevoNombre + ".");
         }
         if (c.alias() != null) {
@@ -1431,16 +1270,13 @@ public class InventoryService {
         return Resultado.ok(persistir(String.join(" ", hecho)));
     }
 
-    /** Para el historial: "(ninguno)" en lugar de un texto vacío. */
     private static String sinDato(String s) { return s.isEmpty() ? "(ninguno)" : s; }
 
-    /** Otro producto (distinto de {@code excepto}) con el mismo nombre sin contar mayúsculas ni tildes, o null. */
     private Producto mismoNombre(String nombre, Producto excepto) {
         String n = Palabras.norm(nombre);
         return productos.stream().filter(p -> p != excepto && Palabras.norm(p.nombre).equals(n)).findFirst().orElse(null);
     }
 
-    /** Alias normalizados y sin repetir; siempre incluye el propio nombre. */
     private static List<String> aliasDe(String nombre, List<String> alias) {
         Set<String> out = new LinkedHashSet<>();
         out.add(Palabras.norm(nombre));
@@ -1448,7 +1284,6 @@ public class InventoryService {
         return new ArrayList<>(out);
     }
 
-    /** Voz: pregunta antes de eliminar un producto (se responde con sí/no). */
     public synchronized String pedirEliminarProducto(String textoProducto) {
         Match m = buscar(textoProducto);
         if (m == null) return "No encontré ese producto, señor.";
@@ -1458,7 +1293,6 @@ public class InventoryService {
                         + m.producto.unidad + ". Diga sí o no."));
     }
 
-    /** Quita el producto del inventario (sus ventas pasadas se conservan con su nombre). */
     public synchronized Resultado eliminarProducto(String nombre, boolean exacto) {
         Producto p = exacto ? porNombre(nombre) : Optional.ofNullable(buscar(nombre)).map(x -> x.producto).orElse(null);
         if (p == null) return Resultado.noEncontrado("No encontré ese producto, señor.");
@@ -1468,24 +1302,17 @@ public class InventoryService {
         return Resultado.ok(persistir("Eliminé " + p.nombre + " del inventario, señor."));
     }
 
-    /** Voz: pregunta antes de vaciar el inventario para empezar uno nuevo (se responde con sí/no). */
     public synchronized String pedirNuevoInventario() {
         if (productos.isEmpty() && ventas.isEmpty()) return "El inventario ya está vacío, señor. Puede agregar productos cuando quiera.";
         return preguntar(pend(Tipo.NUEVO_INVENTARIO, null, null, null, resumenAntesDeVaciar() + " Diga sí o no."));
     }
 
-    /** "¿Confirma empezar un inventario nuevo? Se quitarán N productos y M ventas…" (la usa también el asistente con IA). */
     public synchronized String resumenAntesDeVaciar() {
         return "¿Confirma empezar un inventario nuevo desde cero? Se quitarán " + productos.size()
                 + (productos.size() == 1 ? " producto" : " productos") + " y " + ventas.size()
                 + (ventas.size() == 1 ? " línea de venta" : " líneas de venta") + ". Antes guardaré una copia del inventario actual.";
     }
 
-    /**
-     * Empieza un inventario nuevo: quita todos los productos y las ventas, y cancela las ventas en curso.
-     * Antes copia la base actual a {@code jarvis-inventario.db.antes-de-nuevo-<fecha>}; si esa copia falla, no borra nada.
-     * Se conserva el correlativo de comprobantes (no se repiten números) y el historial de movimientos.
-     */
     public synchronized Resultado empezarDeCero() {
         Path base = almacen.archivo();
         Path copia = base.resolveSibling(base.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
@@ -1501,22 +1328,16 @@ public class InventoryService {
                 ClientSession.usuario()), null));
         productos = new ArrayList<>();
         ventas = new ArrayList<>();
-        cabeceras = new HashMap<>();   // los correlativos siguen: nunca se repite un número de boleta
+        cabeceras = new HashMap<>();
         for (Sesion s : sesiones.values()) { s.carrito = null; s.comprobanteNuevo = null; s.opciones = Opciones.POR_DEFECTO; }
         return Resultado.ok(persistir("Listo, señor: empecé un inventario nuevo, vacío. La copia del anterior (" + n
                 + (n == 1 ? " producto" : " productos") + ") quedó en " + copia.getFileName() + "."));
     }
 
-    /** Últimos movimientos del historial, del más reciente al más antiguo. */
     public List<Movimiento> movimientos(int n) {
         synchronized (this) { return almacen.ultimosMovimientos(Math.min(Math.max(n, 1), 1000)); }
     }
 
-    /**
-     * Cambia cada palabra que sea el código (interno o de barras) de un producto por el nombre de ese producto.
-     * Los números de hasta 5 cifras no se tocan: son cantidades o tallas ("vendí 2 polos", "zapatilla 40"),
-     * aunque algún producto tenga ese código; un código de barras tiene 8 a 13 cifras.
-     */
     public synchronized String codigosANombres(String cmd) {
         if (cmd == null || productos.stream().allMatch(p -> p.codigo.isEmpty() && p.codigoBarras.isEmpty())) return cmd;
         StringBuilder out = new StringBuilder();
@@ -1528,16 +1349,13 @@ public class InventoryService {
         return out.toString();
     }
 
-    /** ¿El texto corresponde a algún producto existente? (búsqueda difusa) */
     public synchronized boolean conoce(String textoProducto) { return buscar(textoProducto) != null; }
 
-    /** Unidad del producto más parecido (para leer "un par" como 1 par en las zapatillas), o null si no hay. */
     public synchronized String unidadDe(String textoProducto) {
         Match m = buscar(textoProducto);
         return m == null ? null : m.producto.unidad;
     }
 
-    /** Responder a un "sí / no" pendiente de ESTA sesión. */
     public synchronized String resolver(boolean si) {
         Sesion s = sesion();
         if (s.pendiente == null) return null;
@@ -1560,18 +1378,12 @@ public class InventoryService {
         return p.pregunta;
     }
 
-    // ---------------------------------------------------------------- búsqueda
-
     private Producto porNombre(String nombre) {
         if (nombre == null) return null;
         String n = nombre.trim();
         return productos.stream().filter(p -> p.nombre.equalsIgnoreCase(n)).findFirst().orElse(null);
     }
 
-    /**
-     * Resultado de la búsqueda difusa. {@code empatados} tiene más de un producto cuando varios
-     * encajan igual de bien (p. ej. "zapatilla nike" con las tallas 39 y 40): no se adivina, se pregunta.
-     */
     private static class Match {
         Producto producto; boolean ambiguo; List<Producto> empatados;
         Match(Producto p, boolean a, List<Producto> e) { producto = p; ambiguo = a; empatados = e; }
@@ -1579,7 +1391,6 @@ public class InventoryService {
     }
 
     private Match buscar(String texto) {
-        // un código exacto (escrito o leído con el escáner) gana a cualquier parecido por nombre
         Producto porCodigo = conCodigo(texto == null ? null : texto.trim(), null);
         if (porCodigo != null) return new Match(porCodigo, false, List.of(porCodigo));
         String q = Palabras.norm(texto);
@@ -1594,7 +1405,6 @@ public class InventoryService {
             else if (s > sSegundo) { sSegundo = s; segundo = p; }
         }
         if (mejor == null || sMejor < 0.34) return null;
-        // el nombre exacto (1.0) nunca es ambiguo: "polera roja m" no duda con "polera roja m manga larga"
         boolean ambiguo = segundo != null && sMejor < 1.0 && (sMejor - sSegundo) < 0.12 && sSegundo >= 0.34;
         double tope = sMejor;
         List<Producto> empatados = puntajes.entrySet().stream()
@@ -1602,7 +1412,6 @@ public class InventoryService {
         return new Match(mejor, ambiguo, empatados);
     }
 
-    /** "Tengo varios parecidos: A, B y C. ¿Cuál de ellos?" (cuando la búsqueda empata). */
     private static String cualDe(Match m) {
         List<String> nombres = m.empatados.stream().map(p -> p.nombre).toList();
         String lista = nombres.size() == 1 ? nombres.get(0)
@@ -1610,14 +1419,12 @@ public class InventoryService {
         return "Tengo varios parecidos: " + lista + ". ¿Cuál de ellos, señor? Dígame el nombre completo (con talla o color).";
     }
 
-    /** Similitud entre la consulta y un producto (nombre + alias). */
     private double puntaje(String q, Producto p) {
         double best = sim(q, normalizado(p.nombre));
         for (String a : p.alias) best = Math.max(best, sim(q, normalizado(a)));
         return best;
     }
 
-    /** Nombres ya normalizados: cada búsqueda recorre todos los productos y normalizar cuesta (con miles se notaba). */
     private final Map<String, String> normalizados = new HashMap<>();
 
     private String normalizado(String s) {
@@ -1625,7 +1432,6 @@ public class InventoryService {
         return normalizados.computeIfAbsent(s, Palabras::norm);
     }
 
-    /** Lo mismo con las palabras de cada nombre ya normalizado. */
     private final Map<String, Set<String>> palabras = new HashMap<>();
 
     private Set<String> palabrasDe(String normalizado) {
@@ -1635,22 +1441,20 @@ public class InventoryService {
 
     private double sim(String q, String cand) {
         if (cand.isBlank()) return 0;
-        if (q.equals(cand)) return 1.0;                                   // nombre exacto: gana siempre
+        if (q.equals(cand)) return 1.0;
         Set<String> qt = tokens(q), ct = palabrasDe(cand);
-        if (distintos(qt, ct, InventoryService::esTalla)) return 0;       // la 39 nunca es la 40, la S nunca es la M
-        if (distintos(qt, ct, InventoryService::esColor)) return 0;       // ni la roja es la azul
+        if (distintos(qt, ct, InventoryService::esTalla)) return 0;
+        if (distintos(qt, ct, InventoryService::esColor)) return 0;
         String qb = " " + q + " ", cb = " " + cand + " ";
-        if (cb.contains(qb) || qb.contains(cb)) return 0.95;              // contiene palabras completas ("air 4" no es "air 40")
+        if (cb.contains(qb) || qb.contains(cb)) return 0.95;
         if (qt.isEmpty() || ct.isEmpty()) return 0;
         int inter = 0;
         for (String a : qt) for (String b : ct) if (tokenEq(a, b)) { inter++; break; }
         return (double) inter / qt.size();
     }
 
-    /** Tallas de ropa y calzado: números sueltos ("38", "40.5") y letras XS…XXXL. */
     private static final Set<String> TALLAS_LETRA = Set.of("xxs", "xs", "s", "m", "l", "xl", "xxl", "xxxl");
 
-    /** Colores (en masculino y femenino, que es como se dicen según la prenda). */
     private static final Set<String> COLORES = Set.of("rojo", "roja", "rojos", "rojas", "azul", "azules", "verde", "verdes",
             "negro", "negra", "negros", "negras", "blanco", "blanca", "blancos", "blancas", "amarillo", "amarilla",
             "gris", "plomo", "plomos", "rosado", "rosada", "rosa", "morado", "morada", "lila", "celeste", "celestes",
@@ -1660,17 +1464,12 @@ public class InventoryService {
 
     private static boolean esColor(String t) { return COLORES.contains(t); }
 
-    /** "roja" y "rojo", "negras" y "negro", "azules" y "azul" son el mismo color. */
     private static String raizColor(String t) {
         if (t.endsWith("es") && t.length() > 4 && "lnr".indexOf(t.charAt(t.length() - 3)) >= 0) t = t.substring(0, t.length() - 2);
         else if (t.endsWith("s")) t = t.substring(0, t.length() - 1);
         return t.replaceFirst("[oa]$", "");
     }
 
-    /**
-     * ¿La consulta y el producto dicen una talla (o un color) y no coincide ninguna?
-     * Entonces son productos distintos aunque el resto del nombre sea igual.
-     */
     private static boolean distintos(Set<String> qt, Set<String> ct, java.util.function.Predicate<String> tipo) {
         Set<String> tq = new HashSet<>(), tc = new HashSet<>();
         for (String t : qt) if (tipo.test(t)) tq.add(clave(t));
@@ -1692,7 +1491,7 @@ public class InventoryService {
 
     private boolean tokenEq(String a, String b) {
         if (a.equals(b)) return true;
-        if (a.length() <= 2 || b.length() <= 2) return false;   // tokens muy cortos: solo exactos
+        if (a.length() <= 2 || b.length() <= 2) return false;
         if (a.length() >= 4 && b.length() >= 4 && (a.startsWith(b.substring(0, 4)) || b.startsWith(a.substring(0, 4)))) return true;
         return levenshtein(a, b) <= (Math.max(a.length(), b.length()) > 5 ? 2 : 1);
     }

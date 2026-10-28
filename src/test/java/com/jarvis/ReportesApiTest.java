@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.inventory.Ejemplos;
@@ -18,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Inventario valorizado, kardex y descargas en Excel por la API. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.token=clave-reportes",
         "jarvis.negocio=Ferretería El Clavo", "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-reportes-${random.uuid}.json"})
 @AutoConfigureMockMvc

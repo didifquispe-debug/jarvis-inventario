@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.api;
 
 import com.jarvis.voz.EscuchaLocal;
@@ -16,27 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
-/**
- * Voz sin Internet. La clave la comprueba ApiAuthFilter.
- *
- *   GET  /api/voz/estado     -> { local: true|false, cargando, motor: "auto"|"local"|"navegador" }
- *   POST /api/voz/reconocer  (application/octet-stream: PCM 16 bits, mono, 16 kHz; máximo 30 s)
- *                            -> { ok, texto }   (503 si no hay modelo, 413 si el audio es muy largo)
- *
- * Micrófono de ESTA computadora (solo desde esta misma PC: un celular no puede encender el micrófono de la laptop;
- * 403 si se pide desde otro equipo):
- *   GET  /api/voz/escucha                  -> { disponible, cargando, manosLibres, escuchando, ultimo, motivo }
- *   POST /api/voz/escucha  { accion }      accion: manos-libres | sin-manos-libres | una-vez | pausa | sigue |
- *                                          sigue-y-espera (lo último fue una pregunta) | cancelar
- *   GET  /api/voz/escucha/eventos?desde=N  espera hasta 25 s -> [ { id, tipo, texto } ]
- *                                          tipo: parcial | orden | activado | silencio | error
- *
- * Voz de JARVIS por los parlantes de ESTA computadora (Piper o voces de Windows; también solo desde ella):
- *   GET  /api/voz/habla                    -> { modo: "piper"|"windows"|"navegador", pedido, motivo }
- *   POST /api/voz/hablar  { texto }        habla y responde al terminar -> { ok, interrumpida }
- *                                          (503 si no pudo: la pantalla usa la voz del navegador)
- *   POST /api/voz/callar                   calla lo que se esté diciendo
- */
 @RestController
 @RequestMapping("/api/voz")
 @CrossOrigin
@@ -46,7 +29,6 @@ public class VozController {
     private final VocabularioVoz vocabulario;
     private final EscuchaLocal escucha;
     private final HablaLocal habla;
-    /** Reconocer usa bastante CPU: a lo más dos frases a la vez (laptop y celular). */
     private final Semaphore turnos = new Semaphore(2);
 
     public VozController(VozLocal voz, VocabularioVoz vocabulario, EscuchaLocal escucha, HablaLocal habla) {
@@ -55,8 +37,6 @@ public class VozController {
         this.escucha = escucha;
         this.habla = habla;
     }
-
-    // ---------------------------------------------------------------- voz de JARVIS en esta computadora
 
     public record Texto(String texto) {}
 
@@ -86,8 +66,6 @@ public class VozController {
         habla.callar();
         return ResponseEntity.ok(Map.of("ok", true));
     }
-
-    // ---------------------------------------------------------------- micrófono de esta computadora
 
     public record Accion(String accion) {}
 
@@ -120,7 +98,6 @@ public class VozController {
         return ResponseEntity.ok(ev);
     }
 
-    /** ¿La petición viene de esta misma computadora? (la dirección es un número: no se consulta ningún DNS) */
     static boolean estaPc(HttpServletRequest req) {
         try {
             return InetAddress.getByName(req.getRemoteAddr()).isLoopbackAddress();

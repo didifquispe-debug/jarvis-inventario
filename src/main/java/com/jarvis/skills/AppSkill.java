@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import com.jarvis.system.LaptopActions;
@@ -6,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
-/** Abre programas instalados en la laptop. */
 @Component
 @Order(3)
 public class AppSkill implements Skill {

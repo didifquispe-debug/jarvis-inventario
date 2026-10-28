@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import com.jarvis.core.Diccionario;
@@ -11,10 +15,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * Enseñarle palabras a JARVIS por voz. JarvisService la consulta ANTES de aplicar el diccionario,
- * así "aprende que chompa significa polera" no se convierte en "…polera significa polera".
- */
 @Component
 @Order(-20)
 public class DiccionarioSkill implements Skill {

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.desktop;
 
 import java.awt.Desktop;
@@ -6,18 +10,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Abre la interfaz de JARVIS en su propia ventana (sin barra de direcciones ni pestañas),
- * usando el "modo aplicación" de Chrome o Edge. Así funcionan el micrófono y la voz.
- *
- * El navegador se elige con la propiedad jarvis.browser (chrome | edge | auto).
- * Si el elegido no está, usa el otro; si no hay ninguno, abre el navegador por defecto.
- */
 public final class AppWindow {
 
     private static final String OS = System.getProperty("os.name").toLowerCase();
 
-    /** Preferencia leída de application.properties al arrancar. Por defecto: chrome. */
     private static volatile String preferred = "chrome";
 
     private AppWindow() {}
@@ -50,16 +46,14 @@ public final class AppWindow {
         }
     }
 
-    /** Devuelve la ruta del navegador elegido; si no está, prueba el otro. */
     private static String findBrowser(String pref) {
         boolean edgeFirst = "edge".equals(pref);
         String chrome = chromePath();
         String edge = edgePath();
         if (edgeFirst) {
             if (edge != null) return edge;
-            return chrome;      // si pidió Edge pero no está, usa Chrome
+            return chrome;
         }
-        // "chrome" o "auto": Chrome primero
         if (chrome != null) return chrome;
         return edge;
     }

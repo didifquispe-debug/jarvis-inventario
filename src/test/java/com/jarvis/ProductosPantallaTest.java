@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.inventory.InventoryService;
@@ -20,7 +24,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Alta, edición y ajuste de productos desde la pantalla (REST). Contexto propio: arranca con el inventario vacío. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.token=clave-pantalla",
         "jarvis.negocio=Tienda Prueba", "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-pantalla-${random.uuid}.json"})
 @AutoConfigureMockMvc
@@ -72,15 +75,15 @@ class ProductosPantallaTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "{\"precio\":10,\"unidad\":\"unidades\"}",                                   // sin nombre
-            "{\"nombre\":\"   \",\"precio\":10,\"unidad\":\"unidades\"}",                // nombre en blanco
-            "{\"nombre\":\"Media\",\"unidad\":\"pares\"}",                               // sin precio
-            "{\"nombre\":\"Media\",\"precio\":3}",                                       // sin unidad
-            "{\"nombre\":\"Media\",\"precio\":3,\"unidad\":\" \"}",                     // unidad en blanco
-            "{\"nombre\":\"Media\",\"precio\":-3,\"unidad\":\"pares\"}",                 // precio negativo
-            "{\"nombre\":\"Media\",\"precio\":3,\"stock\":-1,\"unidad\":\"pares\"}",     // stock negativo
-            "{\"nombre\":\"Media\",\"precio\":3,\"stock\":1.5,\"unidad\":\"pares\"}",    // pares no se fraccionan
-            "{\"nombre\":\"Media\",\"precio\":\"tres\",\"unidad\":\"pares\"}",           // precio no numérico
+            "{\"precio\":10,\"unidad\":\"unidades\"}",
+            "{\"nombre\":\"   \",\"precio\":10,\"unidad\":\"unidades\"}",
+            "{\"nombre\":\"Media\",\"unidad\":\"pares\"}",
+            "{\"nombre\":\"Media\",\"precio\":3}",
+            "{\"nombre\":\"Media\",\"precio\":3,\"unidad\":\" \"}",
+            "{\"nombre\":\"Media\",\"precio\":-3,\"unidad\":\"pares\"}",
+            "{\"nombre\":\"Media\",\"precio\":3,\"stock\":-1,\"unidad\":\"pares\"}",
+            "{\"nombre\":\"Media\",\"precio\":3,\"stock\":1.5,\"unidad\":\"pares\"}",
+            "{\"nombre\":\"Media\",\"precio\":\"tres\",\"unidad\":\"pares\"}",
             "{}"})
     void rechazaDatosIncompletosOInvalidos(String json) throws Exception {
         int antes = inv.productos().size();
@@ -122,7 +125,6 @@ class ProductosPantallaTest {
         assertEquals(new BigDecimal("22.00"), p.precio);
         assertTrue(p.alias.contains("polo blanco"));
         assertFalse(p.alias.contains("polo basico"), "el alias del nombre viejo se va");
-        // no se puede renombrar a un nombre que ya usa otro producto
         editar("{\"nombre\":\"Polo básico blanco M\",\"nuevoNombre\":\"polo ESTAMPADO\"}").andExpect(status().isBadRequest());
         editar("{\"nombre\":\"Polo básico blanco M\",\"stock\":-2}").andExpect(status().isBadRequest());
         editar("{\"nombre\":\"Polo básico blanco M\"}").andExpect(status().isBadRequest());

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.core;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -7,19 +11,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-/**
- * Lo que JARVIS sabe de sí mismo: qué es, qué puede hacer y cómo se usa cada parte del sistema.
- * Responde solo PREGUNTAS ("¿qué eres?", "¿qué puedes hacer?", "¿cómo registro una compra?"), nunca órdenes
- * ("vendí 2 poleras" sigue yendo al inventario). Va antes que las demás reglas para que "¿cómo vendo?" explique en
- * lugar de intentar una venta sin datos. El asistente con IA recibe este mismo texto para responder igual.
- */
 @Component
 public class AcercaDeJarvis {
 
-    /** Un tema: cuándo se pregunta por él y qué se responde. */
     private record Tema(Pattern pregunta, String respuesta) {}
 
-    // Preguntas sobre JARVIS mismo (no hace falta "cómo": "¿qué eres?" ya es una pregunta).
     private static final Pattern IDENTIDAD = Pattern.compile(
             "\\b(que|quien) eres\\b|\\bque es jarvis\\b|\\bquien es jarvis\\b|\\bpresentate\\b|\\bcomo te llamas\\b|\\btu nombre\\b"
                     + "|\\beres (una|un) (ia|inteligencia|robot|programa|asistente|maquina|persona|humano)\\b|\\beres humano\\b|\\beres real\\b");
@@ -30,11 +26,8 @@ public class AcercaDeJarvis {
                     + "|\\bque (cosas|ordenes|comandos) (entiendes|puedes|sabes|acepta)");
     private static final Pattern CREADOR = Pattern.compile("\\bquien te (creo|hizo|programo|desarrollo|diseno)\\b|\\bcomo (fuiste|te) (creado|hicieron)\\b"
             + "|\\ben que (lenguaje|tecnologia) (estas|fuiste)\\b");
-    // Pregunta de "cómo se hace": hace falta una palabra de pregunta además del tema.
-    // También los verbos dirigidos a JARVIS: "¿funcionas sin internet?", "¿usas inteligencia artificial?".
     private static final Pattern COMO = Pattern.compile("\\b(como|donde|puedo|se puede|que hago|explicame|ensename|necesito saber|quiero saber"
             + "|cual es la forma|funcionas|trabajas|necesitas|usas|tienes|guardas)\\b");
-    // Frases de la caja que parecen preguntas pero no lo son: las atienden las reglas de inventario.
     private static final Pattern NO_ES_PREGUNTA = Pattern.compile("\\bcomo va\\b|\\bcuanto va\\b|\\bcuanto llevo\\b");
 
     private final String owner;
@@ -47,11 +40,6 @@ public class AcercaDeJarvis {
         this.temas = temas();
     }
 
-    /**
-     * Responde si {@code cmd} (normalizado: minúsculas, sin tildes) es una pregunta sobre JARVIS; vacío si no.
-     *
-     * @param iaActiva si el asistente con IA está disponible (cambia lo que se dice de la IA)
-     */
     public Optional<String> responder(String cmd, boolean iaActiva) {
         if (cmd == null || cmd.isBlank() || NO_ES_PREGUNTA.matcher(cmd).find()) return Optional.empty();
         if (IDENTIDAD.matcher(cmd).find()) return Optional.of(identidad(iaActiva));
@@ -68,14 +56,11 @@ public class AcercaDeJarvis {
         return Optional.empty();
     }
 
-    /** Todo lo que JARVIS sabe de sí mismo, para las instrucciones del asistente con IA. */
     public String conocimiento() {
         StringBuilder sb = new StringBuilder(identidad(true)).append("\n\n").append(capacidades(true)).append("\n\nCómo se usa:\n");
         for (Tema t : temas) sb.append("- ").append(t.respuesta()).append('\n');
         return sb.toString().trim();
     }
-
-    // ---------------------------------------------------------------- respuestas
 
     private String identidad(boolean iaActiva) {
         String de = negocio.isEmpty() ? "de su negocio" : "de " + negocio;

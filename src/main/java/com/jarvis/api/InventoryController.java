@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.api;
 
 import com.jarvis.inventory.ComprobantePdf;
@@ -24,40 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Inventario para el panel de la pantalla y correcciones por API. La clave la comprueba ApiAuthFilter.
- *
- *   GET    /api/inventory                          -> productos
- *   GET    /api/inventory/venta                    -> venta con varios productos en curso (de esta sesión)
- *   GET    /api/inventory/movimientos?limite=50    -> historial de auditoría, del más reciente al más antiguo
- *   POST   /api/inventory/ventas/ultima/anular     -> anula el último comprobante y devuelve el stock
- *   PUT    /api/inventory/ventas/ultima            { "producto": "Polera roja M", "cantidad": 3 }  (producto opcional si hay una sola línea)
- *   POST   /api/inventory/productos                { "nombre": "Polera roja M", "precio": 25, "stock": 10, "unidad": "unidades",
- *                                                    "stockMin": 2, "alias": ["polo rojo"], "categoria": "Polos", "codigo": "POL-R-M",
- *                                                    "codigoBarras": "7750182000123", "costo": 14.5 }  (solo nombre, precio y unidad son obligatorios)
- *   PATCH  /api/inventory/productos                { "nombre": "Polera roja M", "nuevoNombre": "…", "precio": 28, "stock": 12,
- *                                                    "stockMin": 3, "unidad": "unidades", "alias": ["…"], "categoria": "…", "codigo": "…",
- *                                                    "codigoBarras": "…", "costo": 15, "quitarCosto": true }  (solo lo que cambia;
- *                                                    categoria/codigo/codigoBarras "" los borra)
- *   POST   /api/inventory/productos/ajuste         { "nombre": "Polera roja M", "cantidad": -1 }  (botones +/-, sin comprobante)
- *   POST   /api/inventory/productos/lote           alta masiva ("Cargar lista"), en uno de dos formatos:
- *            application/json  [ { "nombre": "Polo blanco M", "precio": 25, "stock": 10, "unidad": "unidades", "stockMin": 2,
- *                                  "costo": 14, "categoria": "Polos", "codigo": "…", "codigoBarras": "…" }, … ]
- *            text/plain        una línea por producto: Nombre, Precio, Stock, Unidad, [StockMín], [Costo], [Categoría], [Código],
- *                              [Código de barras]  (ver ListaProductos)
- *          -> { ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }
- *   DELETE /api/inventory/productos?nombre=Polera roja M
- *   POST   /api/inventory/ventas                   { "items": [ { "nombre": "Polera roja M", "cantidad": 2 } ],
- *                                                    "tipo": "boleta" | "nota de venta", "cliente": "12345678",
- *                                                    "igv": "incluido" | "agregado" | "exonerado" }  (solo items es obligatorio)
- *          -> { ok, reply, recibo }  (nombres exactos; 404 si un producto no existe)
- *   PUT    /api/inventory/venta/opciones           { "tipo": "boleta", "cliente": "12345678" }  comprobante y cliente de la venta en curso
- *   GET    /api/inventory/comprobantes/{numero}     -> comprobante (numero = el número interno de la venta, el de "recibo")
- *   GET    /api/inventory/comprobantes/{numero}/pdf -> el comprobante en PDF (A4)
- *
- * Las altas y correcciones responden { ok, reply } (200, 400 si falta algo o no se pudo, 404 si no existe). Aquí los nombres
- * de producto deben ser exactos (sin búsqueda difusa): un programa no debe borrar "el más parecido".
- */
 @RestController
 @RequestMapping("/api/inventory")
 @CrossOrigin
@@ -95,7 +65,6 @@ public class InventoryController {
         return inv.productos();
     }
 
-    /** Venta con varios productos en curso (cuerpo vacío si no hay). */
     @GetMapping("/venta")
     public InventoryService.Comprobante venta() {
         return inv.carritoActual();
@@ -134,7 +103,6 @@ public class InventoryController {
         return responder(inv.ajustarStock(req.nombre(), req.cantidad()));
     }
 
-    /** Alta masiva con un arreglo JSON. La línea de cada error es la posición en el arreglo (desde 1). */
     @PostMapping(path = "/productos/lote", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> crearLote(@RequestBody(required = false) List<NuevoProducto> req) {
         List<ListaProductos.Fila> filas = new ArrayList<>();
@@ -148,7 +116,6 @@ public class InventoryController {
         return responderLote(new ListaProductos.Lectura(filas, errores));
     }
 
-    /** Alta masiva con el texto pegado (o el contenido de un .csv/.txt). */
     @PostMapping(path = "/productos/lote", consumes = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<Map<String, Object>> crearLoteTexto(@RequestBody(required = false) byte[] cuerpo) {
         return responderLote(ListaProductos.leer(texto(cuerpo)));
@@ -172,7 +139,6 @@ public class InventoryController {
         return ResponseEntity.ok(body);
     }
 
-    /** UTF-8; si no lo es, Windows-1252 (como guardan Excel y el Bloc de notas antiguos un .csv con tildes). */
     private static String texto(byte[] cuerpo) {
         if (cuerpo == null) return "";
         try {
@@ -205,13 +171,11 @@ public class InventoryController {
         return ResponseEntity.status(ok ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(Map.of("ok", ok, "reply", msg));
     }
 
-    /** Cifras de la pantalla de inicio: ventas de hoy, stock bajo, valor del inventario… */
     @GetMapping("/resumen")
     public InventoryService.Resumen resumen() {
         return inv.resumen();
     }
 
-    /** Los últimos comprobantes, del más reciente al más antiguo. */
     @GetMapping("/comprobantes")
     public List<InventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite,
                                                                @RequestParam(defaultValue = "") String desde,
@@ -242,7 +206,6 @@ public class InventoryController {
         return responder(inv.eliminarProducto(nombre, true));
     }
 
-    /** Cuerpo que no es JSON o números escritos como texto ("precio": "diez"): 400 con mensaje claro. */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> datosInvalidos() {
         return ResponseEntity.badRequest().body(Map.of("ok", false,

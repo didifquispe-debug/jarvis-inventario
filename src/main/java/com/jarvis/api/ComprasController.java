@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.api;
 
 import com.jarvis.inventory.Compras;
@@ -10,24 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Proveedores y compras. La clave la comprueba ApiAuthFilter.
- *
- *   GET    /api/proveedores?q=andina&limite=50    -> proveedores (por RUC si q son dígitos, si no por palabras de la razón social)
- *   GET    /api/proveedores/{ruc}                 -> un proveedor (404 si no existe)
- *   POST   /api/proveedores                       { "ruc": "20100047218", "razonSocial": "…", "direccion": "…", "telefono": "…" }
- *   PATCH  /api/proveedores/{ruc}                 { solo lo que cambia; "" borra dirección o teléfono }
- *   DELETE /api/proveedores/{ruc}                 (400 si tiene compras)
- *
- *   GET    /api/compras?q=&desde=AAAA-MM-DD&hasta=AAAA-MM-DD&limite=100  -> { compras: […], totales: {compras, base, igv, total} }
- *   GET    /api/compras/{codigo}                  -> la compra con su detalle (CP-00000012 o 12)
- *   POST   /api/compras                           { "ruc": "20100047218", "razonSocial": "…(solo si el RUC es nuevo)",
- *                                                    "tipoDocumento": "factura", "numeroDocumento": "F001-452", "fechaDocumento": "2026-10-20",
- *                                                    "igv": "incluido", "observacion": "…",
- *                                                    "items": [ { "producto": "Polera roja M", "cantidad": 24, "costo": 18.5 } ] }
- *          -> { ok, reply, compra }   (suma stock y recalcula el costo promedio; nombres de producto exactos)
- *   POST   /api/compras/{codigo}/anular           (400 si parte de la mercadería ya se vendió)
- */
 @RestController
 @CrossOrigin
 public class ComprasController {
@@ -39,8 +25,6 @@ public class ComprasController {
         this.inv = inv;
         this.compras = inv.compras();
     }
-
-    // ---------------------------------------------------------------- proveedores
 
     @GetMapping("/api/proveedores")
     public List<Compras.Proveedor> proveedores(@RequestParam(defaultValue = "") String q, @RequestParam(defaultValue = "50") int limite) {
@@ -67,8 +51,6 @@ public class ComprasController {
     public ResponseEntity<Map<String, Object>> eliminarProveedor(@PathVariable String ruc) {
         return InventoryController.responder(compras.eliminarProveedor(ruc));
     }
-
-    // ---------------------------------------------------------------- compras
 
     @GetMapping("/api/compras")
     public Map<String, Object> listar(@RequestParam(defaultValue = "") String q, @RequestParam(defaultValue = "") String desde,

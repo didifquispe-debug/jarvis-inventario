@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.inventory.InventoryService;
@@ -23,7 +27,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Alta masiva: POST /api/inventory/productos/lote ("Cargar lista"). Cada prueba usa nombres propios. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.token=clave-lote",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-lote-${random.uuid}.json"})
 @AutoConfigureMockMvc
@@ -163,7 +166,6 @@ class CargaMasivaTest {
         assertNotNull(producto("Polo, rayas lote F"));
     }
 
-    /** Lo que escribe el micrófono de "Cargar lista" (lineaDictada en index.html): punto y coma y coma decimal. */
     @Test void lineasEscritasPorElDictado() throws Exception {
         texto("""
                 Zapatilla nike 41; 180; 5; pares; 2
@@ -190,7 +192,6 @@ class CargaMasivaTest {
         assertTrue(movs.stream().anyMatch(m -> m.tipo().equals("NUEVO_PRODUCTO") && m.producto().equals("Plato lote H")));
         Movimiento entrada = movs.stream().filter(m -> m.tipo().equals("ENTRADA") && m.producto().equals("Taza lote H")).findFirst().orElseThrow();
         assertEquals(new BigDecimal("12"), entrada.cantidad());
-        // quedó en disco: otro servicio que lee la misma base de datos los ve
         InventoryService releido = new InventoryService(inv.archivoBaseDatos().toString());
         assertTrue(releido.productos().stream().anyMatch(p -> p.nombre.equals("Plato lote H")));
     }

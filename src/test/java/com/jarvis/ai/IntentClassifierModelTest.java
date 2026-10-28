@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.ai;
 
 import org.junit.jupiter.api.AfterAll;
@@ -13,10 +17,6 @@ import java.nio.file.Paths;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Prueba con el modelo ONNX real. Solo corre si existe la carpeta del modelo
- * (por defecto ~/jarvis-models/intent, o -Djarvis.intent.model-dir=...).
- */
 @EnabledIf("hayModelo")
 class IntentClassifierModelTest {
 
@@ -36,7 +36,6 @@ class IntentClassifierModelTest {
 
     @AfterAll static void cerrar() { if (clf != null) clf.cerrar(); }
 
-    // Frases que NO están en intents-es.json
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(delimiter = '|', value = {
             "me dejaron 25 pares de zapatillas       | REGISTRAR_ENTRADA",

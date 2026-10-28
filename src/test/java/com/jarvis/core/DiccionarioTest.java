@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.core;
 
 import org.junit.jupiter.api.Test;
@@ -10,7 +14,6 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Regresión: el diccionario no encadenaba sinónimos y generaba "lapizes" en vez de "lapices". */
 class DiccionarioTest {
 
     @TempDir Path dir;
@@ -20,8 +23,6 @@ class DiccionarioTest {
         Files.writeString(archivo, lineas, StandardCharsets.UTF_8);
         return new Diccionario(archivo.toString());
     }
-
-    // ---------------------------------------------------------------- BUG 2: cadenas de sinónimos
 
     @Test void encadenaSinonimos() throws Exception {
         Diccionario d = con("zapas = tenis\ntenis = zapatillas\n");
@@ -45,8 +46,6 @@ class DiccionarioTest {
         Diccionario d = con("zapas = tenis\ntenis = zapatillas\n");
         assertEquals("zapasos tenista", d.aplicar("zapasos tenista"));
     }
-
-    // ---------------------------------------------------------------- BUG 3: plurales
 
     @Test void pluralDePalabraTerminadaEnZ() throws Exception {
         Diccionario d = con("");

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.apache.poi.ss.usermodel.*;
@@ -16,17 +20,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Reportes en Excel (.xlsx), con el estilo del LibroExcel del sistema de referencia: título, cabecera de color,
- * filas congeladas, autofiltro y totales con SUBTOTAL (que respetan el filtro).
- * <ul>
- *   <li>Inventario valorizado (al costo y a precio de venta) con el kardex de todos los productos.</li>
- *   <li>Kardex de un producto.</li>
- *   <li>Ventas de un periodo: comprobantes y detalle con el costo y la ganancia de cada línea (sin IGV).</li>
- *   <li>Compras de un periodo: compras y detalle.</li>
- * </ul>
- * Los comprobantes y compras anulados figuran con importe 0 (el original va en "Estado"), así los totales no los suman.
- */
 public final class ReportesExcel {
 
     private ReportesExcel() {}
@@ -34,12 +27,9 @@ public final class ReportesExcel {
     private static final DateTimeFormatter DMY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final BigDecimal UNO_MAS_IGV = BigDecimal.ONE.add(Igv.TASA);
 
-    /** Cómo se llama cada tipo de movimiento de stock en el kardex. */
     static final Map<String, String> MOVIMIENTO = Map.of("ENTRADA", "Entrada", "VENTA", "Venta", "ANULACION", "Anulación de venta",
             "CORRECCION_VENTA", "Corrección de venta", "AJUSTE", "Ajuste", "COMPRA", "Compra",
             "ANULACION_COMPRA", "Anulación de compra", "ELIMINAR", "Baja del producto");
-
-    // ---------------------------------------------------------------- libros
 
     public static byte[] inventario(InventoryService.Valorizado v, List<FilaKardex> kardex, String negocio) {
         try (XSSFWorkbook libro = new XSSFWorkbook()) {
@@ -214,8 +204,6 @@ public final class ReportesExcel {
         }
     }
 
-    // ---------------------------------------------------------------- hojas y tablas
-
     private static void hojaKardex(XSSFWorkbook libro, Estilos e, List<FilaKardex> filas, String nombreHoja, String titulo,
                                    String negocio, boolean conProducto) {
         Sheet hoja = libro.createSheet(nombreHoja);
@@ -242,7 +230,6 @@ public final class ReportesExcel {
         cerrar(hoja, e, t.length, primera, f, new int[]{});
     }
 
-    /** Título, subtítulo y cabecera de la tabla; devuelve la primera fila de datos. */
     private static int encabezado(Sheet hoja, Estilos e, String titulo, String subtitulo, String[] titulos, int[] anchos) {
         Row r0 = hoja.createRow(0);
         r0.setHeightInPoints(26);
@@ -256,7 +243,6 @@ public final class ReportesExcel {
         return 4;
     }
 
-    /** Autofiltro y fila de totales con SUBTOTAL(109, …): suma solo lo que queda visible al filtrar. */
     private static void cerrar(Sheet hoja, Estilos e, int columnas, int primera, int siguiente, int[] importes) {
         if (siguiente > primera) hoja.setAutoFilter(new CellRangeAddress(primera - 1, siguiente - 1, 0, columnas - 1));
         if (importes.length == 0) return;
@@ -270,8 +256,6 @@ public final class ReportesExcel {
             celda.setCellStyle(e.totalMoneda);
         }
     }
-
-    // ---------------------------------------------------------------- celdas
 
     private static Row fila(Sheet hoja, int n) {
         Row r = hoja.getRow(n);
@@ -296,7 +280,6 @@ public final class ReportesExcel {
         celda.setCellStyle(s);
     }
 
-    /** "2026-10-23" como fecha de Excel (se puede ordenar y filtrar); si no se entiende, como texto. */
     private static void fecha(Row r, int c, String iso, Estilos e) {
         try {
             Cell celda = r.createCell(c);
@@ -337,7 +320,6 @@ public final class ReportesExcel {
         return out.toByteArray();
     }
 
-    /** Estilos del libro (POI limita la cantidad de estilos por archivo: se crean una vez). */
     private static final class Estilos {
         final XSSFCellStyle titulo, subtitulo, cabecera, celda, celdaNegrita, suave, anulada, entero, cantidad, cantidadNegrita;
         final XSSFCellStyle moneda, monedaNegrita, costo, fecha, fechaHora, estadoOk, estadoAviso, estadoMal, total, totalMoneda;

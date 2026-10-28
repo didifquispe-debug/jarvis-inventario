@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.JarvisService;
@@ -12,7 +16,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Ventas con un inventario temporal (no toca ~/jarvis-inventario.json). */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-${random.uuid}.json"})
 class VentaTest {
@@ -41,7 +44,7 @@ class VentaTest {
         assertNotNull(c, "debe emitir comprobante");
         assertEquals(1, c.items.size());
         assertEquals(new java.math.BigDecimal("2"), c.items.get(0).cantidad);
-        assertEquals(new java.math.BigDecimal("56.00"), c.total);   // 2 x 28 soles
+        assertEquals(new java.math.BigDecimal("56.00"), c.total);
     }
 
     @Test void entradaSigueSumando() {
@@ -72,7 +75,7 @@ class VentaTest {
         assertEquals(focos - 3, stock("Foco"));
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(2, c.items.size());
-        assertEquals(new java.math.BigDecimal("78.50"), c.total);   // 2 x 28 + 3 x 7.50
+        assertEquals(new java.math.BigDecimal("78.50"), c.total);
         assertTrue(c.items.stream().allMatch(v -> v.numero == c.numero), "todas las líneas, un comprobante");
     }
 
@@ -115,6 +118,6 @@ class VentaTest {
         assertTrue(jarvis.process("cuánto cuesta el cable").startsWith("Cable Vulcanizado cuesta 3.50 soles"));
         assertTrue(jarvis.process("cambia el precio del foco a 8.50 soles").contains("ahora cuesta 8.50"));
         assertTrue(jarvis.process("precio del foco").startsWith("Foco LED 9W cuesta 8.50"));
-        jarvis.process("cambia el precio del foco a 7.50 soles");   // dejarlo como estaba
+        jarvis.process("cambia el precio del foco a 7.50 soles");
     }
 }

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.AcercaDeJarvis;
@@ -15,7 +19,6 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** JARVIS responde preguntas sobre sí mismo (qué es, qué puede hacer, cómo se usa) sin confundirlas con órdenes. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.negocio=Zapatería Mi Paso",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-acerca-${random.uuid}.json"})
 class AcercaDeJarvisTest {

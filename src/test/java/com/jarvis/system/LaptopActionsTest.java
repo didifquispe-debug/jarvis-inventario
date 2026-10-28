@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.system;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,7 +19,6 @@ class LaptopActionsTest {
         assertNotNull(LaptopActions.urlSegura(url), url);
     }
 
-    /** Lo que alguien podría dictar o escribir para colarse a la terminal o al disco. */
     @ParameterizedTest
     @ValueSource(strings = {"https://x.com & del /q C:\\datos", "https://x.com|calc", "file:///C:/Windows/System32/cmd.exe",
             "javascript:alert(1)", "calc", "ms-settings:", "https://x.com\"&calc", "", "https://"})

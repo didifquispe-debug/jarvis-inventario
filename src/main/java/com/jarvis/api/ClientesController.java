@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.api;
 
 import com.jarvis.inventory.Clientes;
@@ -9,18 +13,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Clientes (para boletas y notas de venta con nombre y DNI). La clave la comprueba ApiAuthFilter.
- *
- *   GET    /api/clientes?q=quispe&limite=50   -> clientes (por DNI/RUC si q son dígitos, si no por palabras del nombre)
- *   GET    /api/clientes/{documento}          -> un cliente (404 si no existe)
- *   POST   /api/clientes                      { "documento": "12345678", "nombre": "María Quispe Rojas",
- *                                               "email": "…", "telefono": "987654321", "direccion": "…" }
- *   PATCH  /api/clientes/{documento}          { solo lo que cambia; "" borra email, teléfono o dirección }
- *   DELETE /api/clientes/{documento}          (400 si tiene comprobantes)
- *
- * Los cambios responden { ok, reply } (200, 400 si falta algo o no se pudo, 404 si no existe).
- */
 @RestController
 @RequestMapping("/api/clientes")
 @CrossOrigin

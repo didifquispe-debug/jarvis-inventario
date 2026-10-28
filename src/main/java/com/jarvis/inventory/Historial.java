@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -15,11 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Lee el historial de las versiones anteriores de JARVIS, que se guardaba en archivos JSON Lines junto al
- * inventario ({@code <inventario>-historial/movimientos-AAAA-MM.jsonl} y {@code ventas-AAAA-MM.jsonl}).
- * Solo se usa una vez, al pasar el inventario a la base de datos; los archivos no se tocan.
- */
 final class Historial {
 
     private static final Logger log = LoggerFactory.getLogger(Historial.class);
@@ -31,10 +30,8 @@ final class Historial {
 
     Historial(Path dir) { this.dir = dir; }
 
-    /** Todos los movimientos, del más antiguo al más reciente. */
     List<Movimiento> movimientos() { return leer("movimientos", Movimiento.class); }
 
-    /** Las ventas que se habían pasado a los archivos mensuales, de la más antigua a la más reciente. */
     List<InventoryService.Venta> ventasArchivadas() { return leer("ventas", InventoryService.Venta.class); }
 
     private <T> List<T> leer(String prefijo, Class<T> tipo) {
@@ -52,7 +49,7 @@ final class Historial {
                 for (String linea : Files.readAllLines(p, StandardCharsets.UTF_8)) {
                     try {
                         if (!linea.isBlank()) out.add(json.readValue(linea, tipo));
-                    } catch (Exception ignorada) { /* línea a medias por un corte de luz: se salta */ }
+                    } catch (Exception ignorada) { }
                 }
             } catch (IOException e) {
                 log.warn("No pude leer {}: {}", p, e.getMessage());

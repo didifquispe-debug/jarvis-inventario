@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -8,36 +12,18 @@ import java.nio.file.Path;
 import java.sql.*;
 import java.util.*;
 
-/**
- * Guarda el inventario en la base de datos ({@link BaseDatos}) escribiendo solo lo que cambió.
- *
- * <p>InventoryService trabaja con sus listas en memoria como siempre; al guardar, esta clase compara cada producto
- * y cada línea de venta con la última versión guardada (una "foto" por objeto) e inserta, actualiza o borra solo
- * esas filas, todo en una transacción. Así ninguna operación (venta, corrección, ajuste…) tiene que acordarse
- * de marcar qué cambió.</p>
- */
 final class Almacen {
 
-    /**
-     * Un movimiento del historial y el producto al que se refiere (null si es general). En los que mueven stock:
-     * {@code delta} (+ entra, − sale), {@code saldo} (stock que quedó) y {@code costo} (costo promedio de ese momento).
-     */
     record Pendiente(Movimiento movimiento, Producto producto, BigDecimal delta, BigDecimal saldo, BigDecimal costo) {
         Pendiente(Movimiento movimiento, Producto producto) { this(movimiento, producto, null, null, null); }
     }
 
-    /** Cómo mueven el stock los tipos de movimiento (para los antiguos, que no guardaban el delta). CORRECCION_VENTA no se sabe. */
     static final Map<String, Integer> SIGNO = Map.of("ENTRADA", 1, "VENTA", -1, "ANULACION", 1, "COMPRA", 1,
             "ANULACION_COMPRA", -1, "AJUSTE", 1, "ELIMINAR", -1, "CORRECCION_VENTA", 0);
 
-    /**
-     * @param cabeceras  datos de cada comprobante que no están en sus líneas (tipo, serie, cliente, IGV), por número
-     * @param contadores último número usado: {@value #ULTIMO_COMPROBANTE} y uno por serie ("serie:B001")
-     */
     record Estado(List<Producto> productos, List<InventoryService.Venta> ventas,
                   Map<Integer, InventoryService.Cabecera> cabeceras, Map<String, Integer> contadores) {}
 
-    /** Los valores tal como están en la base: si la foto es igual a la fila actual, no se escribe nada. */
     private record FilaProducto(String nombre, String alias, long stock, long stockMin, long precio, String unidad,
                                 String categoria, String codigo, String codigoBarras, Long costo) {}
 
@@ -59,7 +45,6 @@ final class Almacen {
 
     Path archivo() { return db.archivo(); }
 
-    /** Para lo que se lee y escribe directo, sin pasar por las listas en memoria (clientes). */
     BaseDatos baseDatos() { return db; }
 
     boolean vacio() { return db.vacia(); }
@@ -68,9 +53,6 @@ final class Almacen {
 
     void copiarA(Path destino) throws SQLException { db.copiarA(destino); }
 
-    // ---------------------------------------------------------------- lectura
-
-    /** Lee todo y toma la foto de cada objeto: desde aquí, guardar() solo escribe diferencias con esto. */
     Estado cargar() {
         fotosProductos.clear();
         fotosVentas.clear();
@@ -118,7 +100,7 @@ final class Almacen {
                     InventoryService.Venta v = new InventoryService.Venta();
                     v.id = rs.getLong("id");
                     v.comprobanteId = rs.getLong("comprobante_id");
-                    v.numero = rs.getInt("numero");   // 0 si es NULL: venta antigua sin número
+                    v.numero = rs.getInt("numero");
                     v.fecha = rs.getString("fecha");
                     v.hora = rs.getString("hora");
                     v.producto = rs.getString("producto");
@@ -142,7 +124,6 @@ final class Almacen {
         });
     }
 
-    /** Los últimos {@code n} movimientos del historial, del más reciente al más antiguo. */
     List<Movimiento> ultimosMovimientos(int n) {
         return db.leer(cx -> {
             List<Movimiento> out = new ArrayList<>();
@@ -162,11 +143,6 @@ final class Almacen {
         });
     }
 
-    /**
-     * Kardex: los movimientos de stock, del más antiguo al más reciente (los últimos {@code limite}). Con
-     * {@code productoId} null, de todos los productos ordenados por producto. Los movimientos antiguos sin producto
-     * enlazado se reconocen por el nombre.
-     */
     List<FilaKardex> kardex(Long productoId, String nombre, int limite) {
         String tipos = SIGNO.keySet().stream().map(t -> "'" + t + "'").collect(java.util.stream.Collectors.joining(","));
         String donde = "tipo IN (" + tipos + ")" + (productoId == null && nombre == null ? ""
@@ -184,7 +160,7 @@ final class Almacen {
                     while (rs.next()) {
                         String tipo = rs.getString("tipo");
                         BigDecimal delta = decimal(rs, "delta_mil", Num.MIL);
-                        if (delta == null) {   // movimiento antiguo: el delta sale del tipo y la cantidad
+                        if (delta == null) {
                             BigDecimal cant = decimal(rs, "cantidad_mil", Num.MIL);
                             int signo = SIGNO.getOrDefault(tipo, 0);
                             delta = cant == null || signo == 0 ? null : "AJUSTE".equals(tipo) ? cant : cant.multiply(BigDecimal.valueOf(signo));
@@ -208,21 +184,11 @@ final class Almacen {
         return escala == Num.MIL ? Num.cantidad(d) : d;
     }
 
-    // ---------------------------------------------------------------- escritura
-
-    /**
-     * Escribe las diferencias con la última foto y los movimientos pendientes, todo en una transacción.
-     * Si falla no cambia nada en la base ni en las fotos: quien llama debe volver a cargar.
-     */
     void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
                  Map<String, Integer> contadores, List<Pendiente> movimientos) throws SQLException {
         guardar(productos, ventas, cabeceras, contadores, movimientos, null);
     }
 
-    /**
-     * Como {@link #guardar(List, List, Map, Map, List)} y además {@code extra} (p. ej. las filas de una compra) en la
-     * misma transacción, después de los productos: o se guarda todo o nada.
-     */
     void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
                  Map<String, Integer> contadores, List<Pendiente> movimientos, BaseDatos.Trabajo<?> extra) throws SQLException {
         Map<Producto, Long> idsNuevos = new IdentityHashMap<>();
@@ -234,7 +200,6 @@ final class Almacen {
         Set<Integer> numerosBorrados = new HashSet<>();
 
         db.transaccion(cx -> {
-            // 1) productos
             Set<Producto> vivos = Collections.newSetFromMap(new IdentityHashMap<>());
             vivos.addAll(productos);
             for (Producto p : fotosProductos.keySet())
@@ -261,7 +226,6 @@ final class Almacen {
                 }
             }
 
-            // 2) líneas de venta y sus comprobantes
             Set<InventoryService.Venta> vivas = Collections.newSetFromMap(new IdentityHashMap<>());
             vivas.addAll(ventas);
             Set<Long> sucios = new LinkedHashSet<>();
@@ -285,7 +249,7 @@ final class Almacen {
                 }
                 comprobanteDe.put(v, cid);
             }
-            Map<String, Long> idPorNombre = new HashMap<>();   // para enlazar cada línea con su producto, si sigue existiendo
+            Map<String, Long> idPorNombre = new HashMap<>();
             for (Producto p : productos) idPorNombre.putIfAbsent(p.nombre, p.id != null ? p.id : idsNuevos.get(p));
             Map<Long, Integer> items = new HashMap<>();
             for (InventoryService.Venta v : ventas) {
@@ -326,7 +290,6 @@ final class Almacen {
 
             if (extra != null) extra.hacer(cx);
 
-            // 3) historial y correlativo
             for (Pendiente m : movimientos) {
                 Movimiento mv = m.movimiento();
                 Long pid = m.producto() == null ? null : m.producto().id != null ? m.producto().id : idsNuevos.get(m.producto());
@@ -343,7 +306,6 @@ final class Almacen {
             return null;
         });
 
-        // confirmado en disco: ahora sí se actualizan los objetos y las fotos
         idsNuevos.forEach((p, id) -> p.id = id);
         idsVentas.forEach((v, id) -> v.id = id);
         comprobanteDe.forEach((v, cid) -> v.comprobanteId = cid);
@@ -356,12 +318,6 @@ final class Almacen {
         contadoresGuardados.putAll(contadores);
     }
 
-    // ---------------------------------------------------------------- apoyo
-
-    /**
-     * La cabecera del comprobante; si no hay (ventas de versiones anteriores, sin tipo ni IGV), una nota de venta
-     * con el mismo número y sin IGV, igual que al pasar la base a la versión 2.
-     */
     static InventoryService.Cabecera cabecera(Map<Integer, InventoryService.Cabecera> cabeceras, int numero) {
         InventoryService.Cabecera c = numero > 0 ? cabeceras.get(numero) : null;
         return c != null ? c : new InventoryService.Cabecera(TipoComprobante.NOTA_VENTA, numero, null, "", "", Igv.Modo.EXONERADO);

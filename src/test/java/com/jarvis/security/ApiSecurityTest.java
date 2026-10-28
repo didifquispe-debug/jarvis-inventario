@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.security;
 
 import org.junit.jupiter.api.Test;
@@ -52,10 +56,8 @@ class ApiSecurityTest {
     @Test void fuerzaBrutaDevuelve429() throws Exception {
         String ip = "10.0.0.66";
         for (int i = 0; i < 10; i++) mvc.perform(comando(ip, "intento-" + i)).andExpect(status().isUnauthorized());
-        // el intento 11 ya no se evalúa, ni siquiera con la clave buena
         mvc.perform(comando(ip, "clave-de-prueba-123")).andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"));
-        // otra IP no se ve afectada
         mvc.perform(comando("10.0.0.67", "clave-de-prueba-123")).andExpect(status().isOk());
     }
 }

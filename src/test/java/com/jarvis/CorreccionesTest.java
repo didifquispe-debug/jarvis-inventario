@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.JarvisService;
@@ -20,7 +24,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Operaciones de corrección por voz y por la API REST. */
 @SpringBootTest(properties = {"jarvis.token=clave-de-prueba-123",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-${random.uuid}.json"})
 @AutoConfigureMockMvc
@@ -37,8 +40,6 @@ class CorreccionesTest {
     }
 
     private BigDecimal stock(String prefijo) { return producto(prefijo).stock; }
-
-    // ---------------------------------------------------------------- voz
 
     @Test void anularLaUltimaVentaPideConfirmacionYDevuelveElStock() {
         BigDecimal antes = stock("Cemento");
@@ -70,7 +71,6 @@ class CorreccionesTest {
         assertEquals(antes.subtract(new BigDecimal("3")), stock("Foco"));
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(new BigDecimal("22.50"), c.total, "la pantalla recibe el comprobante corregido");
-        // con un solo producto no hace falta repetirlo
         assertTrue(jarvis.process("corrige la última venta, fueron 1").contains("ahora es 1 unidades"));
         assertEquals(antes.subtract(BigDecimal.ONE), stock("Foco"));
     }
@@ -121,8 +121,6 @@ class CorreccionesTest {
         assertTrue(despues.contains("Ventas anuladas:"), despues);
     }
 
-    // ---------------------------------------------------------------- REST
-
     private static final String CLAVE = "clave-de-prueba-123";
 
     @Test void restEditarProducto() throws Exception {
@@ -131,7 +129,6 @@ class CorreccionesTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.ok").value(true));
         assertEquals(new BigDecimal("4.25"), producto("Disco").precio);
         assertEquals(new BigDecimal("6"), producto("Disco").stockMin);
-        // nombre exacto: "disco" no basta por API (nada de "el más parecido")
         mvc.perform(patch("/api/inventory/productos").header("X-Jarvis-Token", CLAVE).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nombre\":\"disco\",\"precio\":1}")).andExpect(status().isNotFound());
         mvc.perform(patch("/api/inventory/productos").header("X-Jarvis-Token", CLAVE).contentType(MediaType.APPLICATION_JSON)

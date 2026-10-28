@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.junit.jupiter.api.Test;
@@ -10,7 +14,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Proveedores y compras: stock, costo promedio ponderado, IGV, documentos repetidos y anulación. */
 class ComprasTest {
 
     @TempDir Path dir;
@@ -32,7 +35,7 @@ class ComprasTest {
     }
 
     @Test void compraSumaStockYCalculaElCostoSinIgv() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());   // Foco LED 9W: 30 unidades, sin costo
+        InventoryService inv = Ejemplos.sembrar(nuevo());
         InventoryService.Resultado r = inv.registrarCompra(compra("F001-452", null, linea("Foco LED 9W", "20", "5.90")));
         assertTrue(r.ok(), r.mensaje());
         assertTrue(r.mensaje().startsWith("Compra CP-00000001 registrada: factura F001-452 de Distribuidora Andina SAC por 118.00 soles"),
@@ -61,7 +64,7 @@ class ComprasTest {
     }
 
     @Test void igvAgregadoYCantidadesConDecimales() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());   // Cable Vulcanizado en metros
+        InventoryService inv = Ejemplos.sembrar(nuevo());
         InventoryService.Resultado r = inv.registrarCompra(compra("F002-9", "agregado", linea("Cable Vulcanizado", "12.5", "2")));
         assertTrue(r.ok(), r.mensaje());
         Compras.Compra c = inv.compras().obtener("1").orElseThrow();
@@ -104,9 +107,9 @@ class ComprasTest {
     }
 
     @Test void anularDevuelveElStockSoloSiNoSeVendio() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());   // Disco de corte: 8
+        InventoryService inv = Ejemplos.sembrar(nuevo());
         assertTrue(inv.registrarCompra(compra("F001-1", null, linea("Disco de corte 4 1/2", "10", "3"))).ok());
-        inv.salida(new BigDecimal("15"), "disco", false);    // quedan 3: no alcanza para retirar 10
+        inv.salida(new BigDecimal("15"), "disco", false);
         InventoryService.Resultado r = inv.anularCompra("CP-00000001");
         assertFalse(r.ok());
         assertTrue(r.mensaje().contains("parte de la mercadería ya se vendió"), r.mensaje());

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.security;
 
 import jakarta.servlet.FilterChain;
@@ -13,12 +17,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Puerta de entrada de toda la API (/api/**, salvo /api/status que solo dice "online").
- * Verifica la clave en tiempo constante y frena la fuerza bruta: tras N fallos por minuto
- * desde una IP, responde 429 a esa IP (aunque luego mande la clave correcta) hasta que pase el minuto.
- * Centralizarlo aquí evita que un endpoint nuevo se olvide de comprobar la clave.
- */
 @Component
 public class ApiAuthFilter extends OncePerRequestFilter {
 
@@ -58,11 +56,10 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(req, res);
         } finally {
-            ClientSession.cerrar();   // los hilos de Tomcat se reutilizan: no dejar la sesión pegada
+            ClientSession.cerrar();
         }
     }
 
-    /** El panel web muestra "reply", así que los errores usan el mismo formato que /api/command. */
     private static void responder(HttpServletResponse res, int status, String mensaje) throws IOException {
         res.setStatus(status);
         res.setContentType("application/json");

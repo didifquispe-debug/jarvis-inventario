@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.junit.jupiter.api.Test;
@@ -14,7 +18,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Boletas y notas de venta: series, correlativos, IGV, clientes, importe en letras y PDF. */
 class ComprobantesTest {
 
     @TempDir Path dir;
@@ -36,8 +39,6 @@ class ComprobantesTest {
     private static Clientes.Datos cliente(String doc, String nombre) {
         return new Clientes.Datos(doc, nombre, null, null, null);
     }
-
-    // ---------------------------------------------------------------- IGV e importe en letras (del sistema de referencia)
 
     private static final List<BigDecimal> IMPORTES = List.of(new BigDecimal("100.00"), new BigDecimal("18.00"));
 
@@ -81,8 +82,6 @@ class ComprobantesTest {
         assertEquals("UN MILLON CON 00/100 SOLES", NumeroALetras.importe(new BigDecimal("1000000")));
         assertEquals("DOS MILLONES QUINIENTOS MIL CIEN CON 00/100 SOLES", NumeroALetras.importe(new BigDecimal("2500100")));
     }
-
-    // ---------------------------------------------------------------- series y correlativos
 
     @Test void porDefectoBoletaConIgvIncluido() {
         InventoryService inv = Ejemplos.sembrar(nuevo());
@@ -138,8 +137,6 @@ class ComprobantesTest {
         String ultimo = nuevo().ultimoComprobante();
         assertTrue(ultimo.contains("boleta número 1 (ANULADA)"), ultimo);
     }
-
-    // ---------------------------------------------------------------- clientes
 
     @Test void registraYBuscaClientes() {
         Clientes cl = nuevo().clientes();
@@ -216,8 +213,6 @@ class ComprobantesTest {
         assertEquals(2, inv.tomarComprobanteNuevo().items.size());
     }
 
-    // ---------------------------------------------------------------- PDF
-
     @Test void generaElPdf() {
         InventoryService inv = Ejemplos.sembrar(nuevo());
         inv.clientes().crear(cliente("12345678", "María Quispe Rojas"));
@@ -230,8 +225,6 @@ class ComprobantesTest {
         assertTrue(ComprobantePdf.generar(inv.comprobantePorNumero(c.numero), new ComprobantePdf.Emisor("", "", "", "", "")).length > 1500,
                 "también anulado y sin datos del negocio");
     }
-
-    // ---------------------------------------------------------------- base de la versión anterior
 
     @Test void lasVentasDeLaVersionAnteriorQuedanComoNotasDeVenta() throws Exception {
         try (Connection cx = DriverManager.getConnection("jdbc:sqlite:" + dir.resolve("inv.db").toAbsolutePath());

@@ -1,4 +1,3 @@
-# Palabras que JARVIS espera oír (voz sin Internet). Una por línea; se suman las de productos, clientes y proveedores.
 a
 abajo
 abierta
@@ -326,6 +325,7 @@ exporto
 factura
 falta
 faltan
+favor
 fecha
 fideos
 fija
@@ -379,6 +379,11 @@ http
 https
 igv
 importan
+imprima
+imprime
+imprímela
+imprímelo
+imprímeme
 imprimir
 imprimirlo
 impuesto
@@ -595,6 +600,7 @@ quién
 qué
 recetas
 recibí
+recibo
 reconoce
 recordará
 recordatorio
@@ -606,6 +612,7 @@ registre
 registro
 registré
 registró
+reimprime
 reiniciar
 reinicie
 remueve
@@ -644,6 +651,7 @@ salidas
 salieron
 saludo
 saqué
+saque
 se
 sección
 secure
@@ -699,6 +707,7 @@ tela
 tenemos
 tengo
 tenis
+ticket
 tiempo
 tiene
 tienen

@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.jarvis.skills.InventorySkill;
@@ -11,7 +15,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Ropa y calzado: variantes con nombre compuesto que solo cambian en talla o color. */
 class VariantesTest {
 
     @TempDir Path dir;

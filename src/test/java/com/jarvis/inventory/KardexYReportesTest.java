@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.apache.poi.ss.usermodel.Row;
@@ -16,7 +20,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Kardex (entradas, salidas y saldo de cada movimiento), inventario valorizado y reportes en Excel. */
 class KardexYReportesTest {
 
     @TempDir Path dir;
@@ -30,25 +33,24 @@ class KardexYReportesTest {
                 List.of(new Compras.LineaCompra(producto, n(cantidad), n(costo))));
     }
 
-    /** Polera con stock 10 a costo 5, y luego compra, venta, ajuste, corrección, anulación, edición y anulación de compra. */
     private InventoryService conMovimientos() {
         InventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Polera roja M", n("45"), n("10"), "unidades", n("5"), null,
                 new Producto.Ficha("Poleras", null, null, n("5"))).ok());
-        assertTrue(inv.registrarCompra(compra("F001-1", "Polera roja M", "20", "6")).ok());           // 30
-        assertTrue(inv.salida(n("4"), "polera roja m", false).startsWith("Venta registrada"));         // 26
-        assertTrue(inv.ajustarStock("Polera roja M", n("-1")).ok());                                    // 25
-        assertTrue(inv.corregirUltimaVenta("Polera roja M", n("2"), true).ok());                         // 27
-        assertTrue(inv.anularUltimaVenta().ok());                                                        // 29
+        assertTrue(inv.registrarCompra(compra("F001-1", "Polera roja M", "20", "6")).ok());
+        assertTrue(inv.salida(n("4"), "polera roja m", false).startsWith("Venta registrada"));
+        assertTrue(inv.ajustarStock("Polera roja M", n("-1")).ok());
+        assertTrue(inv.corregirUltimaVenta("Polera roja M", n("2"), true).ok());
+        assertTrue(inv.anularUltimaVenta().ok());
         assertTrue(inv.editarProducto("Polera roja M", true,
-                new InventoryService.Cambios(null, null, n("40"), null, null, null)).ok());             // 40
-        assertTrue(inv.anularCompra("CP-00000001").ok());                                                // 20
+                new InventoryService.Cambios(null, null, n("40"), null, null, null)).ok());
+        assertTrue(inv.anularCompra("CP-00000001").ok());
         return inv;
     }
 
     @Test void cadaMovimientoTieneSuEntradaSalidaYSaldo() {
         conMovimientos();
-        InventoryService.Kardex k = nuevo().kardex("Polera roja M", 100);   // releído de la base
+        InventoryService.Kardex k = nuevo().kardex("Polera roja M", 100);
         assertEquals(List.of("ENTRADA", "COMPRA", "VENTA", "AJUSTE", "CORRECCION_VENTA", "ANULACION", "AJUSTE", "ANULACION_COMPRA"),
                 k.filas().stream().map(FilaKardex::tipo).toList());
         assertEquals(List.of(n("10"), n("20"), n("0"), n("0"), n("2"), n("2"), n("11"), n("0")),
@@ -81,7 +83,7 @@ class KardexYReportesTest {
 
     @Test void inventarioValorizado() {
         InventoryService inv = conMovimientos();
-        assertTrue(inv.crearProducto("Gorra negra", n("15"), n("0"), "unidades", n("2"), null).ok());   // sin stock, sin costo
+        assertTrue(inv.crearProducto("Gorra negra", n("15"), n("0"), "unidades", n("2"), null).ok());
         InventoryService.Valorizado v = inv.valorizado();
         assertEquals(2, v.productos());
         assertEquals(1, v.sinCosto());
@@ -117,8 +119,8 @@ class KardexYReportesTest {
         InventoryService inv = Ejemplos.sembrar(nuevo());
         inv.editarProducto("Foco LED 9W", true, new InventoryService.Cambios(null, null, null, null, null, null,
                 new Producto.Ficha(null, null, null, n("5")), false));
-        inv.salida(n("2"), "foco", false);                                    // 15.00 con IGV incluido
-        inv.salida(n("1"), "cemento", false);                                 // sin costo
+        inv.salida(n("2"), "foco", false);
+        inv.salida(n("1"), "cemento", false);
         inv.salida(n("1"), "foco", false);
         inv.anularUltimaVenta();
         String hoy = LocalDate.now().toString();

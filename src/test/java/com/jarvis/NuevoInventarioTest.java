@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.JarvisService;
@@ -10,7 +14,6 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** "Nuevo inventario" sin IA (sin internet o sin clave): por las reglas, con sí/no. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-nuevo-${random.uuid}.json"})
 class NuevoInventarioTest {

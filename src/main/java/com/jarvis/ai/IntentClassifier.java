@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.ai;
 
 import ai.djl.huggingface.translator.TextEmbeddingTranslatorFactory;
@@ -24,24 +28,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Clasificador de intenciones 100% local y offline con Deep Java Library (DJL + ONNX Runtime).
- *
- * <p>Usa un modelo de embeddings de frases (p. ej. paraphrase-multilingual-MiniLM-L12-v2) y
- * compara la frase del usuario contra los ejemplos de {@code intents-es.json} (clasificación
- * por vecino más cercano). Así no hace falta entrenar: para enseñarle frases nuevas basta con
- * añadirlas al JSON.</p>
- *
- * <p>El modelo se carga al arrancar Spring ({@link #init()}) y se calculan de una vez los
- * embeddings de todos los ejemplos, para que cada orden de voz cueste solo una inferencia.
- * Si el modelo no está o falla, el clasificador queda desactivado y JARVIS usa sus reglas.</p>
- */
 @Component
 public class IntentClassifier {
 
     private static final Logger log = LoggerFactory.getLogger(IntentClassifier.class);
 
-    /** Decisión del clasificador antes de extraer entidades. */
     public record Clasificacion(Intent intent, double confianza) {}
 
     private final boolean habilitado;
@@ -70,10 +61,7 @@ public class IntentClassifier {
         this.margen = margen;
     }
 
-    /** ¿Modelo cargado y listo para clasificar? */
     public boolean listo() { return listo; }
-
-    // ---------------------------------------------------------------- arranque
 
     @PostConstruct
     void init() {
@@ -90,7 +78,6 @@ public class IntentClassifier {
             log.error("No pude leer los ejemplos de intenciones ({}): {}", ejemplosRecurso, e.getMessage());
             return;
         }
-        // Algunos ONNX exportados piden token_type_ids y otros no: probamos ambos.
         for (boolean tokenTypes : new boolean[]{includeTokenTypes, !includeTokenTypes}) {
             try {
                 cargarModelo(tokenTypes);
@@ -147,9 +134,6 @@ public class IntentClassifier {
         if (model != null) { model.close(); model = null; }
     }
 
-    // ---------------------------------------------------------------- inferencia
-
-    /** Clasifica una frase ya normalizada. Si no está listo o falla, devuelve DESCONOCIDO. */
     public synchronized Clasificacion clasificar(String texto) {
         if (!listo || texto == null || texto.isBlank()) return new Clasificacion(Intent.DESCONOCIDO, 0);
         try {
@@ -167,10 +151,6 @@ public class IntentClassifier {
         }
     }
 
-    /**
-     * Elige la intención ganadora. Devuelve DESCONOCIDO si gana DESCONOCIDO, si la similitud
-     * no llega al umbral o si la segunda intención está demasiado cerca (ambigüedad).
-     */
     static Clasificacion decidir(Map<Intent, Double> puntajes, double umbral, double margen) {
         Intent mejor = Intent.DESCONOCIDO;
         double s1 = -1, s2 = -1;
@@ -184,7 +164,6 @@ public class IntentClassifier {
         return new Clasificacion(mejor, s1);
     }
 
-    /** Los embeddings ya vienen normalizados, pero se divide por las normas por seguridad. */
     static double coseno(float[] a, float[] b) {
         double dot = 0, na = 0, nb = 0;
         for (int i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }

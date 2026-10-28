@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import org.springframework.core.annotation.Order;
@@ -7,7 +11,6 @@ import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.util.Optional;
 
-/** Estado de la laptop: sistema operativo, memoria, disco, procesadores. */
 @Component
 @Order(6)
 public class SystemInfoSkill implements Skill {

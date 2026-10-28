@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.inventory.InventoryService;
@@ -19,7 +23,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Categoría, códigos y costo por la API de la pantalla y en "Cargar lista". Cada prueba usa nombres propios. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.token=clave-ficha",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-ficha-${random.uuid}.json"})
 @AutoConfigureMockMvc

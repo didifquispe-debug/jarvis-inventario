@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import org.springframework.core.annotation.Order;
@@ -11,7 +15,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
-/** Notas persistentes guardadas en ~/jarvis-notas.txt (se comparten entre todos tus dispositivos). */
 @Component
 @Order(-1)
 public class NotesSkill implements Skill {
