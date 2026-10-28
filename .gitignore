@@ -6,3 +6,6 @@ dist/
 
 # Datos que JARVIS crea al ejecutarse
 jarvis-diccionario.txt
+
+# Componentes que descarga packaging/preparar-componentes.bat (varios GB)
+packaging/incluir/

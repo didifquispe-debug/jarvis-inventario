@@ -37,6 +37,7 @@ public class JarvisApplication {
             AppWindow.open(DesktopShell.localUrl(port, token));
             System.exit(0);
         }
+        ComponentesIncluidos.preparar(cfg);
 
         new SpringApplicationBuilder(JarvisApplication.class)
                 .headless(false)
