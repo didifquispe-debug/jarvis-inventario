@@ -10,6 +10,7 @@ import com.jarvis.skills.InventorySkill;
 import com.jarvis.skills.Skill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -19,8 +20,9 @@ import java.util.stream.Collectors;
 
 /**
  * El "núcleo": recibe un comando de cualquier dispositivo y decide quién lo responde.
- * Con clave e internet lo atiende el asistente con IA ({@link AsistenteIA}), que entiende frases libres y usa
- * las mismas órdenes por debajo; si no, o si la IA falla, las reglas de siempre.
+ * Primero las reglas de siempre (con el diccionario y el modelo local de intenciones). Solo si no entendieron la
+ * frase, y si el modelo de lenguaje local (Ollama) está a mano, la atiende el asistente con IA ({@link AsistenteIA}),
+ * que responde con palabras o traduce la frase a una orden que de nuevo ejecutan las reglas.
  */
 @Service
 public class JarvisService {
@@ -37,10 +39,13 @@ public class JarvisService {
     private final InventoryService inventarioDatos;
     private final AsistenteIA asistente;
     private final AcercaDeJarvis acercaDe;
+    private final OrdenesPorConfirmar porConfirmar;
+    private final boolean confirmarVoz;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
                          Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
-                         AsistenteIA asistente, AcercaDeJarvis acercaDe) {
+                         AsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar,
+                         @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
@@ -49,24 +54,39 @@ public class JarvisService {
         this.inventarioDatos = inventarioDatos;
         this.asistente = asistente;
         this.acercaDe = acercaDe;
+        this.porConfirmar = porConfirmar;
+        this.confirmarVoz = confirmarVoz;
     }
 
     public String process(String original) {
+        return process(original, false);
+    }
+
+    /**
+     * @param porVoz la frase llegó por el micrófono: las ventas y cantidades se repiten y esperan un "sí"
+     *               (jarvis.voz.confirmar), porque el reconocimiento puede confundir números
+     */
+    public String process(String original, boolean porVoz) {
         if (original == null || original.isBlank()) return "No escuché nada, Didì.";
+        // El "sí/no" a una orden por confirmar ("Entendí: vendí 2 poleras. ¿Lo hago?"), de la IA o de la voz
+        Optional<String> confirmada = porConfirmar.resolver(original, this::procesarConReglas);
+        if (confirmada.isPresent()) return confirmada.get();
         // Preguntas sobre JARVIS ("qué eres", "qué puedes hacer", "cómo registro una compra"): respuesta fija, al instante
         Optional<String> sobreJarvis = inventario.esperandoConfirmacion() ? Optional.empty()
                 : acercaDe.responder(normalize(original), asistente.disponible());
         if (sobreJarvis.isPresent()) return sobreJarvis.get();
-        // El "sí/no" de una pregunta de las reglas y los productos de una venta con carrito van directo a las
-        // reglas: son respuestas cortas de caja y así no esperan a la IA.
-        if (asistente.disponible() && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()) {
-            Optional<String> r = asistente.responder(original.trim(), this::procesarConReglas);
-            if (r.isPresent()) return r.get();
-        }
-        return procesarConReglas(original);
+        // Con el carrito abierto los productos dictados se ven en pantalla y se revisan al cobrar: no se preguntan uno a uno
+        if (porVoz && confirmarVoz && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()
+                && inventario.delicadaPorVoz(diccionario.aplicar(normalize(original))))
+            return porConfirmar.proponer(original.trim().replaceFirst("(?i)^(oye |hey )?jarvis[,.]?\\s*", ""));
+        String r = procesarConReglas(original);
+        // Las reglas no la entendieron: la IA local lo intenta (nunca con un "sí/no" pendiente ni con el carrito abierto)
+        if (NO_ENTENDI.equals(r) && asistente.disponible() && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso())
+            return asistente.responder(original.trim(), this::procesarConReglas).orElse(r);
+        return r;
     }
 
-    /** Las reglas de siempre (sin IA). También las usa la IA, con la herramienta ejecutar_orden. */
+    /** Las reglas de siempre (sin IA). También ejecutan las órdenes que traduce la IA. */
     public String procesarConReglas(String original) {
         if (original == null || original.isBlank()) return "No escuché nada, Didì.";
         String cmd = normalize(original);
@@ -103,7 +123,7 @@ public class JarvisService {
             if (r.isPresent()) return r.get();
         }
 
-        // 3) Nadie la entendió: todo es local, no hay respaldo en la nube
+        // 3) Nadie la entendió (process() puede pasársela a la IA local)
         return NO_ENTENDI;
     }
 

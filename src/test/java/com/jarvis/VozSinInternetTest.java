@@ -23,14 +23,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Voz sin Internet (Vosk). La API se prueba siempre (sin modelo responde 503 y la pantalla usa el navegador).
- * El reconocimiento real solo corre si el modelo está instalado en ~/jarvis-models/vosk-es; los audios de
+ * El reconocimiento real solo corre si el modelo está instalado (ver MODELO); los audios de
  * src/test/resources/voz los dijo la voz española de Windows (Helena) a 16 kHz.
  */
 @SpringBootTest(properties = {"jarvis.intent.enabled=false", "jarvis.token=clave-voz"})
 @AutoConfigureMockMvc
 class VozSinInternetTest {
 
-    private static final Path MODELO = Path.of(System.getProperty("user.home"), "jarvis-models", "vosk-es");
+    /** Donde está instalado el modelo (la carpeta de jarvis.voz.vosk-model, o la antigua ~/jarvis-models/vosk-es). */
+    private static final Path MODELO = java.util.stream.Stream.of(
+                    Path.of(System.getProperty("user.home"), "jarvis-voz", "vosk", "vosk-model-small-es-0.42"),
+                    Path.of(System.getProperty("user.home"), "jarvis-models", "vosk-es"))
+            .filter(p -> Files.isDirectory(p.resolve("am"))).findFirst()
+            .orElse(Path.of(System.getProperty("user.home"), "jarvis-voz", "vosk", "vosk-model-small-es-0.42"));
 
     @Autowired MockMvc mvc;
 

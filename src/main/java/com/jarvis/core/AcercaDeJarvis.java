@@ -106,10 +106,10 @@ public class AcercaDeJarvis {
 
     private String ia(boolean iaActiva) {
         return iaActiva
-                ? "Sí, " + owner + ": uso inteligencia artificial (Claude) para entender frases libres y ejecutar lo que me pide. "
-                  + "Sin internet sigo funcionando con mis órdenes de siempre."
-                : "Ahora funciono con mis órdenes de siempre, sin inteligencia artificial. Para activarla, guarde una clave de "
-                  + "Anthropic en el archivo jarvis-ia-clave.txt de su carpeta de usuario y reinícieme: así entenderé frases libres.";
+                ? "Sí, " + owner + ": uso un modelo de inteligencia artificial que corre en esta misma computadora, sin internet, "
+                  + "para entender frases libres. Lo que cambia el inventario siempre lo hago con mis órdenes de siempre y le pregunto antes."
+                : "Ahora funciono con mis órdenes de siempre, sin inteligencia artificial. Para activarla, abra Ollama en esta "
+                  + "computadora con el modelo llama3.2:3b: así entenderé frases libres, sin internet.";
     }
 
     private List<Tema> temas() {
