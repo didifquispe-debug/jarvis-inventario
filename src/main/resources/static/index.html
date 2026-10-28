@@ -7,12 +7,9 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
 <title>J.A.R.V.I.S.</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   /* Holograma JARVIS: la identidad de Iron Man, pulida. Fondo azul noche con brillo cian, cuadrícula sutil,
-     paneles de vidrio con esquinas de mira, Orbitron para títulos y cifras, Rajdhani para el texto.
+     paneles de vidrio con esquinas de mira, Orbitron y Rajdhani si están instaladas (no se descargan: sin internet); si no, Segoe UI.
      Un solo estilo oscuro (un holograma claro pierde el efecto). Sin Internet, las fuentes caen a las del sistema. */
   :root {
     --c: 79, 216, 255;                       /* cian holográfico (r,g,b) */
@@ -50,6 +47,17 @@
   [hidden] { display: none !important; }
   .num { font-variant-numeric: tabular-nums; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* accesibilidad: texto solo para lectores de pantalla, saltos de teclado, filas que se abren con Enter */
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .saltar { position: fixed; left: 12px; top: -80px; z-index: 100; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--accent);
+            background: #04121f; color: #fff; font: inherit; cursor: pointer; }
+  .saltar:focus { top: 12px; }
+  .tabla tr.clic:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  canvas[role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 50%; }
+  .atajos-lista { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 12px; }
+  .atajos-lista dt { font-family: var(--mono); color: var(--accent); white-space: nowrap; }
+  .atajos-lista dd { margin: 0; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
   ::selection { background: rgba(var(--c), .35); }
   ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: rgba(var(--c), .25); border-radius: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -444,6 +452,8 @@
   </defs>
 </svg>
 
+<button class="saltar" type="button" data-saltar="vista">Saltar al contenido</button>
+<button class="saltar" type="button" data-saltar="input">Saltar al cuadro de órdenes de JARVIS (Alt+O)</button>
 <div class="app">
   <!-- ================================================================ menú -->
   <nav class="nav" aria-label="Menú principal">
@@ -480,6 +490,7 @@
         </div>
       </details>
       <a class="item" href="manual.html" target="_blank" rel="noopener"><svg><use href="#i-libro"/></svg>Manual de voz</a>
+      <button class="item" id="atajosBtn" type="button" aria-keyshortcuts="Alt+A"><svg><use href="#i-libro"/></svg>Atajos de teclado</button>
       <button class="item" id="gear" type="button"><svg><use href="#i-llave"/></svg>Cambiar clave</button>
     </div>
   </nav>
@@ -502,7 +513,7 @@
           <div class="tarjeta kpi"><span>Productos</span><strong id="k-productos">0</strong><small id="k-stock">—</small></div>
         </div>
         <div class="hero-centro">
-          <canvas id="reactorGrande" title="Toque para hablar con JARVIS"></canvas>
+          <canvas id="reactorGrande" role="button" tabindex="0" aria-label="Hablar con JARVIS (Alt+H)" aria-keyshortcuts="Alt+H" title="Toque para hablar con JARVIS"></canvas>
           <div class="hero-estado" id="estadoGrande">En espera</div>
           <div class="hero-pista">Toque el reactor y hable</div>
         </div>
@@ -529,7 +540,7 @@
       <div class="pos">
         <div class="tarjeta pos-busqueda">
           <div class="buscador"><svg><use href="#i-lupa"/></svg>
-            <input class="campo" id="posBuscar" type="search" autocomplete="off" placeholder="Nombre, código o código de barras (Enter agrega)"></div>
+            <input class="campo" id="posBuscar" aria-label="Buscar producto por nombre o código (Enter agrega)" type="search" autocomplete="off" placeholder="Nombre, código o código de barras (Enter agrega)"></div>
           <div class="resultados" id="posResultados"></div>
         </div>
         <div class="tarjeta ticket">
@@ -541,7 +552,7 @@
           </div>
           <div class="ticket-cliente">
             <div class="fila">
-              <input class="campo" id="posDni" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI o RUC del cliente (opcional)">
+              <input class="campo" id="posDni" aria-label="DNI o RUC del cliente (opcional)" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI o RUC del cliente (opcional)">
               <button class="boton" type="button" id="posBuscarCliente">Buscar</button>
             </div>
             <small id="posCliente">Sin cliente: clientes varios.</small>
@@ -568,9 +579,9 @@
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
-          <input class="campo" id="invSearch" type="search" placeholder="Buscar por nombre, categoría o código…" autocomplete="off"></div>
-        <select class="campo" id="invCat" title="Categoría"></select>
-        <select class="campo" id="invEstado" title="Stock">
+          <input class="campo" id="invSearch" aria-label="Buscar en el inventario" type="search" placeholder="Buscar por nombre, categoría o código…" autocomplete="off"></div>
+        <select class="campo" id="invCat" aria-label="Filtrar por categoría" title="Categoría"></select>
+        <select class="campo" id="invEstado" aria-label="Filtrar por estado del stock" title="Stock">
           <option value="">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option>
         </select>
       </div>
@@ -586,7 +597,7 @@
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
-          <input class="campo" id="cliBuscar" type="search" placeholder="Buscar por nombre o DNI/RUC…" autocomplete="off"></div>
+          <input class="campo" id="cliBuscar" aria-label="Buscar cliente por nombre o documento" type="search" placeholder="Buscar por nombre o DNI/RUC…" autocomplete="off"></div>
       </div>
       <div class="tarjeta tabla-caja" id="cliLista"></div>
     </section>
@@ -602,10 +613,10 @@
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
-          <input class="campo" id="compBuscar" type="search" placeholder="Buscar por serie o cliente…" autocomplete="off"></div>
-        <select class="campo" id="compTipo"><option value="">Todos</option><option value="BOLETA">Boletas</option><option value="NOTA_VENTA">Notas de venta</option></select>
-        <input class="campo" id="compDesde" type="date" title="Desde">
-        <input class="campo" id="compHasta" type="date" title="Hasta">
+          <input class="campo" id="compBuscar" aria-label="Buscar comprobante por serie o cliente" type="search" placeholder="Buscar por serie o cliente…" autocomplete="off"></div>
+        <select class="campo" id="compTipo" aria-label="Filtrar por tipo de comprobante"><option value="">Todos</option><option value="BOLETA">Boletas</option><option value="NOTA_VENTA">Notas de venta</option></select>
+        <input class="campo" id="compDesde" aria-label="Comprobantes desde la fecha" type="date" title="Desde">
+        <input class="campo" id="compHasta" aria-label="Comprobantes hasta la fecha" type="date" title="Hasta">
       </div>
       <div class="tarjeta tabla-caja" id="compLista"></div>
     </section>
@@ -620,9 +631,9 @@
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
-          <input class="campo" id="comprasBuscar" type="search" placeholder="Código, proveedor, RUC o documento…" autocomplete="off"></div>
-        <input class="campo" id="comprasDesde" type="date" title="Desde">
-        <input class="campo" id="comprasHasta" type="date" title="Hasta">
+          <input class="campo" id="comprasBuscar" aria-label="Buscar compras por código, proveedor, RUC o documento" type="search" placeholder="Código, proveedor, RUC o documento…" autocomplete="off"></div>
+        <input class="campo" id="comprasDesde" aria-label="Compras desde la fecha" type="date" title="Desde">
+        <input class="campo" id="comprasHasta" aria-label="Compras hasta la fecha" type="date" title="Hasta">
       </div>
       <div class="cifras" id="comprasCifras"></div>
       <div class="tarjeta tabla-caja" id="comprasLista"></div>
@@ -636,7 +647,7 @@
       </header>
       <div class="barra">
         <div class="buscador"><svg><use href="#i-lupa"/></svg>
-          <input class="campo" id="provBuscar" type="search" placeholder="Buscar por razón social o RUC…" autocomplete="off"></div>
+          <input class="campo" id="provBuscar" aria-label="Buscar proveedor por razón social o RUC" type="search" placeholder="Buscar por razón social o RUC…" autocomplete="off"></div>
       </div>
       <div class="tarjeta tabla-caja" id="provLista"></div>
     </section>
@@ -645,20 +656,21 @@
   <!-- ================================================================ asistente -->
   <aside class="asistente" id="asistente" aria-label="Asistente JARVIS">
     <div class="asis-cab">
-      <canvas id="reactor" title="Toque para hablar"></canvas>
+      <canvas id="reactor" role="button" tabindex="0" aria-label="Hablar con JARVIS (Alt+H)" aria-keyshortcuts="Alt+H" title="Toque para hablar"></canvas>
       <div><b>J.A.R.V.I.S.</b><small id="state">En espera</small></div>
       <button class="icono cerrar" type="button" id="cerrarAsistente" aria-label="Cerrar asistente"><svg><use href="#i-x"/></svg></button>
     </div>
-    <div id="log" aria-live="polite"></div>
+    <div id="log" role="log" aria-live="off" aria-label="Conversación con JARVIS"></div>
+    <div id="anuncio" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="transcripcion" id="transcript"></div>
     <!-- venta con carrito dictada por voz ("nueva venta" … "cobrar") -->
     <div class="carrito-voz" id="cart" hidden>
       <header><span>Venta por voz</span><b id="cartTotal">S/ 0.00</b></header>
       <div class="opc">
-        <select class="campo" id="cartTipo" title="Tipo de comprobante">
+        <select class="campo" id="cartTipo" aria-label="Tipo de comprobante de la venta por voz" title="Tipo de comprobante">
           <option value="boleta">Boleta</option><option value="nota de venta">Nota de venta</option>
         </select>
-        <input class="campo" id="cartDni" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI/RUC (Enter)">
+        <input class="campo" id="cartDni" aria-label="DNI o RUC del cliente de la venta por voz" inputmode="numeric" maxlength="11" autocomplete="off" placeholder="DNI/RUC (Enter)">
       </div>
       <small id="cartCliente"></small>
       <ul id="cartBody"></ul>
@@ -676,22 +688,26 @@
       <button class="atajo" type="button" data-cmd="Ayuda">Ayuda</button>
     </div>
     <div class="manos-libres">
-      <button class="interruptor" type="button" id="hfBtn" role="switch" aria-checked="false" aria-label="Manos libres"></button>
+      <button class="interruptor" type="button" id="hfBtn" role="switch" aria-checked="false" aria-label="Manos libres (Alt+M)" aria-keyshortcuts="Alt+M"></button>
       <span>Manos libres: diga “Jarvis” y su orden</span>
     </div>
+    <div class="manos-libres">
+      <button class="interruptor activo" type="button" id="vozBtn" role="switch" aria-checked="true" aria-label="Voz de JARVIS (Alt+V)" aria-keyshortcuts="Alt+V"></button>
+      <span>Voz de JARVIS (apáguela si usa lector de pantalla)</span>
+    </div>
     <div class="composer">
-      <input class="campo" id="input" placeholder="Escriba una orden o pregunta…" autocomplete="off">
-      <button class="mic" type="button" id="micBtn" title="Hablar" aria-label="Hablar"><svg><use href="#i-mic"/></svg></button>
+      <input class="campo" id="input" aria-label="Orden o pregunta para JARVIS" aria-keyshortcuts="Alt+O" placeholder="Escriba una orden o pregunta…" autocomplete="off">
+      <button class="mic" type="button" id="micBtn" title="Hablar (Alt+H)" aria-label="Hablar (Alt+H)" aria-keyshortcuts="Alt+H" aria-pressed="false"><svg><use href="#i-mic"/></svg></button>
       <button class="mic" type="button" id="sendBtn" title="Enviar" aria-label="Enviar"><svg><use href="#i-enviar"/></svg></button>
     </div>
   </aside>
 </div>
 <div class="velo" id="velo"></div>
-<button class="fab" type="button" id="abrirAsistente" aria-label="Abrir asistente JARVIS"><canvas id="orbeFab"></canvas></button>
+<button class="fab" type="button" id="abrirAsistente" aria-label="Abrir asistente JARVIS"><canvas id="orbeFab" aria-hidden="true"></canvas></button>
 <div class="avisos" id="avisos" aria-live="polite"></div>
 
 <!-- ================================================================ ventanas -->
-<div id="prodModal" class="modal">
+<div id="prodModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="prodTitle">
   <form class="modal-box" id="prodForm" novalidate>
     <h3 id="prodTitle">Nuevo producto</h3>
     <div class="form-grid">
@@ -730,7 +746,7 @@
   <option value="cajas"><option value="paquetes"><option value="docenas"><option value="bolsas"><option value="rollos">
 </datalist>
 
-<div id="cliModal" class="modal">
+<div id="cliModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cliTitulo">
   <form class="modal-box" id="cliForm" novalidate>
     <h3 id="cliTitulo">Nuevo cliente</h3>
     <div class="form-grid">
@@ -753,9 +769,9 @@
   </form>
 </div>
 
-<div id="loteModal" class="modal">
+<div id="loteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loteTitulo">
   <form class="modal-box lote" id="loteForm" novalidate>
-    <h3>Cargar lista de productos</h3>
+    <h3 id="loteTitulo">Cargar lista de productos</h3>
     <p class="lote-ayuda">Una línea por producto, en este orden: <code>Nombre, Precio, Stock, Unidad, Stock mínimo</code>.
       Puede separar con coma o con punto y coma (o pegar las columnas directo desde Excel). Si falta la unidad se usa
       “unidades”; si falta el stock, 0. Las líneas que empiezan con # se ignoran. Los productos que ya existen no se tocan.
@@ -784,9 +800,9 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </form>
 </div>
 
-<div id="compraModal" class="modal">
+<div id="compraModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="coTitulo">
   <form class="modal-box ancho" id="compraForm" novalidate>
-    <h3>Nueva compra</h3>
+    <h3 id="coTitulo">Nueva compra</h3>
     <div class="form-grid">
       <label>RUC del proveedor
         <span class="fila" style="display:flex;gap:8px">
@@ -825,7 +841,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
 </div>
 <datalist id="productosLista"></datalist>
 
-<div id="compraVer" class="modal">
+<div id="compraVer" class="modal" role="dialog" aria-modal="true" aria-label="Detalle de la compra">
   <div class="modal-box ancho">
     <div id="compraVerCuerpo"></div>
     <div class="modal-btns">
@@ -835,7 +851,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </div>
 </div>
 
-<div id="provModal" class="modal">
+<div id="provModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="provTitulo">
   <form class="modal-box" id="provForm" novalidate>
     <h3 id="provTitulo">Nuevo proveedor</h3>
     <div class="form-grid">
@@ -852,7 +868,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </form>
 </div>
 
-<div id="kardexModal" class="modal">
+<div id="kardexModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="kxTitulo">
   <div class="modal-box ancho">
     <h3 id="kxTitulo">Kardex</h3>
     <p id="kxSub"></p>
@@ -864,7 +880,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </div>
 </div>
 
-<div id="confirmModal" class="modal">
+<div id="confirmModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confTitulo" aria-describedby="confTexto">
   <div class="modal-box">
     <h3 id="confTitulo">¿Confirma?</h3>
     <p id="confTexto">—</p>
@@ -875,7 +891,29 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </div>
 </div>
 
-<div id="receipt" class="modal">
+<div id="atajosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="atajosTitulo">
+  <div class="modal-box">
+    <h3 id="atajosTitulo">Atajos de teclado y voz</h3>
+    <dl class="atajos-lista">
+      <dt>Alt+H</dt><dd>Hablar con JARVIS (una orden)</dd>
+      <dt>Alt+M</dt><dd>Manos libres: diga “Jarvis” y su orden</dd>
+      <dt>Alt+O</dt><dd>Escribir una orden</dd>
+      <dt>Alt+C</dt><dd>Callar a JARVIS</dd>
+      <dt>Alt+V</dt><dd>Encender o apagar la voz de JARVIS</dd>
+      <dt>Alt+1 … Alt+7</dt><dd>Inicio, Vender, Inventario, Clientes, Comprobantes, Compras, Proveedores</dd>
+      <dt>Alt+A</dt><dd>Esta ayuda</dd>
+      <dt>Tab, Mayús+Tab</dt><dd>Moverse entre botones, campos y filas; Enter o Espacio los activa</dd>
+      <dt>Esc</dt><dd>Cerrar la ventana abierta</dd>
+    </dl>
+    <p>Por voz: “ir a inventario”, “abre clientes”, “nuevo producto”, “registrar cliente”, “nueva compra”,
+      “nuevo proveedor”, “cargar lista”. Con una ventana abierta, lo que dicte se escribe en el campo
+      (los números también: “veinticinco con cincuenta”); diga “siguiente” o “anterior” para cambiar de campo,
+      “leer” para oír el campo, “guardar” para guardar y “cancelar” para cerrar.</p>
+    <div class="modal-btns"><button class="boton primario" type="button" id="atajosCerrar">Cerrar</button></div>
+  </div>
+</div>
+
+<div id="receipt" class="modal" role="dialog" aria-modal="true" aria-label="Comprobante de venta">
   <div class="modal-box recibo">
     <div id="receiptBody"></div>
     <div class="modal-btns">
@@ -894,7 +932,7 @@ const soles = n => 'S/ ' + Number(n || 0).toLocaleString('es-PE', { minimumFract
 const cant = n => Number(n || 0).toLocaleString('es-PE', { maximumFractionDigits: 3 });
 const nroComp = n => String(n).padStart(6, '0');
 const sinTildes = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const icono = (id, extra = '') => `<svg ${extra}><use href="#i-${id}"/></svg>`;
+const icono = (id, extra = '') => `<svg aria-hidden="true" focusable="false" ${extra}><use href="#i-${id}"/></svg>`;
 function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function leer(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
@@ -960,7 +998,10 @@ function irA(v) {
   if (!VISTAS.includes(v)) v = 'inicio';
   vista = v;
   VISTAS.forEach(x => { $('v-' + x).hidden = x !== v; });
-  document.querySelectorAll('.nav a.item[data-vista]').forEach(a => a.classList.toggle('activo', a.dataset.vista === v));
+  document.querySelectorAll('.nav a.item[data-vista]').forEach(a => {
+    a.classList.toggle('activo', a.dataset.vista === v);
+    if (a.dataset.vista === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
   $('vista').scrollTop = 0;
   if (v === 'inicio') refreshResumen();
   if (v === 'clientes') refreshClientes();
@@ -996,13 +1037,21 @@ function setState(s) {
 
 /* =================== Conversación =================== */
 const hhmm = () => new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+const MENOS_MOVIMIENTO = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+/* Lo que oye el lector de pantalla: la respuesta entera (el chat la escribe letra por letra y se leería a pedazos). */
+function anunciar(texto) {
+  const a = $('anuncio');
+  a.textContent = '';
+  setTimeout(() => { a.textContent = texto; }, 60);
+}
 function addEntry(who, text, typewriter) {
   const e = document.createElement('div');
   e.className = 'msg ' + (who === 'me' ? 'yo' : who === 'bot' ? 'jarvis' : 'sistema');
   e.innerHTML = '<span class="txt"></span>' + (who === 'sys' ? '' : `<span class="hora">${hhmm()}</span>`);
   logEl.appendChild(e);
   const box = e.querySelector('.txt');
-  if (!typewriter) { box.textContent = text; logEl.scrollTop = logEl.scrollHeight; return e; }
+  if (who !== 'me') anunciar(text);
+  if (!typewriter || MENOS_MOVIMIENTO) { box.textContent = text; logEl.scrollTop = logEl.scrollHeight; return e; }
   let i = 0;
   const step = () => {
     i = Math.min(text.length, i + 3);
@@ -1017,7 +1066,10 @@ function addEntry(who, text, typewriter) {
 /* =================== Voz de JARVIS =================== */
 let voice = null, speakKick = 0;
 function pickVoice() {
-  const vs = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('es'));
+  const es = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('es'));
+  // sin Internet: solo las voces instaladas en el equipo (las "online"/"natural" de Edge y Chrome van por Internet)
+  const locales = es.filter(v => v.localService);
+  const vs = locales.length ? locales : es;
   const score = v => (/natural|online/i.test(v.name) ? 4 : 0)
                    + (/alex|jorge|alvaro|álvaro|tomas|tomás|pablo|raul|raúl|diego|gonzalo|male|hombre/i.test(v.name) ? 3 : 0)
                    + (/pe|419|mx|us/i.test(v.lang) ? 1 : 0);
@@ -1025,9 +1077,33 @@ function pickVoice() {
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 /* El navegador solo deja hablar después de que el usuario tocó algo en la página. */
-const puedeHablar = () => 'speechSynthesis' in window && (!navigator.userActivation || navigator.userActivation.hasBeenActive);
+const puedeHablar = () => (hablaPc || 'speechSynthesis' in window) && (!navigator.userActivation || navigator.userActivation.hasBeenActive);
+/* Voz de JARVIS: Piper o las voces de Windows por los parlantes de esta PC (hablaPc), o la del navegador. */
+let hablaPc = null, fraseVoz = 0;
 function speak(text, then) {
-  if (!puedeHablar()) { then ? then() : resumeIdle(); return; }
+  if (!puedeHablar() || !vozActiva) { then ? then() : resumeIdle(); return; }
+  if (micPc) escuchaPc('pausa');   // que el micrófono de la PC no oiga a JARVIS
+  const mia = ++fraseVoz;
+  const fin = () => { if (mia === fraseVoz) { then ? then() : resumeIdle(); } };   // una frase nueva reemplaza a la anterior
+  if (hablaPc) {
+    window.speechSynthesis?.cancel();
+    setState('speaking');
+    const pulso = setInterval(() => { speakKick = 0.2 + Math.random() * 0.25; }, 140);
+    api('/api/voz/hablar', { method: 'POST', body: JSON.stringify({ texto: text }) })
+      .then(r => { clearInterval(pulso); if (!r.ok) throw new Error(); fin(); })
+      .catch(() => {   // Piper/Windows fallaron: esta y las siguientes, con la voz del navegador
+        clearInterval(pulso);
+        if (mia !== fraseVoz) return;
+        hablaPc = null;
+        addEntry('sys', 'La voz de la computadora no respondió; uso la del navegador.');
+        hablarNavegador(text, fin);
+      });
+    return;
+  }
+  hablarNavegador(text, fin);
+}
+function hablarNavegador(text, fin) {
+  if (!('speechSynthesis' in window)) { fin(); return; }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text.replace(/[•\n]+/g, '. '));
   u.lang = voice ? voice.lang : 'es-ES';
@@ -1035,21 +1111,39 @@ function speak(text, then) {
   u.rate = 1.04; u.pitch = 0.85;
   u.onstart = () => setState('speaking');
   u.onboundary = () => { speakKick = 0.35; };
-  u.onend = u.onerror = () => { then ? then() : resumeIdle(); };
+  u.onend = u.onerror = fin;
   speechSynthesis.speak(u);
 }
+/* Calla a JARVIS (al tocar el micrófono, al dictar…). */
+function callar() {
+  fraseVoz++;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (hablaPc) api('/api/voz/callar', { method: 'POST' }).catch(() => {});
+}
+async function iniciarHablaPc() {
+  if (!ES_ESTA_PC) return;   // el celular habla con su propia voz
+  try {
+    const r = await api('/api/voz/habla');
+    if (!r.ok) return;
+    const e = await r.json();
+    if (e.modo === 'piper' || e.modo === 'windows') hablaPc = e.modo;
+  } catch (x) {}
+}
 
-async function send(text, silentUser) {
+/* porVoz: se dictó (las ventas y cantidades se repiten y esperan un "sí"). */
+async function send(text, silentUser, porVoz) {
   text = (text || '').trim();
   if (!text) return;
+  if (ordenDePantalla(text, porVoz, silentUser)) return;   // "ir a inventario", dictar en una ventana…
   stopRec();
   transcriptEl.textContent = '';
   if (!silentUser) addEntry('me', text);
   setState('thinking');
   try {
-    const r = await api('/api/command', { method: 'POST', body: JSON.stringify({ text }) });
+    const r = await api('/api/command', { method: 'POST', body: JSON.stringify({ text, voz: !!porVoz }) });
     const data = await r.json();
     const e = addEntry('bot', data.reply, true);
+    ultimaPregunta = /\?\s*$/.test(data.reply || '');   // "¿Lo hago?": la respuesta se escucha sin decir "Jarvis"
     speak(data.reply);
     if (data.recibo) { showReceipt(data.recibo); addReceiptLink(e, data.recibo); }
     renderCart(data.carrito);
@@ -1233,7 +1327,7 @@ async function refreshResumen() {
 }
 function filaComprobante(c) {
   const fecha = (c.fecha || '').split('-').reverse().join('/');
-  return `<tr class="clic" data-comp="${c.numero}">
+  return `<tr class="clic" data-comp="${c.numero}" tabindex="0" title="Enter: ver el comprobante">
     <td data-t="Comprobante"><b class="num">${esc(codigoDe(c))}</b> <span class="etiqueta ${c.tipo === 'BOLETA' ? 'acento' : ''}">${tipoCorto(c.tipo)}</span>
       ${c.anulado ? '<span class="etiqueta mal">Anulado</span>' : ''}</td>
     <td data-t="Cliente">${c.cliente ? esc(c.cliente) : '<span style="color:var(--faint)">Clientes varios</span>'}</td>
@@ -1296,7 +1390,7 @@ function renderPos() {
     return `<li data-i="${i}"><div><b>${esc(l.nombre)}</b><small>${soles(precio)} · ${p ? esc(p.unidad) : 'ya no existe'}</small></div>
       <input class="campo num" type="number" min="0" step="any" value="${l.cantidad}" aria-label="Cantidad de ${esc(l.nombre)}">
       <span class="importe">${soles(importe)}</span>
-      <button class="icono peligro" type="button" data-quitar="${i}" aria-label="Quitar">${icono('x')}</button></li>`;
+      <button class="icono peligro" type="button" data-quitar="${i}" aria-label="Quitar ${esc(l.nombre)}">${icono('x')}</button></li>`;
   }).join('') : '<li class="lineas-vacio">Toque un producto o escanee su código para agregarlo.</li>';
   const modo = resumen ? resumen.igv : 'INCLUIDO', t = totalesIgv(importes, modo);
   $('posTotales').innerHTML = modo === 'EXONERADO'
@@ -1407,14 +1501,14 @@ function renderInventory() {
       const meta = [p.categoria, p.codigo, p.codigoBarras].filter(Boolean).map(esc).join(' · ');
       return `<tr data-i="${i}" class="${sin ? 'sin' : bajo ? 'bajo' : ''}">
         <td data-t="" class="nombre-prod"><b>${esc(p.nombre)}</b>${meta ? `<small>${meta}</small>` : ''}</td>
-        <td data-t="Stock"><span class="stock-ctrl"><button type="button" data-act="menos" title="Restar 1 (sin venta)" aria-label="Restar 1">−</button>
-          <span>${cant(p.stock)} ${esc(p.unidad)}</span><button type="button" data-act="mas" title="Sumar 1" aria-label="Sumar 1">+</button></span></td>
+        <td data-t="Stock"><span class="stock-ctrl"><button type="button" data-act="menos" title="Restar 1 (sin venta)" aria-label="Restar 1 a ${esc(p.nombre)}">−</button>
+          <span>${cant(p.stock)} ${esc(p.unidad)}</span><button type="button" data-act="mas" title="Sumar 1" aria-label="Sumar 1 a ${esc(p.nombre)}">+</button></span></td>
         <td data-t="Precio" class="der num">${soles(p.precio)}</td>
         <td data-t="Costo" class="der num">${p.costo != null ? soles(p.costo) : '<span style="color:var(--faint)">—</span>'}</td>
         <td data-t="Valor al costo" class="der num">${p.costo != null ? soles(Math.max(0, Number(p.stock)) * Number(p.costo)) : '<span style="color:var(--faint)">—</span>'}</td>
-        <td class="acciones"><button class="icono" type="button" data-act="kardex" title="Kardex" aria-label="Kardex">${icono('kardex')}</button>
-          <button class="icono" type="button" data-act="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
-          <button class="icono peligro" type="button" data-act="borrar" title="Eliminar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`;
+        <td class="acciones"><button class="icono" type="button" data-act="kardex" title="Kardex" aria-label="Kardex de ${esc(p.nombre)}">${icono('kardex')}</button>
+          <button class="icono" type="button" data-act="editar" title="Editar" aria-label="Editar ${esc(p.nombre)}">${icono('lapiz')}</button>
+          <button class="icono peligro" type="button" data-act="borrar" title="Eliminar" aria-label="Eliminar ${esc(p.nombre)}">${icono('basura')}</button></td></tr>`;
     }).join('') + '</tbody></table>';
 }
 /* Categorías que ya existen: para el filtro y para sugerirlas en el formulario */
@@ -1685,7 +1779,7 @@ async function iniciarDictado() {
     return;
   }
   stopRec();   // un solo micrófono a la vez: el de manos libres se reanuda al terminar
-  speechSynthesis.cancel();
+  callar();
   dictando = true;
   $('loteErr').textContent = '';
   botonDictado(true);
@@ -1751,8 +1845,8 @@ async function refreshClientes() {
       <td data-t="Nombre"><b>${esc(c.nombre)}</b></td>
       <td data-t="Teléfono" class="num">${esc(c.telefono) || '<span style="color:var(--faint)">—</span>'}</td>
       <td data-t="Correo">${esc(c.email) || '<span style="color:var(--faint)">—</span>'}</td>
-      <td class="acciones"><button class="icono" type="button" data-cli="editar" title="Editar" aria-label="Editar">${icono('lapiz')}</button>
-        <button class="icono peligro" type="button" data-cli="borrar" title="Eliminar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`).join('')
+      <td class="acciones"><button class="icono" type="button" data-cli="editar" title="Editar" aria-label="Editar ${esc(c.nombre)}">${icono('lapiz')}</button>
+        <button class="icono peligro" type="button" data-cli="borrar" title="Eliminar" aria-label="Eliminar ${esc(c.nombre)}">${icono('basura')}</button></td></tr>`).join('')
     + '</tbody></table>';
 }
 let buscarClienteEspera = null;
@@ -1849,7 +1943,7 @@ async function refreshCompras() {
     <div class="tarjeta"><span>Total</span><b>${soles(t.total)}</b></div>`;
   $('comprasLista').innerHTML = compras.length
     ? `<table class="tabla adaptable"><thead><tr><th>Compra</th><th>Proveedor</th><th>Documento</th><th>Fecha</th><th class="der">Total</th></tr></thead><tbody>`
-      + compras.map(c => `<tr class="clic" data-compra="${esc(c.codigo)}">
+      + compras.map(c => `<tr class="clic" data-compra="${esc(c.codigo)}" tabindex="0" title="Enter: ver la compra">
         <td data-t="Compra"><b class="num">${esc(c.codigo)}</b>${c.anulada ? ' <span class="etiqueta mal">Anulada</span>' : ''}</td>
         <td data-t="Proveedor">${esc(c.proveedor)}<small style="display:block;color:var(--faint)">RUC ${esc(c.proveedorRuc)}</small></td>
         <td data-t="Documento">${esc(c.tipoDocumentoDescripcion)} <span class="num">${esc(c.numeroDocumento)}</span></td>
@@ -1920,7 +2014,7 @@ function renderCompraLineas() {
     ? `<table class="tabla compacta"><thead><tr><th>Producto</th><th class="der">Cantidad</th><th class="der">Costo</th><th class="der">Importe</th><th></th></tr></thead><tbody>`
       + coLineas.map((l, i) => `<tr><td>${esc(l.producto)}</td><td class="der num">${cant(l.cantidad)} ${esc(l.unidad)}</td>
         <td class="der num">${soles(l.costo)}</td><td class="der num">${soles(importes[i])}</td>
-        <td class="acciones"><button class="icono peligro" type="button" data-co-quitar="${i}" aria-label="Quitar">${icono('x')}</button></td></tr>`).join('')
+        <td class="acciones"><button class="icono peligro" type="button" data-co-quitar="${i}" aria-label="Quitar ${esc(l.producto)}">${icono('x')}</button></td></tr>`).join('')
       + '</tbody></table>'
     : '<div class="lineas-vacio">Agregue los productos del documento con su cantidad y costo.</div>';
   const modo = { incluido: 'INCLUIDO', agregado: 'AGREGADO', exonerado: 'EXONERADO' }[$('coIgv').value];
@@ -1994,8 +2088,8 @@ async function refreshProveedores() {
       + proveedores.map((p, i) => `<tr data-i="${i}"><td data-t="RUC" class="num">${esc(p.ruc)}</td><td data-t="Razón social"><b>${esc(p.razonSocial)}</b></td>
         <td data-t="Teléfono" class="num">${esc(p.telefono) || '<span style="color:var(--faint)">—</span>'}</td>
         <td data-t="Dirección">${esc(p.direccion) || '<span style="color:var(--faint)">—</span>'}</td>
-        <td class="acciones"><button class="icono" type="button" data-prov="editar" aria-label="Editar">${icono('lapiz')}</button>
-          <button class="icono peligro" type="button" data-prov="borrar" aria-label="Eliminar">${icono('basura')}</button></td></tr>`).join('')
+        <td class="acciones"><button class="icono" type="button" data-prov="editar" aria-label="Editar ${esc(p.razonSocial)}">${icono('lapiz')}</button>
+          <button class="icono peligro" type="button" data-prov="borrar" aria-label="Eliminar ${esc(p.razonSocial)}">${icono('basura')}</button></td></tr>`).join('')
       + '</tbody></table>'
     : `<div class="vacio"><b>${q ? 'Sin resultados' : 'Aún no hay proveedores'}</b>${q ? 'Ningún proveedor coincide.' : 'Se registran solos con la primera compra.'}</div>`;
 }
@@ -2101,7 +2195,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
-  ['compraModal', 'compraVer', 'provModal', 'kardexModal'].forEach(id => $(id).classList.remove('show'));
+  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
@@ -2170,11 +2264,11 @@ function startRec(mode) {
     }
     if (mode === 'single' || awaitingCommand || WAKE.test(interim + fin)) transcriptEl.textContent = interim || fin;
     if (!fin) return;
-    if (mode === 'single' || awaitingCommand) { awaitingCommand = false; send(fin); return; }
+    if (mode === 'single' || awaitingCommand) { awaitingCommand = false; send(fin, false, true); return; }
     const m = fin.match(WAKE);
     if (!m) return;
     const rest = fin.slice(m.index + m[0].length).replace(/^[\s,.:;]+/, '').trim();
-    if (rest.length > 1) send(rest);
+    if (rest.length > 1) send(rest, false, true);
     else {
       awaitingCommand = true;
       stopRec();
@@ -2207,11 +2301,24 @@ function stopRec() {
 }
 function resumeIdle() {
   setState('idle');
-  if (handsFree) startRec('wake');
+  const pregunta = ultimaPregunta;
+  ultimaPregunta = false;
+  if (micPc) {
+    escuchaPc(pregunta ? 'sigue-y-espera' : 'sigue');
+    if (pregunta) setState('listening');
+    return;
+  }
+  if (handsFree) { if (pregunta) awaitingCommand = true; startRec('wake'); }
 }
 function listenOnce() {
+  if (micPc) {
+    callar();
+    escuchaPc('una-vez');
+    setState('listening'); $('micBtn').classList.add('activo');
+    return;
+  }
   if (!voiceOK) { noVoiceHint(); return; }
-  speechSynthesis.cancel();
+  callar();
   awaitingCommand = false;
   startRec('single');
 }
@@ -2229,12 +2336,76 @@ $('reactor').onclick = listenOnce;
 $('reactorGrande').onclick = listenOnce;
 $('micBtn').onclick = listenOnce;
 $('hfBtn').onclick = () => {
+  if (micPc) {
+    handsFree = !handsFree;
+    pintarManosLibres();
+    escuchaPc(handsFree ? 'manos-libres' : 'sin-manos-libres');
+    addEntry('sys', handsFree ? 'Manos libres activado (micrófono de la computadora, sin Internet). Diga “Jarvis” seguido de su orden.'
+                              : 'Manos libres desactivado.');
+    setState(handsFree && state === 'idle' ? 'idle' : state);
+    return;
+  }
   if (!voiceOK) { noVoiceHint(); return; }
   handsFree = !handsFree;
   pintarManosLibres();
   if (handsFree) { addEntry('sys', 'Manos libres activado. Diga “Jarvis” seguido de su orden.'); if (state === 'idle') startRec('wake'); setState(state); }
   else { stopRec(); awaitingCommand = false; setState('idle'); }
 };
+
+/* =================== Micrófono de esta computadora (Vosk, sin Internet) ===================
+   Si la pantalla corre en la misma PC que JARVIS y el servidor tiene el modelo Vosk y un micrófono, escucha el
+   servidor y aquí solo llegan los textos (eventos). Si no (celular, sin modelo, sin micrófono), se usa el
+   reconocimiento del navegador de siempre. */
+const ES_ESTA_PC = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+let micPc = false, micPcUltimo = 0, ultimaPregunta = false;
+const esperar = ms => new Promise(ok => setTimeout(ok, ms));
+async function escuchaPc(accion) {
+  try { const r = await api('/api/voz/escucha', { method: 'POST', body: JSON.stringify({ accion }) }); return r.ok ? r.json() : null; }
+  catch (e) { return null; }
+}
+async function iniciarMicPc() {
+  if (!ES_ESTA_PC) return;
+  for (let i = 0; i < 45; i++) {   // el modelo tarda unos segundos en cargar al arrancar
+    let e;
+    try { const r = await api('/api/voz/escucha'); if (!r.ok) return; e = await r.json(); } catch (x) { return; }
+    if (e.disponible) {
+      micPc = true; micPcUltimo = e.ultimo;
+      if (handsFree) { stopRec(); escuchaPc('manos-libres'); }
+      sondearMicPc();
+      return;
+    }
+    if (!e.cargando) return;   // sin modelo o sin micrófono: el navegador
+    await esperar(2000);
+  }
+}
+async function sondearMicPc() {
+  while (micPc) {
+    try {
+      const r = await api('/api/voz/escucha/eventos?desde=' + micPcUltimo);
+      if (!r.ok) { await esperar(3000); continue; }
+      for (const ev of await r.json()) { micPcUltimo = Math.max(micPcUltimo, ev.id); alEventoMicPc(ev); }
+    } catch (e) { await esperar(3000); }
+  }
+}
+function alEventoMicPc(ev) {
+  if (ev.tipo === 'parcial') {
+    transcriptEl.textContent = ev.texto;
+    if (state === 'idle') setState('listening');
+  } else if (ev.tipo === 'orden') {
+    $('micBtn').classList.remove('activo');
+    send(ev.texto, false, true);
+  } else if (ev.tipo === 'activado') {
+    setState('listening');
+    speak('¿Sí, señor?', () => { escuchaPc('sigue-y-espera'); setState('listening'); });
+  } else if (ev.tipo === 'silencio') {
+    $('micBtn').classList.remove('activo');
+    if (state === 'listening') { setState('idle'); transcriptEl.textContent = ''; }
+  } else if (ev.tipo === 'error') {
+    micPc = false;
+    addEntry('sys', ev.texto + ' Uso el micrófono del navegador.');
+    if (handsFree && voiceOK) startRec('wake');
+  }
+}
 
 /* =================== Orbe de JARVIS (canvas) =================== */
 let acento = '60,194,227';
@@ -2354,6 +2525,221 @@ function refrescarDatos() {
   if (vista === 'compras') refreshCompras();
 }
 function refrescarTodo() { refreshSystem(); refrescarDatos(); }
+/* =================== Accesibilidad: ventanas, teclado, voz y lector de pantalla =================== */
+const visible = el => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+const ENFOCABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type=hidden]), select:not([disabled]), '
+                + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const modalAbierto = () => [...document.querySelectorAll('.modal.show')].pop() || null;
+
+// Íconos fijos: decorativos para el lector de pantalla (los que se crean después ya salen así de icono())
+document.querySelectorAll('svg:not([aria-hidden])').forEach(v => { v.setAttribute('aria-hidden', 'true'); v.setAttribute('focusable', 'false'); });
+
+// Al abrir una ventana el foco entra en ella; al cerrarla vuelve a donde estaba. Tab no sale de la ventana.
+document.querySelectorAll('.modal').forEach(m => new MutationObserver(() => {
+  const abierta = m.classList.contains('show');
+  if (abierta === (m.dataset.abierta === '1')) return;
+  m.dataset.abierta = abierta ? '1' : '';
+  if (abierta) {
+    m._antes = document.activeElement;
+    setTimeout(() => { if (!m.contains(document.activeElement)) [...m.querySelectorAll(ENFOCABLE)].find(visible)?.focus(); }, 60);
+  } else if (!modalAbierto() && m._antes && document.contains(m._antes) && visible(m._antes)) {
+    m._antes.focus();
+  }
+}).observe(m, { attributes: true, attributeFilter: ['class'] }));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    const m = modalAbierto();
+    if (!m) return;
+    const f = [...m.querySelectorAll(ENFOCABLE)].filter(visible);
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+  } else if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('tr.clic, canvas[role="button"]')) {
+    e.preventDefault();   // filas de comprobantes y compras, y el reactor
+    e.target.click();
+  }
+});
+
+// El botón del micrófono dice si está escuchando
+new MutationObserver(() => $('micBtn').setAttribute('aria-pressed', String($('micBtn').classList.contains('activo'))))
+  .observe($('micBtn'), { attributes: true, attributeFilter: ['class'] });
+
+// Saltos de teclado y secciones
+function enfocar(id) {
+  if (id === 'input') {
+    if (!visible($('input'))) abrirAsistente(true);
+    $('input').focus();
+    return;
+  }
+  const h = $('v-' + vista)?.querySelector('h1, h2');
+  if (h) { h.tabIndex = -1; h.focus(); }
+}
+document.querySelectorAll('[data-saltar]').forEach(b => b.onclick = () => enfocar(b.dataset.saltar));
+function irAyEnfocar(v) {
+  if (location.hash.slice(1) === v) irA(v); else location.hash = v;
+  setTimeout(() => { if (!$('v-' + v).contains(document.activeElement)) enfocar('vista'); }, 80);
+}
+
+// La voz de JARVIS se puede apagar (con lector de pantalla se oirían las dos)
+let vozActiva = leer('jarvis.voz') !== 'no';
+function pintarVoz() { $('vozBtn').classList.toggle('activo', vozActiva); $('vozBtn').setAttribute('aria-checked', String(vozActiva)); }
+$('vozBtn').onclick = () => {
+  vozActiva = !vozActiva;
+  guardar('jarvis.voz', vozActiva ? 'si' : 'no');
+  pintarVoz();
+  if (!vozActiva) { callar(); resumeIdle(); }
+  addEntry('sys', vozActiva ? 'Voz de JARVIS encendida.' : 'Voz de JARVIS apagada: las respuestas se leen en pantalla y en su lector de pantalla.');
+};
+pintarVoz();
+
+function abrirAtajos() { $('atajosModal').classList.add('show'); }
+$('atajosBtn').onclick = abrirAtajos;
+$('atajosCerrar').onclick = () => $('atajosModal').classList.remove('show');
+
+// Atajos: Alt+letra. Con AltGr (= Ctrl+Alt) se escriben @, #… y no es un atajo.
+const VISTAS_ATAJO = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
+document.addEventListener('keydown', e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  const k = e.code;
+  let hecho = true;
+  if (/^Digit[1-7]$/.test(k)) irAyEnfocar(VISTAS_ATAJO[Number(k.slice(5)) - 1]);
+  else if (k === 'KeyH') listenOnce();
+  else if (k === 'KeyM') $('hfBtn').click();
+  else if (k === 'KeyO') enfocar('input');
+  else if (k === 'KeyC') { callar(); resumeIdle(); }
+  else if (k === 'KeyV') $('vozBtn').click();
+  else if (k === 'KeyA') abrirAtajos();
+  else hecho = false;
+  if (hecho) e.preventDefault();
+});
+
+/* ---- Órdenes de pantalla (voz o teclado): todo lo de la pantalla también se pide hablando.
+   No van al servidor: cambiar de sección, abrir formularios y, con una ventana abierta, dictar en sus campos. ---- */
+const normalDicho = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+const SECCIONES = { inicio: 'inicio', vender: 'vender', ventas: 'vender', inventario: 'inventario', productos: 'inventario',
+  clientes: 'clientes', comprobantes: 'comprobantes', boletas: 'comprobantes', compras: 'compras', proveedores: 'proveedores' };
+const FORMULARIOS = [
+  [/^(nuevo producto|agregar producto|crear producto|registrar (un )?producto)$/, () => openProduct(null), 'Formulario de producto nuevo'],
+  [/^(registrar|registra|agregar|agrega|crear) (un )?cliente$/, () => abrirCliente(null), 'Formulario de cliente nuevo'],
+  [/^(nueva compra|registrar (una )?compra|registra (una )?compra)$/, () => abrirCompra(), 'Formulario de compra nueva'],
+  [/^(nuevo proveedor|registrar (un )?proveedor|agregar proveedor)$/, () => abrirProveedor(null), 'Formulario de proveedor nuevo'],
+  [/^(cargar lista|cargar (una )?lista de productos)$/, () => openLote(), 'Cargar lista de productos'],
+  [/^(atajos|atajos de teclado|ayuda de teclado)$/, () => abrirAtajos(), 'Atajos de teclado y voz'],
+];
+function ordenDePantalla(text, porVoz, silentUser) {
+  const t = normalDicho(text).replace(/^(oye |hey )?jarvis /, '');
+  const m = modalAbierto();
+  if (m && porVoz) return dictarEnVentana(m, text, t, silentUser);
+  let hecho = null;
+  const sec = t.match(/^(?:ir a|ve a|vamos a|abre|abrir|abreme|muestra|muestrame|mostrar|ver|pantalla)(?: la)?(?: pantalla)?(?: de)?(?: los| las| el)? (\w+)$/);
+  if (sec && SECCIONES[sec[1]]) {
+    const v = SECCIONES[sec[1]];
+    irAyEnfocar(v);
+    hecho = 'Pantalla ' + document.querySelector(`.nav a[data-vista="${v}"]`).textContent.trim() + '.';
+  } else {
+    for (const [re, abrir, nombre] of FORMULARIOS) if (re.test(t)) { abrir(); hecho = nombre + '. Dicte el primer campo.'; break; }
+  }
+  if (!hecho) return false;
+  responderPantalla(text, hecho, silentUser, !!modalAbierto());
+  return true;
+}
+function responderPantalla(text, respuesta, silentUser, esperarRespuesta) {
+  if (!silentUser) addEntry('me', text);
+  addEntry('bot', respuesta);
+  ultimaPregunta = esperarRespuesta;   // con una ventana abierta, lo siguiente se dicta sin decir "Jarvis"
+  speak(respuesta);
+}
+const camposDe = m => [...m.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])')].filter(visible);
+function nombreCampo(el) {
+  if (!el) return 'Campo';
+  const n = el.getAttribute('aria-label') || el.labels?.[0]?.firstChild?.textContent || el.placeholder || el.title || 'Campo';
+  return n.trim().replace(/[:\s]+$/, '');
+}
+function dictarEnVentana(m, text, t, silentUser) {
+  const campos = camposDe(m);
+  let i = campos.indexOf(document.activeElement);
+  const principal = m.querySelector('button[type=submit], .modal-btns .boton.primario, .modal-btns .boton.peligro');
+  const cerrarBtn = [...m.querySelectorAll('.modal-btns button')].find(b => /cancelar|cerrar/i.test(b.textContent));
+  let r = null;
+  if (/^(siguiente|siguiente campo|proximo|proximo campo)$/.test(t) && campos.length) {
+    i = Math.min(campos.length - 1, i + 1); campos[i].focus(); r = nombreCampo(campos[i]) + ': ' + (campos[i].value || 'vacío');
+  } else if (/^(anterior|campo anterior|atras)$/.test(t) && campos.length) {
+    i = Math.max(0, i - 1); campos[i].focus(); r = nombreCampo(campos[i]) + ': ' + (campos[i].value || 'vacío');
+  } else if (/^(guardar|guarda|aceptar|confirmar|confirmo|si|imprimir|imprime)$/.test(t) && principal) {
+    r = principal.textContent.trim() + '.'; principal.click();
+  } else if (/^(cancelar|cancela|cerrar|cierra|salir|no)$/.test(t)) {
+    if (cerrarBtn) cerrarBtn.click(); else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    r = 'Ventana cerrada.';
+  } else if (/^(leer|lee|que dice|donde estoy)$/.test(t)) {
+    r = i >= 0 ? nombreCampo(campos[i]) + ': ' + (campos[i].value || 'vacío')
+               : (m.querySelector('h3')?.textContent || m.getAttribute('aria-label') || 'Ventana') + '.';
+  } else if (/^(borrar|borra|limpiar|limpia)( campo)?$/.test(t) && i >= 0) {
+    escribirEn(campos[i], ''); r = nombreCampo(campos[i]) + ': vacío';
+  } else if (campos.length) {
+    const el = i >= 0 ? campos[i] : campos[0];
+    el.focus();
+    escribirEn(el, text.replace(/^(oye |hey )?jarvis[,.]?\s*/i, '').trim());
+    r = nombreCampo(el) + ': ' + (el.value || 'no entendí el valor');
+  }
+  if (r == null) return false;   // ventana sin campos (comprobante, kardex): la orden sigue su camino normal
+  responderPantalla(text, r, silentUser, !!modalAbierto());
+  return true;
+}
+// "veinticinco con cincuenta" → 25.50; "cuatro cinco seis" en un DNI → 456
+const NUMEROS = { cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+  once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20,
+  veintiun: 21, veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26,
+  veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80,
+  noventa: 90, cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300, cuatrocientos: 400,
+  quinientos: 500, seiscientos: 600, setecientos: 700, ochocientos: 800, novecientos: 900 };
+function enteroDe(palabras) {
+  let total = 0, actual = 0, alguno = false;
+  for (const w of palabras) {
+    if (w === 'y') continue;
+    if (w === 'mil') { total += (actual || 1) * 1000; actual = 0; alguno = true; continue; }
+    if (/^\d+$/.test(w)) { actual += Number(w); alguno = true; continue; }
+    if (!(w in NUMEROS)) return null;
+    actual += NUMEROS[w]; alguno = true;
+  }
+  return alguno ? total + actual : null;
+}
+function numeroDe(texto) {
+  const t = normalDicho(String(texto).replace(/(\d),(\d)/g, '$1.$2').replace(/(\d)\.(\d)/g, '$1p$2'))
+    .replace(/\b(soles?|sol|s\/|unidades?|pares?|metros?|kilos?)\b/g, ' ').replace(/\s+/g, ' ').trim().replace(/(\d)p(\d)/g, '$1.$2');
+  if (/^\d+(\.\d+)?$/.test(t)) return t;
+  const [ent, dec] = t.split(/ (?:con|punto|coma) /);
+  const e = enteroDe(ent.split(' ').filter(Boolean));
+  if (e == null) return null;
+  if (!dec) return String(e);
+  const d = enteroDe(dec.split(' ').filter(Boolean));
+  return d == null ? null : e + '.' + String(d).padStart(2, '0');
+}
+function digitosDe(texto) {
+  const ws = normalDicho(texto).split(' ').filter(Boolean);
+  let s = '';
+  for (const w of ws) { const n = /^\d+$/.test(w) ? w : NUMEROS[w]; if (n == null) return null; s += String(n); }
+  return s;
+}
+function escribirEn(el, texto) {
+  if (el.tagName === 'SELECT') {
+    const t = normalDicho(texto);
+    const o = [...el.options].find(o => t && (normalDicho(o.text).includes(t) || t.includes(normalDicho(o.text))));
+    if (o) el.value = o.value;
+  } else if (el.type === 'checkbox') {
+    el.checked = !/^(no|desmarcar|quitar)/.test(normalDicho(texto));
+  } else if (texto && el.inputMode === 'numeric') {
+    const d = digitosDe(texto); if (d != null) el.value = d;          // DNI, RUC: dígito por dígito
+  } else if (texto && (el.type === 'number' || el.inputMode === 'decimal')) {
+    const n = numeroDe(texto); if (n != null) el.value = n;           // precios y cantidades
+  } else {
+    el.value = texto;
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 (async function arrancar() {
   getToken();
   irA(location.hash.slice(1) || 'inicio');
@@ -2361,6 +2747,8 @@ function refrescarTodo() { refreshSystem(); refrescarDatos(); }
   await refreshSystem();
   refrescarDatos();
   setInterval(refreshSystem, 5000);
+  await iniciarHablaPc();
+  iniciarMicPc();
   send('hola jarvis', true);
 })();
 </script>

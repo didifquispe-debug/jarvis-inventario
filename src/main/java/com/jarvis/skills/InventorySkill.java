@@ -61,6 +61,8 @@ public class InventorySkill implements Skill {
             "|\\b(cuesta|cuestan|vale|valen)\\s+\\d");                                              // "la polera cuesta 30 soles"
     private static final Pattern PRECIO = Pattern.compile("\\b(precio|cuesta|cuestan|vale|valen|a como)\\b");
     private static final Pattern NUMERO = Pattern.compile("(\\d+(?:[.,]\\d+)?)");
+    private static final Pattern CANTIDAD_DICHA = Pattern.compile("\\d|\\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez"
+            + "|once|doce|quince|veinte|veinti\\w+|treinta|cuarenta|cincuenta|cien|ciento|medio|media|docena)\\b");
 
     // correcciones (van antes que las ventas: "anula la última venta" también dice "venta")
     private static final String ULTIMA = "\\b(ultima venta|ultimo comprobante|ultima boleta|ultimo recibo)\\b";
@@ -374,6 +376,32 @@ public class InventorySkill implements Skill {
         return Set.of(RECIBO, CIERRE, LISTA, LISTA_PRECIOS, PRECIO, NUEVA_VENTA, ENTRADA, SALIDA, CONSULTA,
                         ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO, NUEVO_INVENTARIO)
                 .stream().anyMatch(p -> p.matcher(cmd).find());
+    }
+
+    /**
+     * ¿La orden solo consulta (stock, precios, inventario) sin cambiar nada? Las órdenes que propone el asistente
+     * con IA y no son consultas piden un "sí" antes de pasar a las reglas.
+     */
+    public boolean soloConsulta(String cmdRaw) {
+        String cmd = Palabras.norm(cmdRaw);
+        boolean cambia = Set.of(NUEVA_VENTA, ENTRADA, SALIDA, ANULAR_ULTIMA, CORREGIR_ULTIMA, STOCK_MINIMO, CAMBIAR_UNIDAD,
+                        CAMBIAR_PRECIO, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO, NUEVO_INVENTARIO, COBRAR, CANCELAR_VENTA, QUITAR, AGREGAR)
+                .stream().anyMatch(p -> p.matcher(cmd).find());
+        return !cambia && Set.of(CONSULTA, LISTA, LISTA_PRECIOS, PRECIO).stream().anyMatch(p -> p.matcher(cmd).find());
+    }
+
+    /**
+     * ¿Es una venta, una entrada o un cambio de cantidad o precio? Dicha por voz se confirma antes, porque el
+     * reconocimiento confunde números ("vendí tres" / "veintitrés"). Eliminar y empezar de cero ya piden su "sí";
+     * abrir una venta, cobrar, comprobantes y el cierre no llevan cantidades.
+     */
+    public boolean delicadaPorVoz(String cmdRaw) {
+        String cmd = Palabras.norm(cmdRaw);
+        if (Set.of(ES_CALCULO, NUEVA_VENTA, CIERRE, RECIBO, ANULAR_ULTIMA, ELIMINAR_PRODUCTO, ELIMINAR_SUELTO, NUEVO_INVENTARIO)
+                .stream().anyMatch(p -> p.matcher(cmd).find()) || soloConsulta(cmd)) return false;
+        // "cobrar" a secas cierra el carrito; "cobra 2 bolsas de cemento" es una venta con cantidad
+        if (COBRAR.matcher(cmd).find() && !CANTIDAD_DICHA.matcher(cmd).find()) return false;
+        return Set.of(SALIDA, ENTRADA, CORREGIR_ULTIMA, CAMBIAR_PRECIO, STOCK_MINIMO).stream().anyMatch(p -> p.matcher(cmd).find());
     }
 
     // ---------------------------------------------------------------- acciones (las usa también el clasificador DJL)

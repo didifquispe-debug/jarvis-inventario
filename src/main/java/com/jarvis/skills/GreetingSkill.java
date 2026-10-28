@@ -30,7 +30,7 @@ public class GreetingSkill implements Skill {
             int h = LocalTime.now().getHour();
             String parte = h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
             String bienvenida = negocio.isEmpty() ? "" : " Bienvenido a " + negocio + ".";
-            return Optional.of(parte + ", " + owner + "." + bienvenida + " Todos los sistemas en línea. ¿En qué le ayudo?");
+            return Optional.of(parte + ", " + owner + "." + bienvenida + " Todo bien. ¿En qué le ayudo?");
         }
         return Optional.empty();
     }

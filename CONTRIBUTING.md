@@ -36,15 +36,20 @@ Cada uno tiene su propio inventario de prueba.
 Para que JARVIS entienda la voz sin Internet necesitas el modelo pequeño de español de Vosk:
 
 1. Descarga `vosk-model-small-es-0.42.zip` desde https://alphacephei.com/vosk/models
-2. Descomprímelo y renombra la carpeta para que quede así: `C:\Users\<tu-usuario>\jarvis-models\vosk-es\`
-   (adentro deben estar las carpetas `am`, `conf`, `graph`…).
+2. Descomprímelo para que quede así: `C:\Users\<tu-usuario>\jarvis-voz\vosk\vosk-model-small-es-0.42\`
+   (adentro deben estar las carpetas `am`, `conf`, `graph`…). Si lo pones en otro lugar, cambia
+   `jarvis.voz.vosk-model` en `application.properties`.
 
 Sin el modelo todo funciona igual. La voz usa la del navegador y la prueba de voz offline se salta sola.
 
+Para que JARVIS **hable** sin Internet, descarga Piper para Windows (https://github.com/rhasspy/piper/releases) en
+`C:\Users\<tu-usuario>\jarvis-voz\piper\` y la voz `es_ES-davefx-medium` (`.onnx` y `.onnx.json`) en
+`...\piper\voces\`. Sin Piper habla con las voces de Windows. Las pruebas generan audio pero nunca lo reproducen.
+
 ### Asistente con IA (opcional)
 
-Si tienes una clave de Claude, ponla en `C:\Users\<tu-usuario>\jarvis-ia-clave.txt`.
-**Nunca la pongas dentro del proyecto ni la subas a GitHub.**
+Instala [Ollama](https://ollama.com) y ejecuta `ollama pull llama3.2:3b`. JARVIS lo usa en `http://localhost:11434/v1`,
+sin internet. Sin Ollama todo funciona igual con las reglas. Las pruebas usan un servidor falso, nunca el real.
 
 ## 3. Cómo subir tus cambios
 

@@ -12,7 +12,8 @@ import java.util.Map;
 /**
  * API REST: cualquier dispositivo (navegador, app Android, otro programa) habla con JARVIS aquí.
  *
- *   POST /api/command   { "text": "qué hora es" }   cabecera  X-Jarvis-Token: <tu clave>
+ *   POST /api/command   { "text": "qué hora es", "voz": false }   cabecera  X-Jarvis-Token: <tu clave>
+ *                       ("voz": true si se dictó: las ventas y cantidades se repiten y esperan un "sí")
  *   -> { "reply": "Son las 9:30 p. m." }
  *   Si la orden fue una venta, además trae "recibo": el comprobante de pago para mostrar/imprimir,
  *   y siempre "carrito": la venta con varios productos en curso (null si no hay).
@@ -49,12 +50,13 @@ public class JarvisController {
         this.negocio = Map.of("nombre", nombreNegocio.isEmpty() ? "Mi Negocio" : nombreNegocio, "ruc", ruc, "direccion", direccion);
     }
 
-    public record CommandRequest(String text) {}
+    /** {@code voz}: true si la frase llegó por el micrófono (las ventas y cantidades se confirman antes). */
+    public record CommandRequest(String text, Boolean voz) {}
 
     @PostMapping("/command")
     public Map<String, Object> command(@RequestBody CommandRequest req) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("reply", jarvis.process(req.text()));
+        body.put("reply", jarvis.process(req.text(), Boolean.TRUE.equals(req.voz())));
         InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         if (c != null) body.put("recibo", Map.of("comprobante", c, "negocio", negocio));
         body.put("carrito", inv.carritoActual());   // venta en curso (null si no hay)

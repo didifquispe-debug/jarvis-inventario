@@ -142,7 +142,6 @@ Reinicia y ya está: aparece sola en "ayuda". `cmd` llega en minúsculas, sin ti
 Las acciones que tocan el sistema operativo van en `LaptopActions` (ahí puedes añadir más programas al mapa `APPS`).
 
 ## Ideas para seguir
-- Palabra de activación ("Jarvis") escuchando todo el tiempo en la laptop con Vosk (reconocimiento offline en Java).
 - Clima con la API gratuita de Open-Meteo.
 - Recordatorios con `@Scheduled` de Spring.
 - Control de domótica (luces inteligentes) vía sus APIs HTTP.
@@ -385,40 +384,158 @@ o con la lista en texto (`Content-Type: text/plain`, el mismo formato de *Cargar
 `{ ok, reply, agregados, omitidos, omitidosDetalle: [{linea, motivo}], errores: [{linea, motivo}] }`
 (400 si la lista está vacía o tiene más de 5000 productos).
 
-## Asistente con IA (entiende lo que le diga)
+## Asistente con IA local (entiende lo que le diga, sin internet)
 
-Con una clave de Anthropic e internet, JARVIS entiende frases libres y las ejecuta, como un asistente:
+Si las reglas de JARVIS no entienden una frase, se la pasa a un modelo de lenguaje que corre **en esta misma
+computadora** con [Ollama](https://ollama.com) (modelo `llama3.2:3b`). No se conecta a internet en ningún momento:
+el programa solo acepta direcciones de esta PC o de la red local.
 
 | Usted dice | JARVIS hace |
 |---|---|
-| "Vamos a hacer un nuevo inventario" | Pregunta si confirma; con un sí guarda una copia y empieza vacío |
-| "Sube 10% el precio de todo el calzado" | Revisa los productos de Calzado, cambia cada precio y resume |
-| "Registra unas zapatillas Adidas 41 a 220, me llegaron 6 pares" | Crea el producto con sus datos |
-| "¿Qué me conviene reponer?" | Revisa el stock bajo y responde |
-| "Despacha dos poleras rojas talla M" | Hace la venta con su comprobante |
+| "Despacha dos poleras rojas talla M" | "Entendí: vendí 2 polera roja M. ¿Lo hago?" y con su "sí" hace la venta |
+| "Me fijas cuántas zapatillas me quedan" | Consulta el stock al instante (las consultas no preguntan) |
+| "¿Qué me conviene reponer?" | Mira el stock bajo y responde |
+| "Buenos días, ¿cómo va todo?" | Conversa |
 
-**Cómo activarlo:**
-1. Cree una clave en [console.anthropic.com](https://console.anthropic.com) (*API Keys*). Se paga por uso.
-2. Abra el Bloc de notas, pegue la clave en la primera línea y guárdelo como `C:\Users\<tú>\jarvis-ia-clave.txt`.
-   (También sirve la variable de entorno `ANTHROPIC_API_KEY`.) No la escriba en `application.properties` ni la comparta.
-3. Reinicie JARVIS. En `jarvis.log` verá `Asistente con IA listo`.
+**Cómo activarlo** (una sola vez; Ollama ya está instalado en la PC del negocio):
+1. Abra Ollama (queda junto al reloj) y en una terminal ejecute `ollama pull llama3.2:3b`.
+2. Compruebe que responde: abra `http://localhost:11434/v1/models` en el navegador; debe aparecer `llama3.2:3b`.
+3. Inicie JARVIS. En `jarvis.log` verá `Asistente con IA local listo (llama3.2:3b en http://localhost:11434/v1)`.
 
-**Modo mixto:** sin clave, sin internet o si la IA falla, JARVIS responde con sus órdenes de siempre, sin que
-usted haga nada (tras un corte de internet espera un minuto antes de volver a intentar con la IA). Si la clave es
-rechazada, el log lo dice y se usan las reglas hasta reiniciar.
+**Seguridad:** el modelo **nunca toca el inventario**. Solo puede conversar o traducir la frase a una orden de
+JARVIS ("vendí 2 polera roja M"), que ejecutan las reglas de siempre, con sus mismos controles (no vender más de lo
+que hay, el "sí" para eliminar o empezar de cero…). Si la orden cambia algo, JARVIS repite lo que entendió y
+pregunta **"¿Lo hago?"**: con "sí" se hace, con "no" o con otra frase se descarta (y caduca a los 2 minutos). Las
+órdenes que las reglas entienden directo nunca pasan por el modelo, así la caja sigue siendo rápida.
 
-**Seguridad:** la IA usa las mismas funciones que la pantalla, así que valen las mismas reglas (no vender más de lo
-que hay, códigos únicos…). **Eliminar un producto y empezar un inventario nuevo siempre piden su "sí"**, y esa
-regla está en el programa, no en la IA. Los "sí/no" de las órdenes de siempre y los productos de una venta con
-carrito van directo a las reglas, para que la caja sea rápida.
+**Sin Ollama todo sigue funcionando:** si el servidor no está, no tiene el modelo o tarda más de
+`jarvis.ia.timeout-segundos`, JARVIS usa sus reglas, su diccionario y el modelo ONNX de intenciones, y vuelve a
+probar con la IA un minuto después. El arranque nunca espera a Ollama.
 
-Ajustes en `application.properties`: `jarvis.ia.enabled` (false = nunca usar IA), `jarvis.ia.modelo`,
-`jarvis.ia.clave-archivo` y `jarvis.ia.fallback-servidor` (si el modelo declina una petición por sus filtros de
-seguridad, la API la reintenta con otro modelo).
+Ajustes en `application.properties`:
+
+| Clave | Valor por defecto | Para qué |
+|---|---|---|
+| `jarvis.ia.enabled` | `true` | `false` = nunca usar la IA |
+| `jarvis.ia.base-url` | `http://localhost:11434/v1` | Servidor compatible con OpenAI (Ollama, LM Studio, llama.cpp) en esta PC o la red local |
+| `jarvis.ia.model` | `llama3.2:3b` | Modelo descargado en ese servidor |
+| `jarvis.ia.timeout-segundos` | `20` | Cuánto se espera la respuesta |
 
 **Sin IA también puede empezar de cero:** diga *"nuevo inventario"*, *"empezar el inventario de cero"* o
 *"vaciar el inventario"*; pregunta y solo vacía con un sí. La copia queda junto al inventario, como
 `jarvis-inventario.db.antes-de-nuevo-<fecha>`. Los números de comprobante no se reinician.
+
+## Escuchar sin internet (Vosk, micrófono de la computadora)
+
+En la computadora donde corre JARVIS, el micrófono lo escucha **el propio programa** con
+[Vosk](https://alphacephei.com/vosk/) y un modelo en español. No se usa internet ni el reconocimiento del navegador.
+
+- **Botón del micrófono:** toque y diga la orden (tiene 10 segundos).
+- **Manos libres:** escucha todo el tiempo y solo atiende lo que empieza con **"Jarvis"**:
+  *"Jarvis, cuántos focos quedan"*. Si dice solo *"Jarvis"*, responde *"¿Sí, señor?"* y espera la orden.
+  Mientras JARVIS habla, el micrófono se pausa para no oírse a sí mismo.
+- **Confirmación por voz:** las ventas, entradas y cambios de cantidad o precio **dictados** se repiten antes de
+  hacerse, porque el reconocimiento puede confundir números (*"vendí tres"* / *"veintitrés"*):
+  *"Entendí: vendí 2 bolsas de cemento. ¿Lo hago, señor?"*. Responda *"sí"* o *"no"* sin decir "Jarvis" (tiene
+  8 segundos). Lo escrito con el teclado no pregunta, y en una venta con carrito los productos se ven en pantalla
+  y no se preguntan uno a uno.
+
+**Instalación:** el modelo `vosk-model-small-es-0.42` va descomprimido en
+`C:\Users\ASUS\jarvis-voz\vosk\vosk-model-small-es-0.42` (adentro, las carpetas `am`, `conf`, `graph`…). La librería
+de Vosk viene dentro del programa (dependencia de Maven). Al arrancar, `jarvis.log` dice
+`Voz sin Internet lista` y, la primera vez que escucha, `Micrófono de la computadora abierto`.
+
+**Si falta algo, se usa el navegador como antes:** sin modelo, sin micrófono, con `jarvis.voz.escuchar=false` o
+desde el celular u otro equipo, el micrófono usa el reconocimiento del navegador (Chrome/Edge). Por seguridad,
+solo la misma computadora puede encender su micrófono: desde otro equipo, la API responde 403.
+
+| Clave | Valor | Para qué |
+|---|---|---|
+| `jarvis.voz.vosk-model` | `${user.home}/jarvis-voz/vosk/vosk-model-small-es-0.42` (en esta PC: `C:/Users/ASUS/jarvis-voz/…`) | Carpeta del modelo Vosk |
+| `jarvis.voz.escuchar` | `true` | `false` = no usar el micrófono de la PC (se usa el navegador) |
+| `jarvis.voz.confirmar` | `true` | `false` = las ventas dictadas se hacen sin preguntar |
+| `jarvis.voz.local.enabled` | `true` | `false` = no cargar Vosk en absoluto |
+
+API (solo desde la misma PC, con la clave): `GET /api/voz/escucha` (estado), `POST /api/voz/escucha`
+`{"accion": "manos-libres" | "sin-manos-libres" | "una-vez" | "pausa" | "sigue" | "sigue-y-espera" | "cancelar"}`
+y `GET /api/voz/escucha/eventos?desde=N` (espera hasta 25 s; devuelve `[{id, tipo, texto}]` con
+`tipo` = `parcial`, `orden`, `activado`, `silencio` o `error`). La pantalla envía cada `orden` a `/api/command` con
+`"voz": true`, igual que lo dictado con el navegador.
+
+## Hablar sin internet (Piper)
+
+En la computadora donde corre JARVIS, las respuestas las lee **Piper** (`piper.exe`) con la voz española
+`es_ES-davefx-medium`, por los parlantes de la PC: genera un WAV temporal, lo reproduce y lo borra. No usa internet.
+Si toca el micrófono mientras JARVIS habla, se calla.
+
+**Instalación:** `C:\Users\ASUS\jarvis-voz\piper\piper.exe` (con sus `.dll` y la carpeta `espeak-ng-data`) y la voz en
+`C:\Users\ASUS\jarvis-voz\piper\voces\es_ES-davefx-medium.onnx` **más** su `es_ES-davefx-medium.onnx.json`.
+Al arrancar, `jarvis.log` dice `Voz de JARVIS: Piper (es_ES-davefx-medium.onnx)`.
+
+**Si falta algo:** sin Piper (o sin el `.onnx.json`), habla con las **voces instaladas en Windows** (sin internet).
+Si eso falla, con la voz del navegador, que solo usa voces instaladas en el equipo (las "online" de Chrome y Edge
+van por internet y se evitan). Desde el celular habla siempre el navegador del celular. Como en todo navegador,
+JARVIS empieza a hablar después de que usted toque algo en la pantalla.
+
+| Clave | Valor | Para qué |
+|---|---|---|
+| `jarvis.voz.hablar` | `piper` | `piper`, `windows` (voces de Windows) o `navegador` |
+| `jarvis.voz.piper-exe` | `${user.home}/jarvis-voz/piper/piper.exe` | Programa Piper |
+| `jarvis.voz.piper-voz` | `${user.home}/jarvis-voz/piper/voces/es_ES-davefx-medium.onnx` | Voz (su `.onnx.json` al lado) |
+
+API (solo desde la misma PC): `GET /api/voz/habla` (`{modo, pedido, motivo}`), `POST /api/voz/hablar`
+`{"texto": "…"}` (responde al terminar de hablar; 503 si no pudo y la pantalla usa el navegador) y
+`POST /api/voz/callar`.
+
+## 100% sin internet: qué pieza hace qué
+
+JARVIS funciona como programa de escritorio **sin conectarse a internet en ningún punto**. Cada pieza local es
+opcional: si falta, el programa arranca igual y usa lo que quede.
+
+| Pieza | Qué hace | Si no está | Se apaga con |
+|---|---|---|---|
+| **Reglas + diccionario + ONNX** | Entienden y ejecutan las órdenes (siempre activas) | — | — |
+| **Ollama** (`llama3.2:3b`) | Entiende frases libres que las reglas no entendieron | Solo reglas | `jarvis.ia.enabled=false` |
+| **Vosk** (`vosk-model-small-es-0.42`) | Escucha el micrófono de la PC, manos libres con "Jarvis" | Micrófono del navegador | `jarvis.voz.escuchar=false` |
+| **Piper** (`es_ES-davefx-medium`) | Lee las respuestas en voz alta | Voces de Windows, luego el navegador | `jarvis.voz.hablar=windows` o `navegador` |
+
+Rutas en esta PC: `C:\Users\ASUS\jarvis-voz\vosk\vosk-model-small-es-0.42`,
+`C:\Users\ASUS\jarvis-voz\piper\piper.exe` y `...\piper\voces\es_ES-davefx-medium.onnx` (+ `.onnx.json`);
+Ollama en `http://localhost:11434/v1`. El programa solo acepta direcciones de esta PC o de la red local para la IA,
+la pantalla no descarga fuentes ni nada de internet, y el navegador solo usa voces instaladas en el equipo.
+
+## Accesibilidad: solo voz, solo teclado o con lector de pantalla
+
+**Solo por voz (manos libres):** active *Manos libres* y diga "Jarvis" seguido de la orden. Además de las órdenes
+de inventario, la pantalla entiende:
+- *"ir a inventario"*, *"abre clientes"*, *"muéstrame las compras"*: cambia de sección.
+- *"nuevo producto"*, *"registrar cliente"*, *"nueva compra"*, *"nuevo proveedor"*, *"cargar lista"*: abre el formulario.
+- Con una ventana abierta, lo que dicte se escribe en el campo, sin decir "Jarvis". Los precios y cantidades
+  también se pueden decir en palabras (*"veinticinco con cincuenta"*), y el DNI dígito por dígito. Además puede
+  decir *"siguiente"* o *"anterior"* (cambiar de campo), *"leer"* (oír el campo), *"borrar"*, *"guardar"* y
+  *"cancelar"*. En una confirmación: *"sí"* o *"no"*.
+- Las ventas y cantidades dictadas se repiten y esperan su "sí" (ver *Escuchar sin internet*).
+
+**Solo por teclado:** Tab y Mayús+Tab recorren botones, campos y filas, y Enter o Espacio los activa. Esc cierra
+la ventana abierta y el foco no se sale de ella. Los botones *Saltar al contenido* y *Saltar al cuadro de órdenes*
+aparecen con el primer Tab. Atajos:
+
+| Atajo | Qué hace |
+|---|---|
+| `Alt+H` | Hablar con JARVIS (una orden) |
+| `Alt+M` | Manos libres sí/no |
+| `Alt+O` | Ir al cuadro para escribir una orden |
+| `Alt+C` | Callar a JARVIS |
+| `Alt+V` | Encender o apagar la voz de JARVIS |
+| `Alt+1` … `Alt+7` | Inicio, Vender, Inventario, Clientes, Comprobantes, Compras, Proveedores |
+| `Alt+A` | Ver los atajos (también en el menú: *Atajos de teclado*) |
+
+**Con lector de pantalla (NVDA, JAWS, Narrador):**
+- Todos los campos y botones tienen nombre: *"Editar Polera roja M"*, no solo *"Editar"*.
+- Las ventanas se anuncian como diálogos y el menú indica la sección actual.
+- Cada respuesta de JARVIS se anuncia entera, en una región que el lector lee sola.
+- Si su lector ya lee las respuestas, apague la voz de JARVIS con `Alt+V` para no oír las dos.
+- Con *reducir movimiento* activado en Windows, el chat no escribe letra por letra.
 
 ## Reconocimiento de intenciones local (offline, DJL)
 

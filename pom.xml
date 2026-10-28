@@ -73,12 +73,6 @@
             <version>5.2.5</version>
         </dependency>
 
-        <!-- ===== Asistente con IA (Claude) cuando hay internet y clave; sin ellos se usan las reglas ===== -->
-        <dependency>
-            <groupId>com.anthropic</groupId>
-            <artifactId>anthropic-java</artifactId>
-            <version>2.34.0</version>
-        </dependency>
 
         <!-- ===== Reconocimiento de voz sin Internet (Vosk, con un modelo en español en la carpeta del usuario) ===== -->
         <dependency>

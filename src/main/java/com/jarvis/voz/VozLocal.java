@@ -23,8 +23,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Reconocimiento de voz sin Internet con Vosk. El navegador graba el audio (PCM de 16 bits, mono, 16 kHz)
- * y lo manda aquí; el modelo en español vive en la carpeta del usuario ({@code jarvis.voz.modelo-dir}).
+ * Reconocimiento de voz sin Internet con Vosk. El audio (PCM de 16 bits, mono, 16 kHz) llega del micrófono de esta
+ * computadora ({@link EscuchaLocal}) o de un navegador; el modelo en español vive en la carpeta del usuario
+ * ({@code jarvis.voz.vosk-model}).
  *
  * <p>El modelo se carga en segundo plano al arrancar, para no demorar la ventana. Si no está o la librería
  * nativa no carga, {@link #listo()} es falso y el navegador sigue usando su propio reconocimiento.</p>
@@ -56,7 +57,8 @@ public class VozLocal {
     private volatile boolean cargando;
 
     public VozLocal(@Value("${jarvis.voz.local.enabled:true}") boolean habilitado,
-                    @Value("${jarvis.voz.modelo-dir:${user.home}/jarvis-models/vosk-es}") String dir,
+                    // jarvis.voz.modelo-dir es el nombre antiguo de la clave
+                    @Value("${jarvis.voz.vosk-model:${jarvis.voz.modelo-dir:${user.home}/jarvis-voz/vosk/vosk-model-small-es-0.42}}") String dir,
                     @Value("${jarvis.voz.motor:auto}") String motor) {
         this.habilitado = habilitado;
         this.dir = Paths.get(dir);
@@ -100,6 +102,30 @@ public class VozLocal {
     public boolean cargando() { return cargando; }
 
     public Motor motor() { return motor; }
+
+    public Path carpetaModelo() { return dir; }
+
+    /** Un reconocedor continuo (modelo general) para escuchar el micrófono; null si no hay modelo. Quien lo pide lo cierra. */
+    Recognizer reconocedorContinuo() throws IOException {
+        Model m = modelo;
+        return m == null ? null : new Recognizer(m, HZ);
+    }
+
+    /**
+     * Lo que viene después de "Jarvis" (o de cómo lo suele oír el modelo: "harvis", "yarvis"…) en una frase:
+     * "jarvis vendí dos cementos" → "vendí dos cementos"; "oye jarvis" → "". Vacío si no se dijo "Jarvis".
+     */
+    public static java.util.Optional<String> trasJarvis(String texto) {
+        if (texto == null || texto.isBlank()) return java.util.Optional.empty();
+        String[] w = texto.trim().split("\\s+");
+        for (int i = 0; i < w.length; i++) {
+            if (COMO_SUENA_JARVIS.contains(Palabras.norm(w[i]).replaceAll("[^a-z]", ""))) {
+                return java.util.Optional.of(String.join(" ", java.util.Arrays.copyOfRange(w, i + 1, w.length))
+                        .replaceFirst("^[,.:;\\s]+", "").trim());
+            }
+        }
+        return java.util.Optional.empty();
+    }
 
     /** Pasa a texto con el modelo general (sin vocabulario). */
     public String reconocer(byte[] pcm) {
