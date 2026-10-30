@@ -41,7 +41,11 @@ public final class EntityExtractor {
             "bolsa", "bolsas", "metro", "metros", "unidad", "unidades", "caja", "cajas", "kilo", "kilos",
             "saco", "sacos", "paquete", "paquetes", "rollo", "rollos", "litro", "litros", "pieza", "piezas",
             "kg", "gramo", "gramos", "galon", "galones", "par", "pares", "docena", "docenas", "millar", "millares",
-            "talla", "tallas", "numero", "color");
+            "talla", "tallas", "numero", "color",
+            "oye", "hey", "jarvis", "cada", "costo", "costaron", "cuesta", "cuestan");
+
+    /** "me costó 40 soles": es el costo, no el precio de venta; el número no es parte del nombre. */
+    private static final Set<String> COSTO = Set.of("costo", "costaron", "cuesta", "cuestan");
 
     private static final Map<String, String> UNIDADES = Map.ofEntries(
             Map.entry("bolsa", "bolsas"), Map.entry("bolsas", "bolsas"), Map.entry("metro", "metros"), Map.entry("metros", "metros"),
@@ -85,7 +89,7 @@ public final class EntityExtractor {
     }
 
     private static boolean esPrecio(List<String> palabras, int i) {
-        return (i > 0 && palabras.get(i - 1).equals("a"))
+        return (i > 0 && (palabras.get(i - 1).equals("a") || COSTO.contains(palabras.get(i - 1))))
                 || (i + 1 < palabras.size() && Set.of("soles", "sol").contains(palabras.get(i + 1)));
     }
 }

@@ -34,6 +34,14 @@ class IntentPipelineTest {
         assertEquals(BigDecimal.ONE, EntityExtractor.extraer("vendi una bolsa de cemento").cantidad());
     }
 
+    @Test void fraseConversadaNoEnsuciaElNombre() {
+        EntityExtractor.Entidades e = EntityExtractor.extraer("oye hoy me llegaron 5 cajas de leche y cada una me costo 40 soles");
+        assertEquals(new BigDecimal("5"), e.cantidad());
+        assertEquals("leche", e.producto());
+        assertNull(e.precio(), "el costo no es el precio de venta");
+        assertEquals("leche", EntityExtractor.extraer("llegaron 3 cajas de leche me costo 40").producto());
+    }
+
     @Test void sinCantidad() {
         EntityExtractor.Entidades e = EntityExtractor.extraer("cuantos focos quedan");
         assertNull(e.cantidad());
