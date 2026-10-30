@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.JarvisService;
@@ -22,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** Comprobantes y clientes por voz y por la API. Contexto propio: inventario y clientes de esta clase. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false", "jarvis.token=clave-comprobantes",
         "jarvis.negocio=Ferretería El Clavo", "jarvis.negocio.ruc=20601234567",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-comprobantes-${random.uuid}.json"})
@@ -50,8 +53,6 @@ class ComprobantesVozYApiTest {
     private BigDecimal stock(String prefijo) {
         return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().map(p -> p.stock).orElseThrow();
     }
-
-    // ---------------------------------------------------------------- voz
 
     @Test void ventaConBoletaYDniDichos() {
         BigDecimal antes = stock("Cemento");
@@ -86,8 +87,6 @@ class ComprobantesVozYApiTest {
         assertTrue(jarvis.process("muéstrame la última boleta").startsWith("Mostrando la boleta número"));
     }
 
-    // ---------------------------------------------------------------- API de clientes
-
     @Test void apiDeClientes() throws Exception {
         json(post("/api/clientes"), "{\"documento\":\"20100047218\",\"nombre\":\"Comercial Andina SAC\",\"telefono\":\"014215500\"}")
                 .andExpect(status().isOk()).andExpect(jsonPath("$.reply").value(startsWith("Cliente registrado")));
@@ -103,8 +102,6 @@ class ComprobantesVozYApiTest {
         mvc.perform(get("/api/clientes/20100047218").header("X-Jarvis-Token", CLAVE)).andExpect(status().isNotFound());
         mvc.perform(get("/api/clientes")).andExpect(status().isUnauthorized());
     }
-
-    // ---------------------------------------------------------------- API de ventas y comprobantes
 
     @Test void ventaPorApiYSuPdf() throws Exception {
         String r = json(post("/api/inventory/ventas"), """

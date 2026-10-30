@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.skills;
 
 import com.jarvis.system.LaptopActions;
@@ -9,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
-/** Abre sitios web y hace búsquedas EN LA LAPTOP (aunque la orden venga del celular). */
 @Component
 @Order(2)
 public class WebSkill implements Skill {

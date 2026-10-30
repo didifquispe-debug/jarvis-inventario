@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.jarvis.ai.EntityExtractor;
@@ -13,7 +17,6 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Regresión: "docena", "media docena" y "par" se leían como 1, 0.5 y 1. */
 class MultiplicadoresTest {
 
     @TempDir Path dir;
@@ -37,7 +40,6 @@ class MultiplicadoresTest {
             "vendi un par de zapatillas       | 2",
             "llegaron media docena de panes   | 6",
             "vendi una docena de medias       | 12",
-            // lo que ya funcionaba sigue igual
             "treinta y cinco                  | 35",
             "dos y medio                      | 2.5",
             "20.00                            | 20",

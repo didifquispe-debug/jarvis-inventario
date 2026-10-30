@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.junit.jupiter.api.Test;
@@ -9,7 +13,6 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Categoría, código interno, código de barras y costo de cada producto. */
 class FichaProductoTest {
 
     @TempDir Path dir;
@@ -28,7 +31,6 @@ class FichaProductoTest {
         return new InventoryService.Cambios(null, null, null, null, null, null, f, quitarCosto);
     }
 
-    /** Zapatilla 40 con todos los datos y un polo sin ficha. */
     private InventoryService conProductos() {
         InventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Zapatilla Nike 40", new BigDecimal("180"), new BigDecimal("5"), "pares", null, null,

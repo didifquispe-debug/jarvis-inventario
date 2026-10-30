@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.lowagie.text.*;
@@ -11,14 +15,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
-/**
- * Representación impresa (A4) de una boleta o nota de venta. Adaptada del ComprobantePdfService del sistema de
- * referencia: cabecera con la caja de RUC, tipo y número; datos del cliente; detalle; base, IGV y total; importe en
- * letras; marca de agua "ANULADO". Diferencias: columna de unidad (metros, kilos…) y "CLIENTES VARIOS" sin cliente.
- */
 public final class ComprobantePdf {
 
-    /** Datos del negocio que emite (jarvis.negocio.*). Los vacíos no se imprimen. */
     public record Emisor(String nombre, String ruc, String direccion, String telefono, String email) {}
 
     private static final Color ACENTO = new Color(42, 120, 214);
@@ -67,8 +65,6 @@ public final class ComprobantePdf {
         }
         return salida.toByteArray();
     }
-
-    // ------------------------------------------------------------- secciones
 
     private static PdfPTable cabecera(InventoryService.Comprobante c, Emisor e) {
         PdfPTable tabla = new PdfPTable(new float[]{62, 38});
@@ -182,8 +178,6 @@ public final class ComprobantePdf {
         return t;
     }
 
-    // ---------------------------------------------------------------- celdas
-
     private static void dato(PdfPTable tabla, String etiqueta, String valor) {
         PdfPCell e = sinBorde();
         e.setPhrase(new Phrase(etiqueta, F_ETIQUETA));
@@ -253,7 +247,6 @@ public final class ComprobantePdf {
         return new Font(Font.HELVETICA, tamanio, estilo, color);
     }
 
-    /** "2026-10-23" → "23/10/2026". */
     private static String fecha(String iso) {
         if (iso == null || !iso.matches("\\d{4}-\\d{2}-\\d{2}")) return nz(iso);
         return iso.substring(8, 10) + "/" + iso.substring(5, 7) + "/" + iso.substring(0, 4);
@@ -261,7 +254,6 @@ public final class ComprobantePdf {
 
     private static String nz(String s) { return s == null ? "" : s; }
 
-    /** Pie con la leyenda y el número de página; marca de agua si el comprobante está anulado. */
     private static final class PiePagina extends PdfPageEventHelper {
         private final InventoryService.Comprobante c;
 

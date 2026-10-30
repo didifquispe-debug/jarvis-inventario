@@ -1,13 +1,12 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.ai;
 
 import com.jarvis.inventory.Palabras;
 import org.springframework.stereotype.Component;
 
-/**
- * Cerebro de JARVIS, 100% local y offline (sin Internet ni clave de API):
- * {@link #interpretar(String)} reconoce la intención con DJL ({@link IntentClassifier})
- * y extrae las entidades ({@link EntityExtractor}).
- */
 @Component
 public class AiBrain {
 
@@ -17,13 +16,8 @@ public class AiBrain {
         this.classifier = classifier;
     }
 
-    /** ¿Está cargado el modelo local de intenciones? */
     public boolean intencionesLocales() { return classifier.listo(); }
 
-    /**
-     * Pipeline local: clasifica la intención con DJL y, si es de inventario, extrae cantidad,
-     * producto y precio. Recibe el comando ya normalizado (minúsculas, sin tildes).
-     */
     public IntentResult interpretar(String cmd) {
         String texto = Palabras.norm(cmd);
         IntentClassifier.Clasificacion c = classifier.clasificar(texto);

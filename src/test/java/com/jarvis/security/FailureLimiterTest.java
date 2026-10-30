@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.security;
 
 import org.junit.jupiter.api.Test;
@@ -16,7 +20,7 @@ class FailureLimiterTest {
         l.fallo("ip");
         assertTrue(l.bloqueado("ip"));
         assertEquals(60, l.segundosParaReintentar("ip"));
-        ahora.addAndGet(60_001);                  // pasa el minuto
+        ahora.addAndGet(60_001);
         assertFalse(l.bloqueado("ip"));
     }
 
@@ -27,7 +31,7 @@ class FailureLimiterTest {
         ahora.set(50_000);
         l.fallo("ip");
         assertTrue(l.bloqueado("ip"));
-        ahora.set(60_001);                        // el primer fallo salió de la ventana
+        ahora.set(60_001);
         assertFalse(l.bloqueado("ip"));
     }
 

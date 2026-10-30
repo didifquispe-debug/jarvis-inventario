@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -7,20 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Clientes del negocio (para boletas y notas de venta con nombre y DNI). Se leen y escriben directo en la base:
- * no hace falta tenerlos en memoria, y así un negocio puede tener muchos.
- * Validaciones como en el sistema de referencia: DNI de 8 dígitos (o RUC de 11), correo y teléfono con formato.
- */
 public class Clientes {
 
-    /** Un cliente. {@code documento}: DNI (8 dígitos) o RUC (11). */
     public record Cliente(long id, String documento, String nombre, String email, String telefono, String direccion) {
         @JsonProperty("tipoDocumento")
         public String tipoDocumento() { return documento.length() == 11 ? "RUC" : "DNI"; }
     }
 
-    /** Datos para crear o editar. En una edición, null = no tocar y "" = borrar (salvo documento y nombre). */
     public record Datos(String documento, String nombre, String email, String telefono, String direccion) {}
 
     private static final int MAX_NOMBRE = 120, MAX_EMAIL = 120, MAX_DIRECCION = 200;
@@ -28,8 +25,6 @@ public class Clientes {
     private final BaseDatos db;
 
     Clientes(BaseDatos db) { this.db = db; }
-
-    // ---------------------------------------------------------------- consultas
 
     public synchronized Optional<Cliente> porDocumento(String documento) {
         String d = documento == null ? "" : documento.trim();
@@ -43,11 +38,6 @@ public class Clientes {
         return r.isEmpty() ? Optional.empty() : Optional.of(r.get(0));
     }
 
-    /**
-     * Búsqueda para la pantalla y el asistente: si el texto son dígitos, por documento (que empiece así);
-     * si no, cada palabra debe estar en el nombre, en cualquier orden y sin importar tildes
-     * ("quispe maria" encuentra a "María Quispe Rojas").
-     */
     public synchronized List<Cliente> buscar(String texto, int limite) {
         String t = texto == null ? "" : texto.trim();
         int lim = Math.min(Math.max(limite, 1), 500);
@@ -72,8 +62,6 @@ public class Clientes {
             }
         });
     }
-
-    // ---------------------------------------------------------------- cambios
 
     public synchronized InventoryService.Resultado crear(Datos d) {
         if (d == null) return InventoryService.Resultado.error("Faltan los datos del cliente.");
@@ -104,7 +92,6 @@ public class Clientes {
         return InventoryService.Resultado.ok("Cliente registrado: " + nombre + ", " + tipo(doc) + " " + doc + ".");
     }
 
-    /** Edita el cliente con ese documento. El nuevo documento (si cambia) no puede ser de otro cliente. */
     public synchronized InventoryService.Resultado editar(String documento, Datos d) {
         Optional<Cliente> actual = porDocumento(documento);
         if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
@@ -141,7 +128,6 @@ public class Clientes {
         return InventoryService.Resultado.ok("Guardé los datos de " + nombre + ".");
     }
 
-    /** Como en el sistema de referencia: un cliente con comprobantes no se borra (los comprobantes lo nombran). */
     public synchronized InventoryService.Resultado eliminar(String documento) {
         Optional<Cliente> c = porDocumento(documento);
         if (c.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
@@ -165,8 +151,6 @@ public class Clientes {
             return InventoryService.Resultado.error("No pude eliminar el cliente: " + e.getMessage());
         }
     }
-
-    // ---------------------------------------------------------------- apoyo
 
     static String tipo(String documento) { return documento != null && documento.length() == 11 ? "RUC" : "DNI"; }
 

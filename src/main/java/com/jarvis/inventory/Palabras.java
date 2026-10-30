@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import java.math.BigDecimal;
@@ -6,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Utilidades de texto: normalizar, pasar números en palabras a dígitos, etc. */
 public final class Palabras {
 
     private Palabras() {}
@@ -33,46 +36,29 @@ public final class Palabras {
             Map.entry("seiscientos", 600), Map.entry("setecientos", 700), Map.entry("ochocientos", 800),
             Map.entry("novecientos", 900), Map.entry("mil", 1000));
 
-    /** Palabras que multiplican al número que las precede: "dos docenas" = 24, "un par" = 2. */
     private static final Map<String, Integer> MULTIPLICADOR = Map.of(
             "par", 2, "pares", 2, "docena", 12, "docenas", 12, "millar", 1000, "millares", 1000);
 
-    /** Las que valen por sí solas, sin número delante: "docena de huevos" = 12 (el plural suelto no: "cuantos pares quedan"). */
     private static final Set<String> MULTIPLICADOR_SOLO = Set.of("par", "docena", "millar");
 
-    /** "media docena" = 6, "medio ciento" = 50, "medio millar" = 500. */
     private static final Map<String, Integer> MITAD_DE = Map.of("par", 2, "docena", 12, "ciento", 100, "millar", 1000);
 
     private static final Set<String> PARES = Set.of("par", "pares");
 
-    /**
-     * Cantidad encontrada en una frase: valor y posición [inicio, fin) de sus palabras.
-     * {@code enPares} indica que el valor salió de "par/pares" (ya multiplicado por 2): ver {@link #valorEn(String)}.
-     */
     public record Cantidad(BigDecimal valor, int inicio, int fin, boolean enPares) {
         public static final Cantidad NINGUNA = new Cantidad(null, -1, -1);
         public Cantidad(BigDecimal valor, int inicio, int fin) { this(valor, inicio, fin, false); }
         public boolean hay() { return valor != null; }
-        /** ¿La palabra i forma parte de la cantidad? */
         public boolean cubre(int i) { return hay() && i >= inicio && i < fin; }
 
-        /**
-         * La cantidad en la unidad del producto: "un par de medias" son 2 unidades, pero si el
-         * producto ya se cuenta en pares (zapatillas) es 1 par, no 2.
-         */
         public BigDecimal valorEn(String unidad) {
             if (!enPares || valor == null || unidad == null || !PARES.contains(norm(unidad))) return valor;
             return Num.cantidad(valor.divide(BigDecimal.valueOf(2)));
         }
     }
 
-    /** Número con decimales opcionales, ya normalizado (coma → punto). */
     private static final String DECIMAL = "\\d+(?:\\.\\d+)?";
 
-    /**
-     * minúsculas, sin tildes, sin signos. El punto o la coma ENTRE dígitos se conservan como
-     * punto decimal ("2,5 metros" → "2.5 metros"); antes se borraban y "2.5" se volvía "2 5".
-     */
     public static String norm(String s) {
         if (s == null) return "";
         return Normalizer.normalize(s.toLowerCase().trim(), Normalizer.Form.NFD)
@@ -83,29 +69,19 @@ public final class Palabras {
                 .trim();
     }
 
-    /** ¿Es un número escrito con dígitos ("20", "2.5")? */
     public static boolean esNumero(String t) { return t.matches(DECIMAL); }
 
-    /** ¿Con este token puede empezar una cantidad? (dígitos o número en palabras) */
     public static boolean esInicioCantidad(String t) {
         return esNumero(t) || UNIDAD.containsKey(t) || DECENA.containsKey(t) || CIEN.containsKey(t);
     }
 
-    /** ¿Es una decena ("treinta", "cuarenta"…)? Sirve para no cortar "treinta y cinco" en dos. */
     public static boolean esDecena(String t) { return DECENA.containsKey(t); }
 
-    /** ¿Este token forma parte de un número hablado? */
     public static boolean esNumeroPalabra(String t) {
         return UNIDAD.containsKey(t) || DECENA.containsKey(t) || CIEN.containsKey(t) || t.equals("y");
     }
 
-    /**
-     * Busca la primera cantidad en la lista de palabras: dígitos ("20", "2.5"), palabras
-     * ("veinticinco"), "dos y medio" / "2 y media", o "medio" solo (= 0.5).
-     */
     public static Cantidad buscarCantidad(List<String> ts) {
-        // "un/una/uno" suelen ser artículos ("registra una venta de 5…") y "medio/media" puede ser parte
-        // del nombre ("tubo de media pulgada"): solo cuentan si no hay otro número en la frase
         Cantidad r = buscarCantidad(ts, false);
         return r.hay() ? r : buscarCantidad(ts, true);
     }
@@ -120,7 +96,6 @@ public final class Palabras {
             String sig = i + 1 < ts.size() ? ts.get(i + 1) : "";
             if (MEDIO.contains(t) && MITAD_DE.containsKey(sig))
                 return new Cantidad(Num.cantidad(MITAD.multiply(BigDecimal.valueOf(MITAD_DE.get(sig)))), i, i + 2, PARES.contains(sig));
-            // "una docena", "un par": aquí el "un/una" sí es el número
             if (!conArticulos && ARTICULOS.contains(t) && !MULTIPLICADOR.containsKey(sig)) continue;
             if (conArticulos && MEDIO.contains(t)) return new Cantidad(MITAD, i, i + 1);
             if (esNumero(t)) return multiplicar(ts, new BigDecimal(t), i, i + 1);
@@ -132,11 +107,10 @@ public final class Palabras {
                     if (CIEN.containsKey(w)) { actual = (actual == 0 ? 1 : actual) * CIEN.get(w); total += actual; actual = 0; }
                     else if (DECENA.containsKey(w)) { actual += DECENA.get(w); }
                     else if (UNIDAD.containsKey(w)) { actual += UNIDAD.get(w); }
-                    else if (w.equals("y")) { /* enlazar */ }
+                    else if (w.equals("y")) { }
                     else break;
                     j++;
                 }
-                // un "y" final no es parte del número ("dos y medio" lo trata masMedio)
                 if (j > i + 1 && ts.get(j - 1).equals("y")) j--;
                 return multiplicar(ts, BigDecimal.valueOf(total + actual), i, j);
             }
@@ -144,16 +118,13 @@ public final class Palabras {
         return Cantidad.NINGUNA;
     }
 
-    /** Tras el número [inicio, fin): "dos docenas" (×12), "un par" (×2), y luego "… y medio". */
     private static Cantidad multiplicar(List<String> ts, BigDecimal valor, int inicio, int fin) {
         Integer f = fin < ts.size() ? MULTIPLICADOR.get(ts.get(fin)) : null;
         if (f == null) return masMedio(ts, valor, inicio, fin, MITAD, false);
         BigDecimal factor = BigDecimal.valueOf(f);
-        // "dos docenas y media" = 30: la media es de docena
         return masMedio(ts, valor.multiply(factor), inicio, fin + 1, MITAD.multiply(factor), PARES.contains(ts.get(fin)));
     }
 
-    /** "2 y medio" / "dos y media" → suma la mitad e incluye esas palabras en la cantidad. */
     private static Cantidad masMedio(List<String> ts, BigDecimal valor, int inicio, int fin, BigDecimal mitad, boolean enPares) {
         if (fin + 1 < ts.size() && ts.get(fin).equals("y") && MEDIO.contains(ts.get(fin + 1)))
             return new Cantidad(Num.cantidad(valor.add(mitad)), inicio, fin + 2, enPares);

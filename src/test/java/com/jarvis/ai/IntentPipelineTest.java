@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.ai;
 
 import org.junit.jupiter.api.Test;
@@ -9,7 +13,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/** Pruebas del pipeline sin modelo: extracción de entidades y regla de decisión. */
 class IntentPipelineTest {
 
     @Test void extraeCantidadProductoYPrecio() {
@@ -49,7 +52,6 @@ class IntentPipelineTest {
         assertEquals(Intent.DESCONOCIDO, IntentClassifier.decidir(puntajes(0.80, 0.79, 0.20), 0.62, 0.04).intent());
     }
 
-    /** salida, entrada, desconocido */
     private Map<Intent, Double> puntajes(double salida, double entrada, double desconocido) {
         Map<Intent, Double> m = new EnumMap<>(Intent.class);
         m.put(Intent.REGISTRAR_SALIDA, salida);

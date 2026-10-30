@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import org.slf4j.Logger;
@@ -19,17 +23,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * El archivo SQLite del inventario ({@code jarvis-inventario.db}).
- * <ul>
- *   <li>Se abre una conexión por operación y se cierra al terminar: el archivo nunca queda bloqueado
- *       (OneDrive, el antivirus o una copia manual pueden tocarlo sin problemas).</li>
- *   <li>Cada guardado es una transacción: un corte de luz deja el estado anterior completo o el nuevo completo.</li>
- *   <li>Respaldo diario ({@code .respaldo-AAAAMMDD}, se conservan los últimos {@value #RESPALDOS}).</li>
- *   <li>Si al abrir el archivo está dañado, se guarda aparte y se vuelve al último respaldo.</li>
- * </ul>
- * Dinero y cantidades se guardan como enteros exactos (céntimos, milésimas, diezmilésimas): las sumas cuadran al céntimo.
- */
 final class BaseDatos {
 
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
@@ -52,7 +45,6 @@ final class BaseDatos {
 
     Path archivo() { return archivo; }
 
-    /** ¿El archivo se acaba de crear (aún sin datos)? Sirve para importar el inventario JSON antiguo una sola vez. */
     boolean vacia() {
         return leer(cx -> {
             try (Statement st = cx.createStatement();
@@ -63,7 +55,6 @@ final class BaseDatos {
         });
     }
 
-    /** Ejecuta {@code t} en una transacción: todo o nada. */
     <T> T transaccion(Trabajo<T> t) throws SQLException {
         try (Connection cx = conectar()) {
             cx.setAutoCommit(false);
@@ -78,7 +69,6 @@ final class BaseDatos {
         }
     }
 
-    /** Solo lectura. Un error de lectura es inesperado (el archivo se revisó al abrir): se lanza sin envolver en IO. */
     <T> T leer(Trabajo<T> t) {
         try (Connection cx = conectar()) {
             return t.hacer(cx);
@@ -87,7 +77,6 @@ final class BaseDatos {
         }
     }
 
-    /** Copia consistente de la base completa en {@code destino} (aunque se esté usando). */
     void copiarA(Path destino) throws SQLException {
         try (Connection cx = conectar(); Statement st = cx.createStatement()) {
             Files.deleteIfExists(destino);
@@ -97,7 +86,6 @@ final class BaseDatos {
         }
     }
 
-    /** Hace el respaldo del día si aún no existe y borra los más antiguos. Si falla, solo lo dice en el log. */
     void respaldoDiario() {
         LocalDate hoy = LocalDate.now();
         if (hoy.equals(respaldadoEl)) return;
@@ -112,7 +100,6 @@ final class BaseDatos {
         }
     }
 
-    /** Respaldos existentes, del más reciente al más antiguo. */
     List<Path> respaldos() throws IOException {
         String prefijo = archivo.getFileName() + ".respaldo-";
         Path dir = archivo.toAbsolutePath().getParent();
@@ -124,8 +111,6 @@ final class BaseDatos {
         }
     }
 
-    // ---------------------------------------------------------------- apertura
-
     private Connection conectar() throws SQLException {
         Connection cx = DriverManager.getConnection("jdbc:sqlite:" + archivo.toAbsolutePath());
         try (Statement st = cx.createStatement()) {
@@ -133,7 +118,7 @@ final class BaseDatos {
             st.execute("PRAGMA busy_timeout = 5000");
             st.execute("PRAGMA synchronous = FULL");
         } catch (SQLException e) {
-            cx.close();   // si no, Windows deja el archivo bloqueado y no se puede apartar el dañado
+            cx.close();
             throw e;
         }
         return cx;
@@ -165,7 +150,6 @@ final class BaseDatos {
         }
     }
 
-    /** Revisa que el archivo sea una base sana y crea (o actualiza) las tablas. */
     private void preparar() throws SQLException {
         try (Connection cx = conectar(); Statement st = cx.createStatement()) {
             try (ResultSet rs = st.executeQuery("PRAGMA quick_check")) {
@@ -178,7 +162,7 @@ final class BaseDatos {
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
             if (version < 4) {
-                cx.setAutoCommit(false);   // en SQLite los cambios de tablas también son transaccionales
+                cx.setAutoCommit(false);
                 try {
                     if (version < 2) migrarAVersion2(st);
                     if (version < 3) migrarAVersion3(st);
@@ -192,10 +176,6 @@ final class BaseDatos {
         }
     }
 
-    /**
-     * Versión 4: kardex. Cada movimiento de stock guarda cuánto entró o salió (delta, con signo), el saldo que quedó y el
-     * costo promedio de ese momento. Los movimientos anteriores quedan sin saldo (no se puede reconstruir con certeza).
-     */
     private static void migrarAVersion4(Statement st) throws SQLException {
         st.execute("ALTER TABLE movimiento ADD COLUMN delta_mil INTEGER");
         st.execute("ALTER TABLE movimiento ADD COLUMN saldo_mil INTEGER");
@@ -203,7 +183,6 @@ final class BaseDatos {
         st.execute("PRAGMA user_version = 4");
     }
 
-    /** Versión 3: proveedores y compras (cada compra suma stock y actualiza el costo promedio). */
     private static void migrarAVersion3(Statement st) throws SQLException {
         st.execute("""
                 CREATE TABLE IF NOT EXISTS proveedor (
@@ -252,11 +231,6 @@ final class BaseDatos {
         st.execute("PRAGMA user_version = 3");
     }
 
-    /**
-     * Versión 2: clientes y comprobantes con tipo, serie, correlativo, cliente e IGV.
-     * Las ventas que ya existían quedan como notas de venta (NV01) con su mismo número y sin IGV
-     * (no se sabe si el negocio lo cobraba; no se inventan impuestos).
-     */
     private static void migrarAVersion2(Statement st) throws SQLException {
         st.execute("""
                 CREATE TABLE IF NOT EXISTS cliente (

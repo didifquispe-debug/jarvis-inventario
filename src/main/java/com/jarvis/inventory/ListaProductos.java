@@ -1,32 +1,22 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.inventory;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Lee la lista que se pega en "Cargar lista": una línea por producto, en este orden
- * {@code Nombre, Precio, Stock, Unidad, [StockMín], [Costo], [Categoría], [Código], [Código de barras]}.
- * <ul>
- *   <li>Separador: tabulador (lo que copia Excel), punto y coma o coma, el primero que aparezca en la línea
- *       en ese orden. Con tabulador o punto y coma el decimal puede ir con coma ("25,50").</li>
- *   <li>Se ignoran las líneas vacías, las que empiezan con # y un encabezado "Nombre, Precio, …".</li>
- *   <li>Sin unidad = "unidades"; sin stock = 0. El precio es obligatorio; los cuatro últimos campos son opcionales.</li>
- * </ul>
- * Aquí solo se entiende el texto; las reglas del producto (negativos, duplicados…) las aplica InventoryService.
- */
 public final class ListaProductos {
 
     private ListaProductos() {}
 
-    /** Máximo de productos por carga: una lista más larga seguramente es un archivo equivocado. */
     public static final int MAX_FILAS = 5000;
 
-    /** Un producto de la lista. {@code linea}: número de línea del texto (o posición en el JSON), desde 1. */
     public record Fila(int linea, String nombre, BigDecimal precio, BigDecimal stock, String unidad, BigDecimal stockMin,
                        Producto.Ficha ficha) {}
 
-    /** Una línea que no se pudo registrar y por qué. */
     public record ErrorLinea(int linea, String motivo) {}
 
     public record Lectura(List<Fila> filas, List<ErrorLinea> errores) {
@@ -58,7 +48,6 @@ public final class ListaProductos {
         return new Lectura(filas, errores);
     }
 
-    /** Lo que impide leer la línea, o null si se puede. */
     private static String errorDe(List<String> c) {
         if (c.size() > 9) return "sobran campos (son 9 como máximo: nombre, precio, stock, unidad, stock mínimo, "
                 + "costo, categoría, código, código de barras)";
@@ -73,12 +62,10 @@ public final class ListaProductos {
 
     private static String campo(List<String> c, int i) { return i < c.size() ? c.get(i) : ""; }
 
-    /** "25", "25.50", "25,50", "S/ 25" → número; null si no lo es. */
     private static BigDecimal numero(String s) {
         return Num.parse(s.replaceFirst("(?i)^s/\\s*", "").replace(" ", ""));
     }
 
-    /** Parte la línea por su separador, respetando comillas como en un CSV: "Polo, blanco",25 son dos campos. */
     static List<String> campos(String linea) {
         char sep = linea.indexOf('\t') >= 0 ? '\t' : linea.indexOf(';') >= 0 ? ';' : ',';
         List<String> out = new ArrayList<>();
@@ -97,7 +84,6 @@ public final class ListaProductos {
             }
         }
         out.add(actual.toString().strip());
-        // "Polo, 25, 10, unidades," (coma final de Excel): los campos vacíos del final no cuentan
         while (out.size() > 1 && out.get(out.size() - 1).isEmpty()) out.remove(out.size() - 1);
         return out;
     }

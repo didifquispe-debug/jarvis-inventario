@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.voz;
 
 import com.jarvis.core.Diccionario;
@@ -17,12 +21,6 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Las palabras que JARVIS espera oír: las órdenes y números ({@code voz-vocabulario.txt}) más los nombres de
- * los productos (singular y plural), categorías, unidades, clientes, proveedores y las palabras aprendidas.
- * Con ellas la voz sin Internet acierta mucho más ("vendí tres focos" en vez de "veintitrés focos").
- * Se recalcula como mucho cada 30 segundos.
- */
 @Component
 public class VocabularioVoz {
 
@@ -53,7 +51,6 @@ public class VocabularioVoz {
         return Collections.unmodifiableSet(s);
     }
 
-    /** Las palabras de hoy (ordenadas, en minúsculas y con tildes). */
     public Set<String> palabras() {
         long ahora = System.currentTimeMillis();
         if (ahora - calculado < VIGENCIA_MS && !cache.isEmpty()) return cache;
@@ -77,7 +74,6 @@ public class VocabularioVoz {
         while (m.find()) s.add(m.group());
     }
 
-    /** "Foco" también se dice "focos"; "pantalón", "pantalones". */
     static void agregarConPlural(Set<String> s, String texto) {
         if (texto == null) return;
         Matcher m = PALABRA.matcher(texto.toLowerCase(Locale.ROOT));
@@ -91,7 +87,6 @@ public class VocabularioVoz {
         }
     }
 
-    /** pantalón → pantalon (el plural "pantalones" va sin tilde). */
     private static String sinTilde(String w) {
         return w.replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u');
     }

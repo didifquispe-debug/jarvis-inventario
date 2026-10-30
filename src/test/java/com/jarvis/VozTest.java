@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis;
 
 import com.jarvis.core.Diccionario;
@@ -16,7 +20,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Eliminar por voz y diccionario de palabras propias. Contexto propio con inventario y diccionario temporales. */
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false",
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-voz-${random.uuid}.json",
         "jarvis.diccionario.file=${java.io.tmpdir}/jarvis-test-voz-dic-${random.uuid}.txt"})
@@ -44,8 +47,6 @@ class VozTest {
         return inv.productos().stream().filter(p -> p.nombre.equals(nombre)).findFirst().orElseThrow().stock.intValueExact();
     }
 
-    // ---------------------------------------------------------------- eliminar
-
     @Test void eliminarSinDecirProducto() {
         String pregunta = jarvis.process("Jarvis, elimina la polera roja M.");
         assertTrue(pregunta.startsWith("¿Confirma eliminar Polera roja M del inventario?"), pregunta);
@@ -67,7 +68,6 @@ class VozTest {
     @Test void eliminarSinProductoOInexistente() {
         assertEquals("¿Qué producto elimino del inventario, señor?", jarvis.process("elimina"));
         assertTrue(jarvis.process("elimina la casaca azul").startsWith("No encontré"));
-        // "borra …" que no es un producto no lo atrapa el inventario (así "borra mis notas" sigue en las notas)
         assertEquals(JarvisService.NO_ENTENDI, jarvis.process("borra el cielo estrellado"));
     }
 
@@ -78,8 +78,6 @@ class VozTest {
         assertTrue(existe("Gorra negra"));
         jarvis.process("cancelar venta");
     }
-
-    // ---------------------------------------------------------------- diccionario
 
     @Test void aprenderUsarYOlvidarUnaPalabra() throws Exception {
         assertTrue(jarvis.process("Jarvis, aprende que chompa significa polera").startsWith("Aprendido"));
@@ -98,7 +96,6 @@ class VozTest {
         assertFalse(diccionario.propias().containsKey("chompa"));
     }
 
-    /** Frases que promete el manual (static/manual.html). */
     @Test void frasesDelManual() {
         assertTrue(jarvis.process("¿A cuánto está la gorra negra?").startsWith("Gorra negra cuesta 15.00 soles"));
         assertTrue(jarvis.process("¿cuánto sale la gorra negra?").startsWith("Gorra negra cuesta 15.00 soles"));

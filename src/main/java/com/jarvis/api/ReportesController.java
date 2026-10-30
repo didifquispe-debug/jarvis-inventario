@@ -1,3 +1,7 @@
+/*
+ * Proyecto DYSA - JARVIS Inventario
+ * Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+ */
 package com.jarvis.api;
 
 import com.jarvis.inventory.InventoryService;
@@ -13,17 +17,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Map;
 
-/**
- * Inventario valorizado, kardex y reportes en Excel. La clave la comprueba ApiAuthFilter.
- *
- *   GET /api/inventory/valorizado                      -> { filas: […], productos, sinCosto, stockBajo, sinStock, valorCosto, valorVenta, margen }
- *   GET /api/inventory/kardex?nombre=Polera roja M     -> { producto, unidad, stock, costo, filas: [{fecha, tipo, detalle, entrada, salida, saldo, costo}] }
- *   GET /api/reportes/inventario.xlsx                  -> inventario valorizado + kardex de todos los productos
- *   GET /api/reportes/kardex.xlsx?nombre=…             -> kardex de un producto
- *   GET /api/reportes/ventas.xlsx?desde=AAAA-MM-DD&hasta=AAAA-MM-DD    -> comprobantes y detalle con costo y ganancia
- *   GET /api/reportes/compras.xlsx?desde=…&hasta=…&q=…                 -> compras y detalle
- * Fechas vacías = sin límite. Nombres de producto exactos.
- */
 @RestController
 @CrossOrigin
 public class ReportesController {
@@ -74,8 +67,6 @@ public class ReportesController {
         return excel("compras" + sufijo(desde, hasta),
                 ReportesExcel.compras(inv.compras().listarConDetalle(q, desde, hasta, 1000), desde, hasta, negocio));
     }
-
-    // ---------------------------------------------------------------- apoyo
 
     private static ResponseEntity<byte[]> excel(String nombre, byte[] contenido) {
         String archivo = nombre.replaceAll("[\\\\/:*?\"<>|]", "-") + ".xlsx";

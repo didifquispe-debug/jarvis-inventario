@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!--
+  Proyecto DYSA - JARVIS Inventario
+  Autores: D: Didier · Y: Yoel · S: Sumi · A: Apaza
+-->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -8,11 +12,8 @@
 <link rel="icon" href="icon.svg">
 <title>J.A.R.V.I.S.</title>
 <style>
-  /* Holograma JARVIS: la identidad de Iron Man, pulida. Fondo azul noche con brillo cian, cuadrícula sutil,
-     paneles de vidrio con esquinas de mira, Orbitron y Rajdhani si están instaladas (no se descargan: sin internet); si no, Segoe UI.
-     Un solo estilo oscuro (un holograma claro pierde el efecto). Sin Internet, las fuentes caen a las del sistema. */
   :root {
-    --c: 79, 216, 255;                       /* cian holográfico (r,g,b) */
+    --c: 79, 216, 255;
     --bg: #02070f; --surface: rgba(8, 32, 56, .46); --surface-2: rgba(10, 40, 70, .55); --hover: rgba(var(--c), .1);
     --border: rgba(var(--c), .22); --border-strong: rgba(var(--c), .42);
     --text: #d8f2ff; --muted: rgba(216, 242, 255, .66); --faint: rgba(216, 242, 255, .42);
@@ -40,14 +41,12 @@
       linear-gradient(90deg, rgba(var(--c), .05) 1px, transparent 1px) 0 0 / 44px 44px,
       var(--bg);
   }
-  /* líneas de barrido muy suaves */
   body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 90;
     background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .14) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
   button, input, select, textarea { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
   .num { font-variant-numeric: tabular-nums; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  /* accesibilidad: texto solo para lectores de pantalla, saltos de teclado, filas que se abren con Enter */
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .saltar { position: fixed; left: 12px; top: -80px; z-index: 100; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--accent);
             background: #04121f; color: #fff; font: inherit; cursor: pointer; }
@@ -63,7 +62,6 @@
   ::-webkit-scrollbar-track { background: transparent; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
-  /* ---------------------------------------------------------------- estructura */
   .app { height: 100%; display: grid; grid-template-columns: 236px minmax(0, 1fr) 372px; }
   .vista { min-width: 0; overflow-y: auto; padding: 26px 30px 48px; }
   .pagina { max-width: 1200px; margin: 0 auto; animation: aparece .35s ease-out; }
@@ -75,7 +73,6 @@
                text-shadow: 0 0 16px rgba(var(--c), .55); text-wrap: balance; }
   .pagina .sub { margin: 6px 0 0; color: var(--muted); }
 
-  /* ---------------------------------------------------------------- menú lateral */
   .nav { background: linear-gradient(180deg, rgba(4, 18, 32, .85), rgba(2, 10, 20, .9)); border-right: 1px solid var(--border);
          color: var(--text); display: flex; flex-direction: column; padding: 18px 12px; gap: 3px; min-height: 0; overflow-y: auto;
          box-shadow: inset -1px 0 24px rgba(var(--c), .06); }
@@ -115,10 +112,8 @@
   .medidores dl { margin: 4px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; }
   .medidores dt { color: var(--faint); } .medidores dd { margin: 0; color: var(--accent); text-align: right; word-break: break-all; }
 
-  /* ---------------------------------------------------------------- paneles de vidrio */
   .tarjeta { position: relative; background: linear-gradient(160deg, rgba(12, 48, 80, .5), rgba(4, 16, 30, .6)); border: 1px solid var(--border);
              border-radius: var(--radius); box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .04); backdrop-filter: blur(8px); }
-  /* esquinas de mira holográfica */
   .tarjeta::before, .tarjeta::after { content: ""; position: absolute; width: 14px; height: 14px; border: 2px solid var(--accent);
                                       pointer-events: none; opacity: .85; filter: drop-shadow(0 0 4px rgba(var(--c), .8)); }
   .tarjeta::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius); }
@@ -167,7 +162,6 @@
   .vacio b { display: block; color: #fff; font: 600 .85rem/1.4 var(--head); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px; }
   .vacio .acciones { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-  /* tablas */
   .tabla-caja { overflow-x: auto; }
   table.tabla { width: 100%; border-collapse: collapse; }
   .tabla th { text-align: left; font: 600 .62rem/1.3 var(--head); letter-spacing: .2em; text-transform: uppercase; color: var(--accent);
@@ -188,7 +182,6 @@
   tr.bajo .stock-ctrl { border-color: var(--warn); box-shadow: 0 0 10px rgba(255, 180, 60, .25); } tr.bajo .stock-ctrl span { color: var(--warn); }
   tr.sin .stock-ctrl { border-color: var(--danger); box-shadow: 0 0 10px rgba(255, 107, 107, .25); } tr.sin .stock-ctrl span { color: var(--danger); }
 
-  /* ---------------------------------------------------------------- inicio: reactor al centro */
   .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px) minmax(0, 1fr); gap: 18px; align-items: center; margin-bottom: 20px; }
   .kpi-col { display: grid; gap: 16px; }
   .hero-centro { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -212,7 +205,6 @@
   .lista-reponer small { display: block; color: var(--faint); font-size: .82rem; }
   .rapido { display: flex; gap: 10px; flex-wrap: wrap; }
 
-  /* ---------------------------------------------------------------- vender (punto de venta) */
   .pos { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, 1fr); gap: 18px; align-items: start; }
   .pos-busqueda { padding: 16px; }
   .resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; max-height: 60vh; overflow-y: auto; padding: 2px; }
@@ -248,7 +240,6 @@
   .totales .total span:last-child { color: var(--accent); text-shadow: var(--glow-fuerte); }
   .ticket-acciones { padding: 0 18px 18px; display: grid; grid-template-columns: auto 1fr; gap: 10px; }
 
-  /* ---------------------------------------------------------------- compras, cifras */
   .cifras { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .cifras .tarjeta { padding: 10px 16px; display: flex; gap: 10px; align-items: baseline; }
   .cifras .tarjeta::before, .cifras .tarjeta::after { width: 9px; height: 9px; }
@@ -260,7 +251,6 @@
   .proveedor-nombre { min-height: 1.3em; font-size: .9rem; color: var(--muted); }
   .proveedor-nombre.ok { color: var(--ok); }
 
-  /* ---------------------------------------------------------------- asistente (JARVIS) */
   .asistente { background: linear-gradient(180deg, rgba(4, 18, 32, .82), rgba(2, 10, 20, .92)); border-left: 1px solid var(--border);
                display: flex; flex-direction: column; min-height: 0; box-shadow: inset 1px 0 24px rgba(var(--c), .06); }
   .asis-cab { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
@@ -313,7 +303,6 @@
   .fab canvas { width: 100%; height: 100%; }
   .velo { display: none; }
 
-  /* ---------------------------------------------------------------- ventanas */
   .modal { position: fixed; inset: 0; z-index: 60; background: rgba(1, 5, 12, .72); backdrop-filter: blur(4px); display: none;
            align-items: center; justify-content: center; padding: 16px; }
   .modal.show { display: flex; }
@@ -350,7 +339,6 @@
   .lote-lista { margin: 0 0 10px; padding-left: 18px; max-height: 150px; overflow-y: auto; font-size: .9rem; }
   .lote-lista li.err b { color: var(--danger); } .lote-lista li.omit b { color: var(--warn); }
 
-  /* comprobante */
   .modal-box.recibo { width: min(470px, 100%); }
   .rc-head { text-align: center; margin-bottom: 14px; }
   .rc-head b { display: block; font: 700 1.05rem/1.3 var(--head); letter-spacing: .12em; color: #fff; text-shadow: var(--glow); }
@@ -373,14 +361,12 @@
   .rc-letras { font-size: .82rem; color: var(--muted); padding: 2px 0; }
   .rc-foot { text-align: center; font-size: .86rem; color: var(--faint); margin-top: 10px; }
 
-  /* avisos */
   .avisos { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 8px;
             align-items: center; pointer-events: none; width: min(540px, calc(100% - 32px)); }
   .toast { pointer-events: auto; background: rgba(4, 22, 38, .95); color: var(--accent); border: 1px solid var(--accent); padding: 11px 16px;
            border-radius: 10px; box-shadow: var(--shadow-lg), var(--glow); font-size: .95rem; animation: entra .2s ease-out; max-width: 100%; }
   .toast.mal { background: rgba(40, 8, 10, .95); border-color: var(--danger); color: #ffd0d0; box-shadow: var(--shadow-lg), 0 0 18px rgba(255, 107, 107, .4); }
 
-  /* ---------------------------------------------------------------- ventanas medianas: el asistente se abre aparte */
   @media (max-width: 1240px) {
     .app { grid-template-columns: 224px minmax(0, 1fr); }
     .asistente { position: fixed; top: 0; right: 0; bottom: 0; width: min(410px, 100%); z-index: 50; box-shadow: var(--shadow-lg);
@@ -396,7 +382,6 @@
     .hero-centro { grid-column: 1 / -1; order: -1; }
     .kpi-col { grid-template-columns: 1fr; }
   }
-  /* ---------------------------------------------------------------- celular */
   @media (max-width: 860px) {
     .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
     .nav { flex-direction: row; align-items: center; padding: 8px max(12px, env(safe-area-inset-left)) 8px max(12px, env(safe-area-inset-right));
@@ -410,7 +395,7 @@
     .ticket { position: static; }
     .form-grid { grid-template-columns: 1fr; }
     .compra-linea { grid-template-columns: 1fr 1fr; }
-    .campo { font-size: 16px; }   /* evita que el celular haga zoom al escribir */
+    .campo { font-size: 16px; }
     .tabla.adaptable thead { display: none; }
     .tabla.adaptable, .tabla.adaptable tbody, .tabla.adaptable tr, .tabla.adaptable td { display: block; width: 100%; }
     .tabla.adaptable tr { padding: 10px 6px; border-bottom: 1px dashed var(--border); }
@@ -425,7 +410,6 @@
 </head>
 <body>
 
-<!-- Íconos (trazos simples, heredan el color del texto) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="i-inicio" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></symbol>
@@ -455,7 +439,6 @@
 <button class="saltar" type="button" data-saltar="vista">Saltar al contenido</button>
 <button class="saltar" type="button" data-saltar="input">Saltar al cuadro de órdenes de JARVIS (Alt+O)</button>
 <div class="app">
-  <!-- ================================================================ menú -->
   <nav class="nav" aria-label="Menú principal">
     <div class="marca">
       <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
@@ -495,10 +478,8 @@
     </div>
   </nav>
 
-  <!-- ================================================================ contenido -->
   <main class="vista" id="vista">
 
-    <!-- ------------------------------------------------ inicio -->
     <section class="pagina" id="v-inicio">
       <header>
         <div><h1 id="saludo">Hola</h1><p class="sub" id="fechaHoy">—</p></div>
@@ -534,7 +515,6 @@
       </div>
     </section>
 
-    <!-- ------------------------------------------------ vender -->
     <section class="pagina" id="v-vender" hidden>
       <header><div><h1>Nueva venta</h1><p class="sub">Busque o escanee el producto; JARVIS emite el comprobante al cobrar.</p></div></header>
       <div class="pos">
@@ -567,7 +547,6 @@
       </div>
     </section>
 
-    <!-- ------------------------------------------------ inventario -->
     <section class="pagina" id="v-inventario" hidden>
       <header>
         <div><h1>Inventario</h1><p class="sub" id="invCuenta">—</p></div>
@@ -589,7 +568,6 @@
       <div class="tarjeta tabla-caja" id="inv-list"></div>
     </section>
 
-    <!-- ------------------------------------------------ clientes -->
     <section class="pagina" id="v-clientes" hidden>
       <header>
         <div><h1>Clientes</h1><p class="sub">Para boletas y notas de venta con nombre y documento.</p></div>
@@ -602,7 +580,6 @@
       <div class="tarjeta tabla-caja" id="cliLista"></div>
     </section>
 
-    <!-- ------------------------------------------------ comprobantes -->
     <section class="pagina" id="v-comprobantes" hidden>
       <header>
         <div><h1>Comprobantes</h1><p class="sub">Toque uno para verlo, imprimirlo o sacar su PDF.</p></div>
@@ -620,7 +597,6 @@
       </div>
       <div class="tarjeta tabla-caja" id="compLista"></div>
     </section>
-    <!-- ------------------------------------------------ compras -->
     <section class="pagina" id="v-compras" hidden>
       <header>
         <div><h1>Compras</h1><p class="sub">Cada compra suma stock y actualiza el costo promedio de sus productos.</p></div>
@@ -639,7 +615,6 @@
       <div class="tarjeta tabla-caja" id="comprasLista"></div>
     </section>
 
-    <!-- ------------------------------------------------ proveedores -->
     <section class="pagina" id="v-proveedores" hidden>
       <header>
         <div><h1>Proveedores</h1><p class="sub">Se registran solos con la primera compra, o aquí.</p></div>
@@ -653,7 +628,6 @@
     </section>
   </main>
 
-  <!-- ================================================================ asistente -->
   <aside class="asistente" id="asistente" aria-label="Asistente JARVIS">
     <div class="asis-cab">
       <canvas id="reactor" role="button" tabindex="0" aria-label="Hablar con JARVIS (Alt+H)" aria-keyshortcuts="Alt+H" title="Toque para hablar"></canvas>
@@ -663,7 +637,6 @@
     <div id="log" role="log" aria-live="off" aria-label="Conversación con JARVIS"></div>
     <div id="anuncio" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="transcripcion" id="transcript"></div>
-    <!-- venta con carrito dictada por voz ("nueva venta" … "cobrar") -->
     <div class="carrito-voz" id="cart" hidden>
       <header><span>Venta por voz</span><b id="cartTotal">S/ 0.00</b></header>
       <div class="opc">
@@ -683,6 +656,7 @@
       <button class="atajo" type="button" data-cmd="Cierre de caja">Cierre de caja</button>
       <button class="atajo" type="button" data-cmd="Nueva venta">Venta por voz</button>
       <button class="atajo" type="button" data-cmd="Último comprobante">Último comprobante</button>
+      <button class="atajo" type="button" data-cmd="Imprime la boleta" title="Imprime el último comprobante (ticket de 80 mm)">Imprimir boleta</button>
       <button class="atajo" type="button" data-cmd="Lista de precios">Lista de precios</button>
       <button class="atajo" type="button" data-cmd="Estado del sistema">Estado del sistema</button>
       <button class="atajo" type="button" data-cmd="Ayuda">Ayuda</button>
@@ -706,7 +680,6 @@
 <button class="fab" type="button" id="abrirAsistente" aria-label="Abrir asistente JARVIS"><canvas id="orbeFab" aria-hidden="true"></canvas></button>
 <div class="avisos" id="avisos" aria-live="polite"></div>
 
-<!-- ================================================================ ventanas -->
 <div id="prodModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="prodTitle">
   <form class="modal-box" id="prodForm" novalidate>
     <h3 id="prodTitle">Nuevo producto</h3>
@@ -908,7 +881,8 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
     <p>Por voz: “ir a inventario”, “abre clientes”, “nuevo producto”, “registrar cliente”, “nueva compra”,
       “nuevo proveedor”, “cargar lista”. Con una ventana abierta, lo que dicte se escribe en el campo
       (los números también: “veinticinco con cincuenta”); diga “siguiente” o “anterior” para cambiar de campo,
-      “leer” para oír el campo, “guardar” para guardar y “cancelar” para cerrar.</p>
+      “leer” para oír el campo, “guardar” para guardar y “cancelar” para cerrar.
+      Después de cobrar diga “imprime la boleta” (o “imprime el comprobante 5”) para imprimir el ticket.</p>
     <div class="modal-btns"><button class="boton primario" type="button" id="atajosCerrar">Cerrar</button></div>
   </div>
 </div>
@@ -925,6 +899,8 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
 </div>
 
 <script>
+// Proyecto DYSA (D: Didier · Y: Yoel · S: Sumi · A: Apaza).
+// Las funciones y variables con prefijo dysa son del comprobante y su impresión.
 const $ = id => document.getElementById(id);
 const stateEl = $('state'), logEl = $('log'), transcriptEl = $('transcript');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -936,10 +912,9 @@ const icono = (id, extra = '') => `<svg aria-hidden="true" focusable="false" ${e
 function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function leer(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 
-/* =================== Clave de acceso =================== */
 function saveToken(t) { guardar('jarvisToken', t); }
 function loadToken() { return leer('jarvisToken'); }
-(function () {   // la ventana de escritorio trae la clave en la URL (#t=...)
+(function () {
   const m = location.hash.match(/^#t=(.*)$/);
   if (m) { saveToken(decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname); }
 })();
@@ -948,8 +923,6 @@ function getToken() {
   if (!t) { t = prompt('Clave de JARVIS (sale en la bandeja de la laptop y en jarvis.log al crearse, o la de jarvis.token):') || ''; saveToken(t); }
   return t;
 }
-/* Id de sesión por pestaña: el "sí/no" pendiente y la venta por voz son de cada dispositivo.
-   crypto.randomUUID no existe en http://192.168… (no es contexto seguro), getRandomValues sí. */
 const SESSION_ID = (function () {
   const nuevo = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
   try {
@@ -960,7 +933,6 @@ const SESSION_ID = (function () {
 })();
 $('gear').onclick = () => { saveToken(''); getToken(); refrescarTodo(); };
 
-/* =================== Avisos =================== */
 function avisar(texto, mal) {
   const a = document.createElement('div');
   a.className = 'toast' + (mal ? ' mal' : '');
@@ -969,14 +941,12 @@ function avisar(texto, mal) {
   setTimeout(() => a.remove(), mal ? 6500 : 4200);
 }
 
-/* =================== Servidor =================== */
 async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(),
                                                     'X-Jarvis-Session': SESSION_ID, ...(opts.headers || {}) } });
   if (r.status === 401) { saveToken(''); }
   return r;
 }
-/* Llama a la API y devuelve { ok, reply, data } con un mensaje claro si algo falla. */
 async function invCall(path, method, body) {
   try {
     const r = await api(path, { method, body: body ? JSON.stringify(body) : undefined });
@@ -991,7 +961,6 @@ async function traer(path) {
   try { const r = await api(path); return r.ok ? await r.json() : null; } catch (e) { return null; }
 }
 
-/* =================== Navegación =================== */
 const VISTAS = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
 let vista = 'inicio';
 function irA(v) {
@@ -1014,7 +983,6 @@ function irA(v) {
 window.addEventListener('hashchange', () => irA(location.hash.slice(1)));
 document.querySelectorAll('[data-accion="nuevo-producto"]').forEach(b => b.onclick = () => openProduct(null));
 
-/* =================== Asistente: abrir y cerrar en pantallas angostas =================== */
 function abrirAsistente(abrir) {
   $('asistente').classList.toggle('abierto', abrir);
   $('velo').classList.toggle('visible', abrir);
@@ -1024,7 +992,6 @@ $('abrirAsistente').onclick = () => abrirAsistente(true);
 $('cerrarAsistente').onclick = () => abrirAsistente(false);
 $('velo').onclick = () => abrirAsistente(false);
 
-/* =================== Estado del asistente =================== */
 let state = 'idle';
 const LABELS = { idle: 'En espera', listening: 'Escuchando…', thinking: 'Pensando…', speaking: 'Hablando…', wake: 'Diga “Jarvis”…' };
 function setState(s) {
@@ -1035,10 +1002,8 @@ function setState(s) {
   $('estadoGrande').className = 'hero-estado' + (s === 'thinking' ? ' pensando' : '');
 }
 
-/* =================== Conversación =================== */
 const hhmm = () => new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
 const MENOS_MOVIMIENTO = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-/* Lo que oye el lector de pantalla: la respuesta entera (el chat la escribe letra por letra y se leería a pedazos). */
 function anunciar(texto) {
   const a = $('anuncio');
   a.textContent = '';
@@ -1063,11 +1028,9 @@ function addEntry(who, text, typewriter) {
   return e;
 }
 
-/* =================== Voz de JARVIS =================== */
 let voice = null, speakKick = 0;
 function pickVoice() {
   const es = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('es'));
-  // sin Internet: solo las voces instaladas en el equipo (las "online"/"natural" de Edge y Chrome van por Internet)
   const locales = es.filter(v => v.localService);
   const vs = locales.length ? locales : es;
   const score = v => (/natural|online/i.test(v.name) ? 4 : 0)
@@ -1076,22 +1039,21 @@ function pickVoice() {
   voice = vs.sort((a, b) => score(b) - score(a))[0] || null;
 }
 if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-/* El navegador solo deja hablar después de que el usuario tocó algo en la página. */
-const puedeHablar = () => (hablaPc || 'speechSynthesis' in window) && (!navigator.userActivation || navigator.userActivation.hasBeenActive);
-/* Voz de JARVIS: Piper o las voces de Windows por los parlantes de esta PC (hablaPc), o la del navegador. */
+const usuarioActivo = () => !navigator.userActivation || navigator.userActivation.hasBeenActive;
+const puedeHablar = () => hablaPc || ('speechSynthesis' in window && usuarioActivo());
 let hablaPc = null, fraseVoz = 0;
 function speak(text, then) {
   if (!puedeHablar() || !vozActiva) { then ? then() : resumeIdle(); return; }
-  if (micPc) escuchaPc('pausa');   // que el micrófono de la PC no oiga a JARVIS
+  if (micPc) escuchaPc('pausa');
   const mia = ++fraseVoz;
-  const fin = () => { if (mia === fraseVoz) { then ? then() : resumeIdle(); } };   // una frase nueva reemplaza a la anterior
+  const fin = () => { if (mia === fraseVoz) { then ? then() : resumeIdle(); } };
   if (hablaPc) {
     window.speechSynthesis?.cancel();
     setState('speaking');
     const pulso = setInterval(() => { speakKick = 0.2 + Math.random() * 0.25; }, 140);
     api('/api/voz/hablar', { method: 'POST', body: JSON.stringify({ texto: text }) })
       .then(r => { clearInterval(pulso); if (!r.ok) throw new Error(); fin(); })
-      .catch(() => {   // Piper/Windows fallaron: esta y las siguientes, con la voz del navegador
+      .catch(() => {
         clearInterval(pulso);
         if (mia !== fraseVoz) return;
         hablaPc = null;
@@ -1114,14 +1076,13 @@ function hablarNavegador(text, fin) {
   u.onend = u.onerror = fin;
   speechSynthesis.speak(u);
 }
-/* Calla a JARVIS (al tocar el micrófono, al dictar…). */
 function callar() {
   fraseVoz++;
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   if (hablaPc) api('/api/voz/callar', { method: 'POST' }).catch(() => {});
 }
 async function iniciarHablaPc() {
-  if (!ES_ESTA_PC) return;   // el celular habla con su propia voz
+  if (!ES_ESTA_PC) return;
   try {
     const r = await api('/api/voz/habla');
     if (!r.ok) return;
@@ -1130,11 +1091,10 @@ async function iniciarHablaPc() {
   } catch (x) {}
 }
 
-/* porVoz: se dictó (las ventas y cantidades se repiten y esperan un "sí"). */
 async function send(text, silentUser, porVoz) {
   text = (text || '').trim();
   if (!text) return;
-  if (ordenDePantalla(text, porVoz, silentUser)) return;   // "ir a inventario", dictar en una ventana…
+  if (ordenDePantalla(text, porVoz, silentUser)) return;
   stopRec();
   transcriptEl.textContent = '';
   if (!silentUser) addEntry('me', text);
@@ -1143,12 +1103,12 @@ async function send(text, silentUser, porVoz) {
     const r = await api('/api/command', { method: 'POST', body: JSON.stringify({ text, voz: !!porVoz }) });
     const data = await r.json();
     const e = addEntry('bot', data.reply, true);
-    ultimaPregunta = /\?\s*$/.test(data.reply || '');   // "¿Lo hago?": la respuesta se escucha sin decir "Jarvis"
+    ultimaPregunta = /\?\s*$/.test(data.reply || '');
     speak(data.reply);
-    if (data.recibo) { showReceipt(data.recibo); addReceiptLink(e, data.recibo); }
+    if (data.recibo) { dysaMostrarRecibo(data.recibo); dysaEnlaceRecibo(e, data.recibo); }
     renderCart(data.carrito);
     if (/estado del sistema|diagnostico|diagnóstico/i.test(text)) { $('equipo').open = true; refreshSystem(); }
-    refrescarDatos();   // el stock, las ventas o los clientes pudieron cambiar
+    refrescarDatos();
   } catch (e) {
     addEntry('sys', 'Sin conexión con el núcleo de JARVIS.');
     resumeIdle();
@@ -1161,8 +1121,8 @@ document.addEventListener('click', e => {
   if (b) send(b.dataset.cmd);
 });
 
-/* =================== Comprobante =================== */
-let lastReceipt = null;
+// DYSA: último comprobante cobrado o abierto; es el que imprime "imprime la boleta".
+let dysaUltimoRecibo = null;
 let negocio = { nombre: '', ruc: '', direccion: '' };
 const itemRows = items => items.map(v => `<tr>
     <td class="num">${cant(v.cantidad)}</td>
@@ -1170,11 +1130,10 @@ const itemRows = items => items.map(v => `<tr>
     <td class="n">${soles(v.precioUnitario)}</td>
     <td class="n">${soles(v.monto)}</td>
   </tr>`).join('');
-/* "B001-00000012" (o el número interno en ventas muy antiguas sin serie) */
 const codigoDe = c => c.codigo || ('N° ' + nroComp(c.numero));
 const tipoCorto = t => t === 'NOTA_VENTA' ? 'Nota de venta' : 'Boleta';
 
-function receiptHtml(r) {
+function dysaHtmlRecibo(r) {
   const c = r.comprobante, n = r.negocio || negocio;
   const fecha = (c.fecha || '').split('-').reverse().join('/');
   const conIgv = Number(c.tasaIgv) > 0;
@@ -1200,29 +1159,38 @@ function receiptHtml(r) {
     <div class="rc-letras">SON: ${esc(c.totalEnLetras || '')}</div>
     <div class="rc-foot">${esc(c.leyendaIgv || '')}<br>¡Gracias por su compra!</div>`;
 }
-function showReceipt(r) {
-  lastReceipt = r;
-  $('receiptBody').innerHTML = receiptHtml(r);
+function dysaMostrarRecibo(r) {
+  dysaUltimoRecibo = r;
+  $('receiptBody').innerHTML = dysaHtmlRecibo(r);
   $('receipt').classList.add('show');
 }
 async function verComprobante(numero) {
   const c = await traer('/api/inventory/comprobantes/' + numero);
-  if (c) showReceipt({ comprobante: c, negocio }); else avisar('No pude abrir ese comprobante.', true);
+  if (c) dysaMostrarRecibo({ comprobante: c, negocio }); else avisar('No pude abrir ese comprobante.', true);
 }
-function addReceiptLink(entrada, r) {
+function dysaEnlaceRecibo(entrada, r) {
   if (!entrada) return;
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'boton ver';
   b.textContent = 'Ver ' + tipoCorto(r.comprobante.tipo).toLowerCase() + ' ' + codigoDe(r.comprobante);
-  b.onclick = () => showReceipt(r);
-  entrada.appendChild(b);
+  b.onclick = () => dysaMostrarRecibo(r);
+  const imp = document.createElement('button');
+  imp.type = 'button'; imp.className = 'boton ver';
+  imp.textContent = 'Imprimir';
+  imp.setAttribute('aria-label', 'Imprimir ' + tipoCorto(r.comprobante.tipo).toLowerCase() + ' ' + codigoDe(r.comprobante));
+  imp.onclick = () => { dysaUltimoRecibo = r; dysaImprimirRecibo(); };
+  entrada.append(b, ' ', imp);
 }
-/* Ticket de 80 mm en una ventana aparte, en blanco y negro. */
-function printReceipt() {
-  if (!lastReceipt) return;
-  const w = window.open('', '_blank', 'width=420,height=640');
-  if (!w) return;
-  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(codigoDe(lastReceipt.comprobante))}</title>
+function dysaImprimirRecibo() {
+  if (!dysaUltimoRecibo) return false;
+  $('marcoImpresion')?.remove();
+  const f = document.createElement('iframe');
+  f.id = 'marcoImpresion'; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  const d = f.contentWindow.document;
+  d.open();
+  d.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(codigoDe(dysaUltimoRecibo.comprobante))}</title>
     <style>
       @page { size: 80mm auto; margin: 4mm; }
       body { font: 13px/1.35 "Courier New", monospace; color: #000; background: #fff; width: 72mm; margin: 0 auto; }
@@ -1235,16 +1203,15 @@ function printReceipt() {
       .rc-doc { text-align: center; border: 1px solid #000; padding: 4px; margin-bottom: 6px; } .rc-doc b, .rc-doc span { display: block; }
       .rc-cliente { padding: 4px 0; border-bottom: 1px dashed #000; } .rc-sub { display: flex; justify-content: space-between; }
       .rc-letras { font-size: 11px; padding-top: 4px; } .rc-anulado { font-weight: bold; letter-spacing: 4px; }
-    </style></head><body>${receiptHtml(lastReceipt)}</body></html>`);
-  w.document.close();
-  w.focus();
-  setTimeout(() => { try { w.print(); } catch (e) {} }, 300);   // deja que la ventana dibuje antes
+    </style></head><body>${dysaHtmlRecibo(dysaUltimoRecibo)}</body></html>`);
+  d.close();
+  setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) {} }, 300);
+  return true;
 }
-/* Comprobante A4 en PDF: se pide con la clave y se abre en una ventana aparte */
-async function openReceiptPdf() {
-  if (!lastReceipt) return;
+async function dysaAbrirPdfRecibo() {
+  if (!dysaUltimoRecibo) return;
   try {
-    const r = await api('/api/inventory/comprobantes/' + lastReceipt.comprobante.numero + '/pdf');
+    const r = await api('/api/inventory/comprobantes/' + dysaUltimoRecibo.comprobante.numero + '/pdf');
     if (!r.ok) { avisar('No pude generar el PDF del comprobante.', true); return; }
     const url = URL.createObjectURL(await r.blob());
     if (!window.open(url, '_blank')) location.href = url;
@@ -1254,10 +1221,9 @@ async function openReceiptPdf() {
   }
 }
 $('receiptClose').onclick = () => $('receipt').classList.remove('show');
-$('receiptPrint').onclick = printReceipt;
-$('receiptPdf').onclick = openReceiptPdf;
+$('receiptPrint').onclick = dysaImprimirRecibo;
+$('receiptPdf').onclick = dysaAbrirPdfRecibo;
 
-/* =================== Venta por voz (carrito de la sesión) =================== */
 function renderCart(c) {
   const box = $('cart');
   if (!c) { box.hidden = true; return; }
@@ -1288,7 +1254,6 @@ async function refreshCart() {
   } catch (e) {}
 }
 
-/* =================== Inicio =================== */
 let resumen = null;
 function pintarSaludo() {
   const h = new Date().getHours();
@@ -1339,9 +1304,8 @@ document.addEventListener('click', e => {
   if (fila) verComprobante(fila.dataset.comp);
 });
 
-/* =================== Punto de venta =================== */
-let posLineas = [], posTipo = 'boleta', posCliente = null;   // posCliente: { documento, nombre }
-(function () {   // la venta a medio armar sobrevive a una recarga de la página
+let posLineas = [], posTipo = 'boleta', posCliente = null;
+(function () {
   try { const g = JSON.parse(leer('jarvisPos') || 'null'); if (g) { posLineas = g.lineas || []; posTipo = g.tipo || 'boleta'; posCliente = g.cliente || null; } } catch (e) {}
 })();
 const guardarPos = () => guardar('jarvisPos', JSON.stringify({ lineas: posLineas, tipo: posTipo, cliente: posCliente }));
@@ -1400,7 +1364,7 @@ function renderPos() {
   $('posCobrar').disabled = !posLineas.length;
 }
 $('posBuscar').addEventListener('input', renderResultados);
-$('posBuscar').addEventListener('keydown', e => {   // Enter: el escáner o el único resultado se agrega
+$('posBuscar').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   e.preventDefault();
   const q = $('posBuscar').value.trim(); if (!q) return;
@@ -1449,13 +1413,12 @@ $('posCobrar').onclick = async () => {
   const res = await invCall('/api/inventory/ventas', 'POST', { items: posLineas, tipo: posTipo, cliente: posCliente ? posCliente.documento : null });
   $('posCobrar').disabled = false;
   if (!res.ok) { avisar(res.reply, true); return; }
-  if (res.data.recibo) showReceipt(res.data.recibo);
+  if (res.data.recibo) dysaMostrarRecibo(res.data.recibo);
   avisar(res.reply);
   posLineas = []; posCliente = null; $('posDni').value = ''; guardarPos();
   await refreshInventory(); renderPos();
 };
 
-/* =================== Inventario =================== */
 let invItems = [];
 async function refreshInventory() {
   const d = await traer('/api/inventory');
@@ -1511,7 +1474,6 @@ function renderInventory() {
           <button class="icono peligro" type="button" data-act="borrar" title="Eliminar" aria-label="Eliminar ${esc(p.nombre)}">${icono('basura')}</button></td></tr>`;
     }).join('') + '</tbody></table>';
 }
-/* Categorías que ya existen: para el filtro y para sugerirlas en el formulario */
 function renderCategorias() {
   const cats = [...new Set(invItems.map(p => p.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
   const sel = $('invCat'), actual = sel.value;
@@ -1546,10 +1508,8 @@ $('invSearch').addEventListener('input', renderInventory);
 $('invCat').addEventListener('change', renderInventory);
 $('invEstado').addEventListener('change', renderInventory);
 
-/* ---- formulario de producto ---- */
-let editando = null;   // producto que se edita (null = nuevo)
+let editando = null;
 const numOrNull = v => v.trim() === '' ? null : Number(v.replace(',', '.'));
-/* alias que escribió el usuario (el servidor siempre agrega el propio nombre normalizado) */
 const aliasPropios = p => (p.alias || []).filter(a => a !== sinTildes(p.nombre).replace(/\s+/g, ' ').trim());
 function openProduct(p) {
   editando = p;
@@ -1571,7 +1531,6 @@ function openProduct(p) {
   setTimeout(() => $('fNombre').focus(), 50);
 }
 function closeProduct() { $('prodModal').classList.remove('show'); editando = null; }
-/* Ganancia por unidad mientras se escriben el precio y el costo */
 function mostrarMargen() {
   const precio = numOrNull($('fPrecio').value), costo = numOrNull($('fCosto').value), out = $('fMargen');
   out.classList.remove('mal');
@@ -1582,7 +1541,6 @@ function mostrarMargen() {
 }
 $('fPrecio').addEventListener('input', mostrarMargen);
 $('fCosto').addEventListener('input', mostrarMargen);
-/* El escáner "teclea" el código y luego Enter: que no envíe el formulario, solo pase al botón Guardar */
 $('fBarras').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('prodSave').focus(); } });
 $('prodCancel').onclick = closeProduct;
 $('prodForm').addEventListener('submit', async e => {
@@ -1592,7 +1550,6 @@ $('prodForm').addEventListener('submit', async e => {
   const alias = $('fAlias').value.split(',').map(a => a.trim()).filter(Boolean);
   const costo = numOrNull($('fCosto').value), categoria = $('fCat').value.trim();
   const codigo = $('fCodigo').value.trim(), codigoBarras = $('fBarras').value.trim();
-  // revisión rápida aquí; el servidor vuelve a validar todo
   const err = !nombre ? 'Escriba el nombre del producto.'
     : precio === null || isNaN(precio) ? 'Escriba el precio (puede ser 0).'
     : precio < 0 ? 'El precio no puede ser negativo.'
@@ -1602,7 +1559,7 @@ $('prodForm').addEventListener('submit', async e => {
     : (costo !== null && (isNaN(costo) || costo < 0)) ? 'El costo no puede ser negativo.' : '';
   if (err) { $('prodErr').textContent = err; return; }
   let cambios = null;
-  if (editando) {   // solo lo que cambió, para que el historial no se llene de cambios que no lo son
+  if (editando) {
     const p = editando, c = { nombre: p.nombre };
     if (nombre !== p.nombre) c.nuevoNombre = nombre;
     if (precio !== Number(p.precio)) c.precio = precio;
@@ -1629,7 +1586,6 @@ $('prodForm').addEventListener('submit', async e => {
   refreshInventory();
 });
 
-/* ---- carga masiva ("Cargar lista") ---- */
 function openLote() {
   $('loteRes').innerHTML = ''; $('loteErr').textContent = '';
   $('loteModal').classList.add('show');
@@ -1638,14 +1594,13 @@ function openLote() {
 function closeLote() { pararDictado(); $('loteModal').classList.remove('show'); }
 $('invLote').onclick = openLote;
 $('loteCancel').onclick = closeLote;
-/* El archivo se vuelca al cuadro de texto: el usuario lo revisa y luego toca Cargar. */
 $('loteFile').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = '';
   if (!f) return;
   if (f.size > 2 * 1024 * 1024) { $('loteErr').textContent = 'El archivo es muy grande (máximo 2 MB).'; return; }
   const buf = await f.arrayBuffer();
   let txt = new TextDecoder('utf-8').decode(buf);
-  if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);   // .csv guardado por Excel con tildes
+  if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);
   $('loteTxt').value = txt;
   $('loteErr').textContent = '';
   $('loteRes').innerHTML = `<p>Archivo “${esc(f.name)}” listo. Revíselo y toque Cargar.</p>`;
@@ -1679,12 +1634,11 @@ $('loteForm').addEventListener('submit', async e => {
   $('loteSend').disabled = false;
   if (!d.ok) { $('loteRes').innerHTML = ''; $('loteErr').textContent = d.reply; return; }
   $('loteRes').innerHTML = loteResumen(d);
-  if (!d.errores.length) $('loteTxt').value = '';   // con errores se deja el texto para corregirlo
+  if (!d.errores.length) $('loteTxt').value = '';
   avisar(d.reply);
   refreshInventory();
 });
 
-/* ---- dictado dentro de "Cargar lista": la voz solo ESCRIBE en el cuadro; se registra al tocar Cargar ---- */
 const NUM_DICHO = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
   once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50, cien: 100 };
 const UNIDAD_DICHA = { unidad: 'unidades', unidades: 'unidades', par: 'pares', pares: 'pares', metro: 'metros', metros: 'metros',
@@ -1693,28 +1647,19 @@ const UNIDAD_DICHA = { unidad: 'unidades', unidades: 'unidades', par: 'pares', p
   rollo: 'rollos', rollos: 'rollos', galon: 'galones', galones: 'galones', saco: 'sacos', sacos: 'sacos',
   pieza: 'piezas', piezas: 'piezas', gramo: 'gramos', gramos: 'gramos' };
 const RELLENO_NUMERO = /\b(soles?|precio|stock|minimo|min)\b|s\/\s*/g;
-/* "25", "4,20" o "diez" → texto del número; null si no es un número */
 function numeroDicho(t) {
   const s = sinTildes(t).trim();
   if (/^\d+([.,]\d+)?$/.test(s)) return s;
   return NUM_DICHO[s] != null ? String(NUM_DICHO[s]) : null;
 }
 const capital = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
-/* campos → "Nombre; Precio; Stock; Unidad; Mín" (punto y coma: así "4,20" sigue siendo decimal) */
 function armarLinea(c) {
   const out = c.map(x => String(x ?? '').trim());
   while (out.length > 1 && !out[out.length - 1]) out.pop();
   return out.join('; ');
 }
-/*
- * Convierte una frase dictada en una línea de la lista:
- *  - con separadores dichos: "polo blanco coma 25 coma 10 coma unidades"
- *  - sin ellos: el precio va tras "a"/"precio" o antes de "soles"; luego stock, unidad y "mínimo N":
- *    "zapatilla nike 40 a 180 soles 5 pares mínimo 2" → "Zapatilla nike 40; 180; 5; pares; 2"
- *  - si no hay esas palabras, el nombre llega hasta el primer número: "arroz 4,20 50 kilos".
- */
 function lineaDictada(frase) {
-  const t = String(frase || '').trim().replace(/(\d+)\s+con\s+(\d{1,2})\b/gi, '$1,$2');   // "25 con 50" → 25,50
+  const t = String(frase || '').trim().replace(/(\d+)\s+con\s+(\d{1,2})\b/gi, '$1,$2');
   if (!t) return '';
   const sep = /\s*(?:\bpunto y coma\b|\bcoma\b|;|,(?=\s))\s*/i;
   if (sep.test(t)) {
@@ -1735,7 +1680,7 @@ function lineaDictada(frase) {
     if ((w[i] === 'soles' || w[i] === 'sol') && numeroDicho(ts[i - 1]) != null) { ip = i - 1; finNombre = i - 1; break; }
   }
   if (ip < 0) { ip = ts.findIndex((x, i) => i > 0 && /^\d/.test(x)); finNombre = ip; }
-  if (ip < 0) return capital(t);   // sin precio: queda la línea tal cual para completarla a mano
+  if (ip < 0) return capital(t);
   let stock = '', unidad = '', min = '', esMin = false;
   for (const x of ts.slice(ip + 1)) {
     const s = sinTildes(x), n = numeroDicho(x);
@@ -1759,7 +1704,6 @@ let dictado = null, dictando = false, dictadoLang = null;
 const AVISO_DICTADO = local => local
   ? 'Dictado en este equipo. Diga un producto por frase…'
   : 'El dictado usa el servicio de voz del navegador (necesita Internet). Diga un producto por frase…';
-/* ¿El navegador puede reconocer español sin Internet? Devuelve el idioma o null. No descarga nada. */
 async function idiomaLocal() {
   if (!SR || typeof SR.available !== 'function') return null;
   for (const lang of ['es-PE', 'es-419', 'es-US', 'es-ES']) {
@@ -1778,7 +1722,7 @@ async function iniciarDictado() {
       : 'El micrófono requiere HTTPS en este dispositivo (vea el README). Puede escribir o pegar la lista.';
     return;
   }
-  stopRec();   // un solo micrófono a la vez: el de manos libres se reanuda al terminar
+  stopRec();
   callar();
   dictando = true;
   $('loteErr').textContent = '';
@@ -1805,27 +1749,26 @@ function escucharDictado() {
     if (dictando) $('loteVoz').textContent = parcial ? '“' + parcial + '”' : AVISO_DICTADO(dictadoLang);
   };
   r.onerror = e => {
-    if (e.error === 'language-not-supported' && dictadoLang) { dictadoLang = null; return; }   // onend reintenta sin modo local
+    if (e.error === 'language-not-supported' && dictadoLang) { dictadoLang = null; return; }
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed') $('loteErr').textContent = 'Permiso de micrófono denegado.';
     else if (e.error === 'network') $('loteErr').textContent = 'Sin Internet, este navegador no puede dictar. Escriba o pegue la lista.';
-    else return;   // "no-speech", "aborted": se sigue escuchando
+    else return;
     pararDictado();
   };
-  r.onend = () => { if (dictando && dictado === r) setTimeout(escucharDictado, 200); };   // Chrome corta tras un silencio
+  r.onend = () => { if (dictando && dictado === r) setTimeout(escucharDictado, 200); };
   try { r.start(); } catch (e) {}
 }
 function pararDictado() {
   if (!dictando) return;
   dictando = false;
   const r = dictado; dictado = null;
-  if (r) { r.onend = null; try { r.stop(); } catch (e) {} }   // stop() (no abort): entrega la última frase
+  if (r) { r.onend = null; try { r.stop(); } catch (e) {} }
   botonDictado(false);
   $('loteVoz').textContent = '';
   if (handsFree) setTimeout(() => { if (!rec && handsFree) startRec('wake'); }, 300);
 }
 $('loteMic').onclick = () => dictando ? pararDictado() : iniciarDictado();
 
-/* =================== Clientes =================== */
 let clientes = [], editandoCliente = null, clienteParaVenta = false;
 async function refreshClientes() {
   const q = $('cliBuscar').value.trim();
@@ -1895,7 +1838,6 @@ $('cliForm').addEventListener('submit', async e => {
   refreshClientes();
 });
 
-/* =================== Comprobantes =================== */
 let comprobantes = [];
 async function refreshComprobantes() {
   const d = await traer('/api/inventory/comprobantes?' + new URLSearchParams({ limite: 1000, desde: $('compDesde').value, hasta: $('compHasta').value }));
@@ -1919,7 +1861,7 @@ $('compDesde').addEventListener('change', refreshComprobantes);
 $('compHasta').addEventListener('change', refreshComprobantes);
 $('compExcel').onclick = () => descargar('/api/reportes/ventas.xlsx?' + new URLSearchParams({ desde: $('compDesde').value, hasta: $('compHasta').value }), 'ventas.xlsx');
 $('anularUltima').onclick = async () => {
-  const ultimo = comprobantes[0];   // la lista viene de la más reciente a la más antigua
+  const ultimo = comprobantes[0];
   if (!ultimo) { avisar('No hay ventas para anular.', true); return; }
   if (ultimo.anulado) { avisar(`La última venta (${codigoDe(ultimo)}) ya está anulada.`, true); return; }
   if (!await confirmar('Anular la última venta', `¿Anular ${tipoCorto(ultimo.tipo).toLowerCase()} ${codigoDe(ultimo)} por ${soles(ultimo.total)}? Los productos vuelven al stock.`, 'Anular')) return;
@@ -1928,7 +1870,6 @@ $('anularUltima').onclick = async () => {
   refrescarDatos();
 };
 
-/* =================== Compras =================== */
 const fechaCorta = f => (f || '').split('-').reverse().join('/');
 let compras = [];
 async function refreshCompras() {
@@ -1959,7 +1900,6 @@ $('comprasBuscar').addEventListener('input', () => { clearTimeout(buscarCompraEs
 $('comprasDesde').addEventListener('change', refreshCompras);
 $('comprasHasta').addEventListener('change', refreshCompras);
 
-/* ---- nueva compra ---- */
 let coLineas = [];
 function abrirCompra() {
   coLineas = [];
@@ -2003,7 +1943,7 @@ function agregarLineaCompra() {
 }
 $('coAgregar').onclick = agregarLineaCompra;
 $('coCosto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); agregarLineaCompra(); } });
-$('coProducto').addEventListener('change', () => {   // sugiere el costo actual del producto
+$('coProducto').addEventListener('change', () => {
   const p = invItems.find(x => x.nombre === $('coProducto').value);
   if (p && p.costo != null && !$('coCosto').value) $('coCosto').value = p.costo;
 });
@@ -2028,7 +1968,7 @@ $('coLineas').addEventListener('click', e => {
 });
 $('compraForm').addEventListener('submit', async e => {
   e.preventDefault();
-  if ($('coProducto').value.trim() && $('coCantidad').value) agregarLineaCompra();   // la línea a medio escribir también cuenta
+  if ($('coProducto').value.trim() && $('coCantidad').value) agregarLineaCompra();
   const datos = { ruc: $('coRuc').value.trim(), razonSocial: $('coRazon').value.trim(), tipoDocumento: $('coTipo').value,
     numeroDocumento: $('coNumero').value.trim(), fechaDocumento: $('coFecha').value, igv: $('coIgv').value,
     observacion: $('coObs').value.trim(), items: coLineas.map(l => ({ producto: l.producto, cantidad: l.cantidad, costo: l.costo })) };
@@ -2044,7 +1984,6 @@ $('compraForm').addEventListener('submit', async e => {
   refreshInventory(); refreshCompras();
 });
 
-/* ---- ver y anular ---- */
 let compraVista = null;
 async function verCompra(codigo) {
   const c = await traer('/api/compras/' + encodeURIComponent(codigo));
@@ -2076,7 +2015,6 @@ $('cvAnular').onclick = async () => {
   refreshInventory(); refreshCompras();
 };
 
-/* =================== Proveedores =================== */
 let proveedores = [], editandoProveedor = null;
 async function refreshProveedores() {
   const q = $('provBuscar').value.trim();
@@ -2132,7 +2070,6 @@ $('provForm').addEventListener('submit', async e => {
   refreshProveedores();
 });
 
-/* =================== Kardex =================== */
 const MOVIMIENTO = { ENTRADA: 'Entrada', VENTA: 'Venta', ANULACION: 'Anulación de venta', CORRECCION_VENTA: 'Corrección de venta',
   AJUSTE: 'Ajuste', COMPRA: 'Compra', ANULACION_COMPRA: 'Anulación de compra', ELIMINAR: 'Baja del producto' };
 let kardexDe = null;
@@ -2142,7 +2079,7 @@ async function verKardex(nombre) {
   kardexDe = k.producto;
   $('kxTitulo').textContent = 'Kardex · ' + k.producto;
   $('kxSub').textContent = `Stock actual: ${cant(k.stock)} ${k.unidad}` + (k.costo != null ? ` · costo promedio ${soles(k.costo)} · valor ${soles(Math.max(0, Number(k.stock)) * Number(k.costo))}` : ' · sin costo registrado');
-  const filas = k.filas.slice().reverse();   // lo más reciente arriba
+  const filas = k.filas.slice().reverse();
   $('kxTabla').innerHTML = filas.length
     ? `<table class="tabla compacta"><thead><tr><th>Fecha</th><th>Movimiento</th><th class="der">Entrada</th><th class="der">Salida</th><th class="der">Saldo</th><th class="der">Costo prom.</th></tr></thead><tbody>`
       + filas.map(f => `<tr title="${esc(f.detalle)}"><td class="num">${fechaCorta((f.fecha || '').slice(0, 10))} ${esc((f.fecha || '').slice(11, 16))}</td>
@@ -2158,7 +2095,6 @@ $('kxCerrar').onclick = () => $('kardexModal').classList.remove('show');
 $('kxExcel').onclick = () => kardexDe && descargar('/api/reportes/kardex.xlsx?' + new URLSearchParams({ nombre: kardexDe }), 'kardex.xlsx');
 $('invExcel').onclick = () => descargar('/api/reportes/inventario.xlsx', 'inventario.xlsx');
 
-/* Descarga un archivo de la API (con la clave) con el nombre que propone el servidor. */
 async function descargar(url, nombre) {
   try {
     const r = await api(url);
@@ -2175,7 +2111,6 @@ async function descargar(url, nombre) {
   }
 }
 
-/* =================== Confirmación =================== */
 let confirmarResolver = null;
 function confirmar(titulo, texto, boton) {
   $('confTitulo').textContent = titulo;
@@ -2199,7 +2134,6 @@ document.addEventListener('keydown', e => {
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
-/* =================== Equipo (discreto) =================== */
 function medidor(id, pct, texto, alto) {
   const v = Math.max(0, Math.min(100, pct || 0));
   $('m-' + id).style.width = v + '%';
@@ -2215,7 +2149,7 @@ async function refreshSystem() {
   const m = s.uptimeMin;
   $('i-up').textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
   negocio.ruc = s.negocioRuc || ''; negocio.direccion = s.negocioDireccion || '';
-  if ((s.negocio || '') !== negocio.nombre) {   // jarvis.negocio en application.properties
+  if ((s.negocio || '') !== negocio.nombre) {
     negocio.nombre = s.negocio || '';
     $('negocio').textContent = negocio.nombre || 'Asistente de inventario';
     document.title = negocio.nombre ? negocio.nombre + ' · J.A.R.V.I.S.' : 'J.A.R.V.I.S.';
@@ -2229,7 +2163,6 @@ if (navigator.getBattery) {
   });
 } else { medidor('bat', 0, 'N/D'); }
 
-/* =================== Micrófono (nivel de audio para el orbe) =================== */
 let analyser = null, freq = new Uint8Array(64), micLevel = 0;
 async function initMicMeter() {
   if (analyser || !navigator.mediaDevices?.getUserMedia) return;
@@ -2242,7 +2175,6 @@ async function initMicMeter() {
   } catch (e) {}
 }
 
-/* =================== Reconocimiento de voz =================== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOK = !!SR && window.isSecureContext;
 let rec = null, recMode = null, handsFree = false, awaitingCommand = false;
@@ -2352,10 +2284,6 @@ $('hfBtn').onclick = () => {
   else { stopRec(); awaitingCommand = false; setState('idle'); }
 };
 
-/* =================== Micrófono de esta computadora (Vosk, sin Internet) ===================
-   Si la pantalla corre en la misma PC que JARVIS y el servidor tiene el modelo Vosk y un micrófono, escucha el
-   servidor y aquí solo llegan los textos (eventos). Si no (celular, sin modelo, sin micrófono), se usa el
-   reconocimiento del navegador de siempre. */
 const ES_ESTA_PC = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 let micPc = false, micPcUltimo = 0, ultimaPregunta = false;
 const esperar = ms => new Promise(ok => setTimeout(ok, ms));
@@ -2365,7 +2293,7 @@ async function escuchaPc(accion) {
 }
 async function iniciarMicPc() {
   if (!ES_ESTA_PC) return;
-  for (let i = 0; i < 45; i++) {   // el modelo tarda unos segundos en cargar al arrancar
+  for (let i = 0; i < 45; i++) {
     let e;
     try { const r = await api('/api/voz/escucha'); if (!r.ok) return; e = await r.json(); } catch (x) { return; }
     if (e.disponible) {
@@ -2374,7 +2302,7 @@ async function iniciarMicPc() {
       sondearMicPc();
       return;
     }
-    if (!e.cargando) return;   // sin modelo o sin micrófono: el navegador
+    if (!e.cargando) return;
     await esperar(2000);
   }
 }
@@ -2407,7 +2335,6 @@ function alEventoMicPc(ev) {
   }
 }
 
-/* =================== Orbe de JARVIS (canvas) =================== */
 let acento = '60,194,227';
 function leerColores() { acento = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || acento; }
 leerColores();
@@ -2430,7 +2357,6 @@ function dibujarOrbe(cv, t, fondoOscuro) {
   };
   arco(R * 0.92, Math.max(1.4, R * 0.07), [[0, 1.3], [1.7, 3.2], [3.6, 4.4], [4.8, 6.0]], t * 0.0006 * spd, 0.9);
   arco(R * 0.74, Math.max(1, R * 0.05), [[0.3, 1.6], [2.4, 3.7], [4.5, 5.8]], -t * 0.0009 * spd, 0.5);
-  // ecualizador: reacciona a la voz al escuchar y al hablar
   const N = 28;
   ctx.save(); ctx.translate(c, c);
   for (let i = 0; i < N; i++) {
@@ -2446,8 +2372,6 @@ function dibujarOrbe(cv, t, fondoOscuro) {
   g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, `rgba(${col},0.95)`); g.addColorStop(1, `rgba(${col},0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c, c, cr * 1.6, 0, TAU); ctx.fill();
 }
-/* El reactor grande del Inicio (como el del JARVIS original): regla exterior, anillos que giran,
-   ecualizador circular que reacciona a la voz y núcleo brillante. Ámbar mientras piensa. */
 function dibujarReactor(cv, t) {
   const dpr = window.devicePixelRatio || 1, w = cv.clientWidth;
   if (!w) return;
@@ -2516,7 +2440,6 @@ function frame(t) {
 }
 requestAnimationFrame(frame);
 
-/* =================== Arranque =================== */
 function refrescarDatos() {
   refreshInventory(); refreshCart();
   if (vista === 'comprobantes') refreshComprobantes();
@@ -2525,16 +2448,13 @@ function refrescarDatos() {
   if (vista === 'compras') refreshCompras();
 }
 function refrescarTodo() { refreshSystem(); refrescarDatos(); }
-/* =================== Accesibilidad: ventanas, teclado, voz y lector de pantalla =================== */
 const visible = el => !!el && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
 const ENFOCABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type=hidden]), select:not([disabled]), '
                 + 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const modalAbierto = () => [...document.querySelectorAll('.modal.show')].pop() || null;
 
-// Íconos fijos: decorativos para el lector de pantalla (los que se crean después ya salen así de icono())
 document.querySelectorAll('svg:not([aria-hidden])').forEach(v => { v.setAttribute('aria-hidden', 'true'); v.setAttribute('focusable', 'false'); });
 
-// Al abrir una ventana el foco entra en ella; al cerrarla vuelve a donde estaba. Tab no sale de la ventana.
 document.querySelectorAll('.modal').forEach(m => new MutationObserver(() => {
   const abierta = m.classList.contains('show');
   if (abierta === (m.dataset.abierta === '1')) return;
@@ -2556,16 +2476,14 @@ document.addEventListener('keydown', e => {
     if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
     else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
   } else if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('tr.clic, canvas[role="button"]')) {
-    e.preventDefault();   // filas de comprobantes y compras, y el reactor
+    e.preventDefault();
     e.target.click();
   }
 });
 
-// El botón del micrófono dice si está escuchando
 new MutationObserver(() => $('micBtn').setAttribute('aria-pressed', String($('micBtn').classList.contains('activo'))))
   .observe($('micBtn'), { attributes: true, attributeFilter: ['class'] });
 
-// Saltos de teclado y secciones
 function enfocar(id) {
   if (id === 'input') {
     if (!visible($('input'))) abrirAsistente(true);
@@ -2581,7 +2499,6 @@ function irAyEnfocar(v) {
   setTimeout(() => { if (!$('v-' + v).contains(document.activeElement)) enfocar('vista'); }, 80);
 }
 
-// La voz de JARVIS se puede apagar (con lector de pantalla se oirían las dos)
 let vozActiva = leer('jarvis.voz') !== 'no';
 function pintarVoz() { $('vozBtn').classList.toggle('activo', vozActiva); $('vozBtn').setAttribute('aria-checked', String(vozActiva)); }
 $('vozBtn').onclick = () => {
@@ -2597,7 +2514,6 @@ function abrirAtajos() { $('atajosModal').classList.add('show'); }
 $('atajosBtn').onclick = abrirAtajos;
 $('atajosCerrar').onclick = () => $('atajosModal').classList.remove('show');
 
-// Atajos: Alt+letra. Con AltGr (= Ctrl+Alt) se escriben @, #… y no es un atajo.
 const VISTAS_ATAJO = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
 document.addEventListener('keydown', e => {
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
@@ -2614,8 +2530,6 @@ document.addEventListener('keydown', e => {
   if (hecho) e.preventDefault();
 });
 
-/* ---- Órdenes de pantalla (voz o teclado): todo lo de la pantalla también se pide hablando.
-   No van al servidor: cambiar de sección, abrir formularios y, con una ventana abierta, dictar en sus campos. ---- */
 const normalDicho = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
 const SECCIONES = { inicio: 'inicio', vender: 'vender', ventas: 'vender', inventario: 'inventario', productos: 'inventario',
@@ -2631,6 +2545,8 @@ const FORMULARIOS = [
 function ordenDePantalla(text, porVoz, silentUser) {
   const t = normalDicho(text).replace(/^(oye |hey )?jarvis /, '');
   const m = modalAbierto();
+  const imp = dysaOrdenDeImprimir(t);
+  if (imp && (!m || m.id === 'receipt')) { dysaImprimirPorOrden(text, imp, silentUser); return true; }
   if (m && porVoz) return dictarEnVentana(m, text, t, silentUser);
   let hecho = null;
   const sec = t.match(/^(?:ir a|ve a|vamos a|abre|abrir|abreme|muestra|muestrame|mostrar|ver|pantalla)(?: la)?(?: pantalla)?(?: de)?(?: los| las| el)? (\w+)$/);
@@ -2645,10 +2561,51 @@ function ordenDePantalla(text, porVoz, silentUser) {
   responderPantalla(text, hecho, silentUser, !!modalAbierto());
   return true;
 }
+// DYSA: comando de voz y texto "imprime la boleta" / "imprime el comprobante 5", sin Internet.
+const DYSA_PALABRAS_IMPRIMIR =new Set(['la', 'el', 'lo', 'eso', 'esa', 'ese', 'esta', 'este', 'mi', 'ultima', 'ultimo', 'de', 'nuevo', 'otra', 'vez',
+  'por', 'favor', 'boleta', 'ticket', 'recibo', 'comprobante', 'nota', 'venta', 'numero', 'nro', 'n', 'jarvis', 'senor', 'y', 'mil']);
+function dysaOrdenDeImprimir(t) {
+  const m = t.replace(/-/g, ' ').match(/^(?:por favor )?(?:(imprime|imprimir|imprimeme|imprima|imprimelo|imprimela|reimprime|vuelve a imprimir)|(?:saca|sacame|saque))((?: \S+)*)$/);
+  if (!m) return null;
+  const resto = m[2].trim().split(' ').filter(Boolean);
+  if (!m[1] && !resto.some(w => /^(boleta|ticket|recibo|comprobante|nota)$/.test(w))) return null;
+  if (!resto.every(w => DYSA_PALABRAS_IMPRIMIR.has(w) || Object.hasOwn(NUMEROS, w) || /^\d+$/.test(w) || /^(b|nv)\d+$/.test(w))) return null;
+  const desde = Math.max(...resto.map((w, i) => /^(boleta|ticket|recibo|comprobante|venta|numero|nro|n)$/.test(w) ? i : -1));
+  const cifras = resto.slice(desde + 1).filter(w => w === 'y' || w === 'mil' || Object.hasOwn(NUMEROS, w) || /^\d+$/.test(w));
+  const numero = cifras.length ? enteroDe(cifras) : null;
+  const tipo = resto.includes('boleta') || resto.some(w => /^b\d+$/.test(w)) ? 'BOLETA'
+             : resto.includes('nota') || resto.some(w => /^nv\d+$/.test(w)) ? 'NOTA_VENTA' : null;
+  return { numero: numero || null, tipo };
+}
+async function dysaComprobanteParaImprimir({ numero, tipo }) {
+  const filas = await traer('/api/inventory/comprobantes?limite=1000') || [];
+  const iguales = filas.filter(c => Number((c.codigo || '').split('-')[1]) === numero && (!tipo || c.tipo === tipo));
+  if (iguales.length > 1) return { aviso: `Hay varios comprobantes con el número ${numero}, señor. Diga “imprime la boleta ${numero}” o “imprime la nota de venta ${numero}”.` };
+  const c = await traer('/api/inventory/comprobantes/' + (iguales.length ? iguales[0].numero : numero));
+  return c ? { recibo: { comprobante: c, negocio } } : { aviso: `No encontré el comprobante ${numero}, señor.` };
+}
+async function dysaImprimirPorOrden(text, orden, silentUser) {
+  if (!silentUser) addEntry('me', text);
+  stopRec();
+  transcriptEl.textContent = '';
+  let r = dysaUltimoRecibo;
+  if (orden.numero) {
+    setState('thinking');
+    const res = await dysaComprobanteParaImprimir(orden);
+    if (res.aviso) { responderPantalla(text, res.aviso, true, false); return; }
+    r = res.recibo;
+    dysaMostrarRecibo(r);
+  }
+  if (!r) { responderPantalla(text, 'No hay un comprobante reciente para imprimir, señor.', true, false); return; }
+  dysaUltimoRecibo = r;
+  const c = r.comprobante;
+  responderPantalla(text, 'Imprimiendo la ' + tipoCorto(c.tipo).toLowerCase() + (orden.numero ? ' ' + codigoDe(c) : '') + '.', true, false);
+  dysaImprimirRecibo();
+}
 function responderPantalla(text, respuesta, silentUser, esperarRespuesta) {
   if (!silentUser) addEntry('me', text);
   addEntry('bot', respuesta);
-  ultimaPregunta = esperarRespuesta;   // con una ventana abierta, lo siguiente se dicta sin decir "Jarvis"
+  ultimaPregunta = esperarRespuesta;
   speak(respuesta);
 }
 const camposDe = m => [...m.querySelectorAll('input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])')].filter(visible);
@@ -2683,11 +2640,10 @@ function dictarEnVentana(m, text, t, silentUser) {
     escribirEn(el, text.replace(/^(oye |hey )?jarvis[,.]?\s*/i, '').trim());
     r = nombreCampo(el) + ': ' + (el.value || 'no entendí el valor');
   }
-  if (r == null) return false;   // ventana sin campos (comprobante, kardex): la orden sigue su camino normal
+  if (r == null) return false;
   responderPantalla(text, r, silentUser, !!modalAbierto());
   return true;
 }
-// "veinticinco con cincuenta" → 25.50; "cuatro cinco seis" en un DNI → 456
 const NUMEROS = { cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
   once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20,
   veintiun: 21, veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26,
@@ -2730,9 +2686,9 @@ function escribirEn(el, texto) {
   } else if (el.type === 'checkbox') {
     el.checked = !/^(no|desmarcar|quitar)/.test(normalDicho(texto));
   } else if (texto && el.inputMode === 'numeric') {
-    const d = digitosDe(texto); if (d != null) el.value = d;          // DNI, RUC: dígito por dígito
+    const d = digitosDe(texto); if (d != null) el.value = d;
   } else if (texto && (el.type === 'number' || el.inputMode === 'decimal')) {
-    const n = numeroDe(texto); if (n != null) el.value = n;           // precios y cantidades
+    const n = numeroDe(texto); if (n != null) el.value = n;
   } else {
     el.value = texto;
   }
@@ -2749,8 +2705,23 @@ function escribirEn(el, texto) {
   setInterval(refreshSystem, 5000);
   await iniciarHablaPc();
   iniciarMicPc();
-  send('hola jarvis', true);
+  darBienvenida();
 })();
+
+async function darBienvenida() {
+  setState('thinking');
+  const b = await traer('/api/bienvenida');
+  if (!b) { send('hola jarvis', true); return; }
+  addEntry('bot', b.reply, true);
+  if (puedeHablar() || !vozActiva) { speak(b.reply); return; }
+  resumeIdle();
+  const voz = fraseVoz;
+  const alTocar = () => {
+    removeEventListener('pointerdown', alTocar, true); removeEventListener('keydown', alTocar, true);
+    setTimeout(() => { if (fraseVoz === voz) speak(b.reply); }, 0);
+  };
+  addEventListener('pointerdown', alTocar, true); addEventListener('keydown', alTocar, true);
+}
 </script>
 </body>
 </html>
