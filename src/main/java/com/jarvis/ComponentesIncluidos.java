@@ -15,6 +15,7 @@ import java.util.Properties;
  * DYSA: usa Vosk, Piper y Ollama cuando vienen dentro de la carpeta del programa instalado
  * (JARVIS\voz y JARVIS\ia). Si no están, todo sigue como antes: se leen las rutas de
  * application.properties (carpeta jarvis-voz del usuario y el Ollama que tenga instalado).
+ * Si Ollama no está encendido, JARVIS lo enciende: el incluido, o si no hay, el instalado en Windows.
  *
  * <pre>
  * JARVIS\JARVIS.exe
@@ -44,7 +45,12 @@ public final class ComponentesIncluidos {
 
     static void preparar(Properties cfg) {
         Path dir = carpetaPrograma();
-        if (dir == null) return;
+        boolean ia = !"false".equalsIgnoreCase(cfg.getProperty("jarvis.ia.enabled", "true").trim());
+        String baseUrl = cfg.getProperty("jarvis.ia.base-url", "http://localhost:11434/v1");
+        if (dir == null) {
+            if (ia) arrancarOllama(null, ollamaInstalado(), baseUrl);
+            return;
+        }
         String vosk = cfg.getProperty("jarvis.voz.vosk-model", "");
         usarSiExiste("jarvis.voz.vosk-model", dir.resolve("voz/vosk").resolve(Path.of(vosk.isBlank() ? "vosk-model-small-es-0.42" : vosk).getFileName()));
         Path piper = dir.resolve("voz/piper");
@@ -53,18 +59,40 @@ public final class ComponentesIncluidos {
             String voz = cfg.getProperty("jarvis.voz.piper-voz", "");
             usarSiExiste("jarvis.voz.piper-voz", piper.resolve("voces").resolve(Path.of(voz.isBlank() ? "es_ES-davefx-medium.onnx" : voz).getFileName()));
         }
-        if (!"false".equalsIgnoreCase(cfg.getProperty("jarvis.ia.enabled", "true").trim())) {
-            arrancarOllama(dir.resolve("ia"), cfg.getProperty("jarvis.ia.base-url", "http://localhost:11434/v1"));
+        if (ia) {
+            Path incluido = dir.resolve("ia/ollama/ollama.exe");
+            if (Files.isRegularFile(incluido)) arrancarOllama(dir.resolve("ia/modelos"), incluido, baseUrl);
+            else arrancarOllama(null, ollamaInstalado(), baseUrl);
         }
+    }
+
+    /** ollama.exe que instala OllamaSetup.exe (o el que esté en el PATH), o null si no hay. */
+    static Path ollamaInstalado() {
+        String local = System.getenv("LOCALAPPDATA");
+        if (local != null) {
+            Path exe = Path.of(local, "Programs", "Ollama", "ollama.exe");
+            if (Files.isRegularFile(exe)) return exe;
+        }
+        String path = System.getenv("PATH");
+        if (path == null) return null;
+        for (String d : path.split(java.io.File.pathSeparator)) {
+            for (String nombre : new String[] {"ollama.exe", "ollama"}) {
+                try {
+                    Path exe = Path.of(d.trim(), nombre);
+                    if (Files.isRegularFile(exe)) return exe;
+                } catch (Exception ignored) { }
+            }
+        }
+        return null;
     }
 
     private static void usarSiExiste(String propiedad, Path ruta) {
         if (System.getProperty(propiedad) == null && Files.exists(ruta)) System.setProperty(propiedad, ruta.toString());
     }
 
-    private static void arrancarOllama(Path ia, String baseUrl) {
-        Path exe = ia.resolve("ollama/ollama.exe");
-        if (!Files.isRegularFile(exe)) return;
+    /** modelos = carpeta de modelos del Ollama incluido; null = la que use el Ollama instalado (~/.ollama). */
+    private static void arrancarOllama(Path modelos, Path exe, String baseUrl) {
+        if (exe == null || !Files.isRegularFile(exe)) return;
         URI uri;
         try { uri = URI.create(baseUrl.trim()); } catch (IllegalArgumentException e) { return; }
         String host = uri.getHost();
@@ -77,16 +105,16 @@ public final class ComponentesIncluidos {
                     .redirectErrorStream(true)
                     .redirectOutput(ProcessBuilder.Redirect.appendTo(Path.of(System.getProperty("user.home"), "jarvis-ollama.log").toFile()));
             pb.environment().put("OLLAMA_HOST", "127.0.0.1:" + puerto);
-            pb.environment().put("OLLAMA_MODELS", ia.resolve("modelos").toString());
+            if (modelos != null) pb.environment().put("OLLAMA_MODELS", modelos.toString());
             ollama = pb.start();
             puertoOllama = puerto;
             Runtime.getRuntime().addShutdownHook(new Thread(ComponentesIncluidos::detenerOllama, "jarvis-ollama-cierre"));
         } catch (Exception e) {
-            System.err.println("No pude iniciar el Ollama incluido: " + e);
+            System.err.println("No pude iniciar Ollama (" + exe + "): " + e);
         }
     }
 
-    /** Espera a que el Ollama incluido acepte conexiones; vuelve enseguida si JARVIS no lo inició. */
+    /** Espera a que el Ollama que inició JARVIS acepte conexiones; vuelve enseguida si JARVIS no lo inició. */
     public static void esperarOllama(long maxMs) throws InterruptedException {
         Process p = ollama;
         long fin = System.currentTimeMillis() + maxMs;
