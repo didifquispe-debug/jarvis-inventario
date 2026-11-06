@@ -4,6 +4,8 @@
  */
 package com.jarvis.skills;
 
+import com.jarvis.security.ClientSession;
+import com.jarvis.security.Rol;
 import com.jarvis.system.LaptopActions;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -25,6 +27,8 @@ public class AppSkill implements Skill {
     public Optional<String> handle(String cmd, String original) {
         if (!cmd.startsWith("abre ")) return Optional.empty();
         String app = cmd.substring(5).replaceFirst("^(el|la|los|las) ", "").trim();
+        String no = laptop.conoceApp(app) ? ClientSession.sinPermiso(Rol.Permiso.ADMINISTRAR) : null;
+        if (no != null) return Optional.of(no);
         return laptop.openApp(app)
                 .map(nombre -> Optional.of("Abriendo " + nombre + "."))
                 .orElse(Optional.empty());

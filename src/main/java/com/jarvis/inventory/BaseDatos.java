@@ -28,7 +28,7 @@ final class BaseDatos {
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
 
     static final int RESPALDOS = 7;
-    private static final int VERSION = 4;
+    private static final int VERSION = 6;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -161,12 +161,14 @@ final class BaseDatos {
             if (version > VERSION)
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
-            if (version < 4) {
+            if (version < 6) {
                 cx.setAutoCommit(false);
                 try {
                     if (version < 2) migrarAVersion2(st);
                     if (version < 3) migrarAVersion3(st);
-                    migrarAVersion4(st);
+                    if (version < 4) migrarAVersion4(st);
+                    if (version < 5) migrarAVersion5(st);
+                    migrarAVersion6(st);
                     cx.commit();
                 } catch (SQLException e) {
                     cx.rollback();
@@ -174,6 +176,24 @@ final class BaseDatos {
                 }
             }
         }
+    }
+
+    private static void migrarAVersion6(Statement st) throws SQLException {
+        st.execute("CREATE TABLE IF NOT EXISTS ajuste (clave TEXT PRIMARY KEY, valor TEXT NOT NULL)");
+        st.execute("PRAGMA user_version = 6");
+    }
+
+    private static void migrarAVersion5(Statement st) throws SQLException {
+        st.execute("""
+                CREATE TABLE IF NOT EXISTS usuario (
+                    id        INTEGER PRIMARY KEY,
+                    nombre    TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+                    rol       TEXT    NOT NULL,
+                    pin_hash  TEXT    NOT NULL,
+                    activo    INTEGER NOT NULL DEFAULT 1,
+                    creado    TEXT    NOT NULL
+                )""");
+        st.execute("PRAGMA user_version = 5");
     }
 
     private static void migrarAVersion4(Statement st) throws SQLException {

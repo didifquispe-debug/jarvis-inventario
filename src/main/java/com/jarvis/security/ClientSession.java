@@ -11,7 +11,8 @@ public final class ClientSession {
     public static final String CABECERA = "X-Jarvis-Session";
     public static final String LOCAL = "local";
 
-    private record Actual(String id, String usuario) {}
+    /** {@code rol} null: todavía no hay usuarios creados y todo está permitido, como antes de los roles. */
+    private record Actual(String id, String usuario, Rol rol) {}
 
     private static final ThreadLocal<Actual> ACTUAL = new ThreadLocal<>();
 
@@ -27,9 +28,29 @@ public final class ClientSession {
         return a == null ? LOCAL : a.usuario();
     }
 
+    public static Rol rol() {
+        Actual a = ACTUAL.get();
+        return a == null ? null : a.rol();
+    }
+
+    public static boolean puede(Rol.Permiso p) {
+        Rol r = rol();
+        return r == null || r.permisos.contains(p);
+    }
+
+    /** Mensaje para quien no tiene el permiso, o null si lo tiene. */
+    public static String sinPermiso(Rol.Permiso p) {
+        if (puede(p)) return null;
+        return "Su usuario (" + rol().descripcion.toLowerCase() + ") no tiene permiso para " + p.accion + ", señor.";
+    }
+
     public static <T> T como(String id, Supplier<T> accion) {
+        return como(id, id, null, accion);
+    }
+
+    public static <T> T como(String id, String usuario, Rol rol, Supplier<T> accion) {
         Actual antes = ACTUAL.get();
-        ACTUAL.set(new Actual(id, id));
+        ACTUAL.set(new Actual(id, usuario, rol));
         try {
             return accion.get();
         } finally {
@@ -38,9 +59,14 @@ public final class ClientSession {
     }
 
     static void abrir(String cabecera, String ip) {
+        abrir(cabecera, ip, null, null);
+    }
+
+    static void abrir(String cabecera, String ip, String nombre, Rol rol) {
         String limpio = limpiar(cabecera);
         String id = limpio != null ? limpio : "ip-" + ip;
-        ACTUAL.set(new Actual(id, (limpio != null ? limpio.substring(0, Math.min(8, limpio.length())) : "sin-sesion") + "@" + ip));
+        String quien = nombre != null ? nombre : limpio != null ? limpio.substring(0, Math.min(8, limpio.length())) : "sin-sesion";
+        ACTUAL.set(new Actual(id, quien + "@" + ip, rol));
     }
 
     static void cerrar() { ACTUAL.remove(); }

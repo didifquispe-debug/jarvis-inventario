@@ -4,9 +4,9 @@
  */
 package com.jarvis.api;
 
+import com.jarvis.core.DatosNegocio;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.inventory.ReportesExcel;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,16 +24,21 @@ public class ReportesController {
     private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final InventoryService inv;
-    private final String negocio;
+    private final DatosNegocio datos;
 
-    public ReportesController(InventoryService inv, @Value("${jarvis.negocio:}") String negocio) {
+    public ReportesController(InventoryService inv, DatosNegocio datos) {
         this.inv = inv;
-        this.negocio = negocio.trim();
+        this.datos = datos;
     }
 
     @GetMapping("/api/inventory/valorizado")
     public InventoryService.Valorizado valorizado() {
         return inv.valorizado();
+    }
+
+    @GetMapping("/api/reportes/panel")
+    public InventoryService.Panel panel(@RequestParam(defaultValue = "30") int dias) {
+        return inv.panel(dias);
     }
 
     @GetMapping("/api/inventory/kardex")
@@ -44,20 +49,20 @@ public class ReportesController {
 
     @GetMapping("/api/reportes/inventario.xlsx")
     public ResponseEntity<byte[]> inventarioExcel() {
-        return excel("inventario-" + LocalDate.now(), ReportesExcel.inventario(inv.valorizado(), inv.kardexCompleto(), negocio));
+        return excel("inventario-" + LocalDate.now(), ReportesExcel.inventario(inv.valorizado(), inv.kardexCompleto(), datos.nombre()));
     }
 
     @GetMapping("/api/reportes/kardex.xlsx")
     public ResponseEntity<?> kardexExcel(@RequestParam String nombre) {
         InventoryService.Kardex k = inv.kardex(nombre, 100_000);
         if (k == null) return noExiste(nombre);
-        return excel("kardex-" + k.producto(), ReportesExcel.kardex(k, negocio));
+        return excel("kardex-" + k.producto(), ReportesExcel.kardex(k, datos.nombre()));
     }
 
     @GetMapping("/api/reportes/ventas.xlsx")
     public ResponseEntity<?> ventasExcel(@RequestParam(defaultValue = "") String desde, @RequestParam(defaultValue = "") String hasta) {
         if (!fechaValida(desde) || !fechaValida(hasta)) return fechaInvalida();
-        return excel("ventas" + sufijo(desde, hasta), ReportesExcel.ventas(inv.ventasPeriodo(desde, hasta), desde, hasta, negocio));
+        return excel("ventas" + sufijo(desde, hasta), ReportesExcel.ventas(inv.ventasPeriodo(desde, hasta), desde, hasta, datos.nombre()));
     }
 
     @GetMapping("/api/reportes/compras.xlsx")
@@ -65,7 +70,7 @@ public class ReportesController {
                                           @RequestParam(defaultValue = "") String q) {
         if (!fechaValida(desde) || !fechaValida(hasta)) return fechaInvalida();
         return excel("compras" + sufijo(desde, hasta),
-                ReportesExcel.compras(inv.compras().listarConDetalle(q, desde, hasta, 1000), desde, hasta, negocio));
+                ReportesExcel.compras(inv.compras().listarConDetalle(q, desde, hasta, 1000), desde, hasta, datos.nombre()));
     }
 
     private static ResponseEntity<byte[]> excel(String nombre, byte[] contenido) {

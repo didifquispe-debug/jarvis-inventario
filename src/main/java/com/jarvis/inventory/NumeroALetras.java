@@ -25,7 +25,7 @@ public final class NumeroALetras {
         long entero = redondeado.longValue();
         int centimos = redondeado.remainder(BigDecimal.ONE).movePointRight(2).abs().intValue();
         String letras = entero == 0 ? "CERO" : convertir(entero);
-        return letras + " CON " + String.format("%02d", centimos) + "/100 SOLES";
+        return letras + " CON " + String.format("%02d", centimos) + "/100 " + Moneda.nombre().toUpperCase();
     }
 
     static String convertir(long n) {

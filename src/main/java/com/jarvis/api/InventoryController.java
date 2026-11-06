@@ -6,9 +6,9 @@ package com.jarvis.api;
 
 import com.jarvis.inventory.ComprobantePdf;
 import com.jarvis.inventory.Igv;
+import com.jarvis.core.DatosNegocio;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.inventory.TipoComprobante;
-import org.springframework.beans.factory.annotation.Value;
 import com.jarvis.inventory.ListaProductos;
 import com.jarvis.inventory.Movimiento;
 import com.jarvis.inventory.Producto;
@@ -34,18 +34,11 @@ import java.util.Map;
 public class InventoryController {
 
     private final InventoryService inv;
-    private final ComprobantePdf.Emisor emisor;
-    private final Map<String, String> negocio;
+    private final DatosNegocio negocio;
 
-    public InventoryController(InventoryService inv,
-                               @Value("${jarvis.negocio:}") String nombre,
-                               @Value("${jarvis.negocio.ruc:}") String ruc,
-                               @Value("${jarvis.negocio.direccion:}") String direccion,
-                               @Value("${jarvis.negocio.telefono:}") String telefono,
-                               @Value("${jarvis.negocio.email:}") String email) {
+    public InventoryController(InventoryService inv, DatosNegocio negocio) {
         this.inv = inv;
-        this.emisor = new ComprobantePdf.Emisor(nombre.trim(), ruc.trim(), direccion.trim(), telefono.trim(), email.trim());
-        this.negocio = Map.of("nombre", nombre.isBlank() ? "Mi Negocio" : nombre.trim(), "ruc", ruc.trim(), "direccion", direccion.trim());
+        this.negocio = negocio;
     }
 
     public record CorreccionVenta(String producto, BigDecimal cantidad) {}
@@ -159,7 +152,7 @@ public class InventoryController {
         InventoryService.Comprobante c = r.ok() ? inv.tomarComprobanteNuevo() : null;
         if (c == null) return res;
         Map<String, Object> body = new LinkedHashMap<>(res.getBody());
-        body.put("recibo", Map.of("comprobante", c, "negocio", negocio));
+        body.put("recibo", Map.of("comprobante", c, "negocio", negocio.paraRecibo()));
         return ResponseEntity.ok(body);
     }
 
@@ -198,7 +191,7 @@ public class InventoryController {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header("Content-Disposition", "inline; filename=\"" + archivo + "\"")
-                .body(ComprobantePdf.generar(c, emisor));
+                .body(ComprobantePdf.generar(c, negocio.emisor()));
     }
 
     @DeleteMapping("/productos")
@@ -217,6 +210,7 @@ public class InventoryController {
             case OK -> HttpStatus.OK;
             case ERROR -> HttpStatus.BAD_REQUEST;
             case NO_ENCONTRADO -> HttpStatus.NOT_FOUND;
+            case PROHIBIDO -> HttpStatus.FORBIDDEN;
         };
         return ResponseEntity.status(status).body(Map.of("ok", r.ok(), "reply", r.mensaje()));
     }

@@ -129,4 +129,12 @@ class AccesibilidadTest {
         }
         assertEquals(List.of(), fuera, "recursos de internet en " + archivo);
     }
+
+    @Test void elScriptNoDeclaraDosVecesElMismoNombre() throws IOException {
+        Matcher m = Pattern.compile("(?m)^(?:const|let|var|(?:async )?function)\\s+([A-Za-z_$][\\w$]*)").matcher(leer("index.html"));
+        Set<String> vistos = new HashSet<>();
+        List<String> repetidos = new ArrayList<>();
+        while (m.find()) if (!vistos.add(m.group(1))) repetidos.add(m.group(1));
+        assertEquals(List.of(), repetidos, "un nombre repetido detiene todo el script de la pantalla");
+    }
 }

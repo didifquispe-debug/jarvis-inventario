@@ -31,12 +31,12 @@ public class AcercaDeJarvis {
     private static final Pattern NO_ES_PREGUNTA = Pattern.compile("\\bcomo va\\b|\\bcuanto va\\b|\\bcuanto llevo\\b");
 
     private final String owner;
-    private final String negocio;
+    private final DatosNegocio datos;
     private final List<Tema> temas;
 
-    public AcercaDeJarvis(@Value("${jarvis.owner:señor}") String owner, @Value("${jarvis.negocio:}") String negocio) {
+    public AcercaDeJarvis(@Value("${jarvis.owner:señor}") String owner, DatosNegocio datos) {
         this.owner = owner == null || owner.isBlank() ? "señor" : owner.trim();
-        this.negocio = negocio == null ? "" : negocio.trim();
+        this.datos = datos;
         this.temas = temas();
     }
 
@@ -63,7 +63,7 @@ public class AcercaDeJarvis {
     }
 
     private String identidad(boolean iaActiva) {
-        String de = negocio.isEmpty() ? "de su negocio" : "de " + negocio;
+        String de = datos.nombre().isEmpty() ? "de su negocio" : "de " + datos.nombre();
         return "Soy J.A.R.V.I.S., el asistente inteligente del sistema de inventario y ventas " + de + ", " + owner + ". "
                 + "Llevo el control de sus productos y su stock, las ventas con boleta o nota de venta e IGV, los clientes, "
                 + "las compras a proveedores con su costo promedio, el kardex y los reportes en Excel. "

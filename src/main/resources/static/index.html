@@ -96,7 +96,8 @@
                   display: flex; align-items: center; gap: 8px; }
   .nav .seccion::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
   .nav .pie { margin-top: auto; padding-top: 14px; display: flex; flex-direction: column; gap: 3px; }
-  .nav .pie button.item { background: none; width: 100%; text-align: left; cursor: pointer; }
+  .nav .pie button.item, .nav > button.item { background: none; width: 100%; text-align: left; cursor: pointer; }
+  #salirBtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   details.equipo { border-radius: 8px; }
   details.equipo summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px;
                            font: 600 .8rem/1.2 var(--head); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -204,6 +205,29 @@
   .lista-reponer b { color: #fff; }
   .lista-reponer small { display: block; color: var(--faint); font-size: .82rem; }
   .rapido { display: flex; gap: 10px; flex-wrap: wrap; }
+  .rapido select.campo { width: auto; }
+  .kpi .gan { display: block; margin-top: 4px; color: var(--ok); font: 600 .92rem/1.3 var(--font); letter-spacing: normal; text-transform: none;
+              font-variant-numeric: tabular-nums; }
+  .kpi .gan.neg { color: var(--danger); }
+  .nota-kpi { grid-column: 1 / -1; margin: -4px 0 0; color: var(--faint); font-size: .85rem; }
+  .grafico-caja { margin-bottom: 18px; }
+  .grafico { position: relative; padding: 4px 18px 6px; }
+  .grafico svg { display: block; width: 100%; height: 240px; overflow: visible; }
+  .grafico .eje { font: 500 11px var(--font); fill: var(--faint); }
+  .grafico .guia { stroke: rgba(var(--c), .12); stroke-width: 1; }
+  .grafico .base { stroke: var(--border-strong); stroke-width: 1; }
+  .grafico .barra-dia { fill: var(--accent); opacity: .8; pointer-events: none; }
+  .grafico .zona { fill: transparent; }
+  .grafico .zona:hover + .barra-dia, .grafico .zona:focus + .barra-dia { opacity: 1; filter: drop-shadow(0 0 6px rgba(var(--c), .9)); }
+  .grafico .zona:focus { outline: none; }
+  .grafico-tip { position: absolute; pointer-events: none; transform: translate(-50%, calc(-100% - 10px)); background: rgba(4, 22, 38, .96);
+                 border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 10px; font-size: .85rem; white-space: nowrap;
+                 box-shadow: var(--shadow); color: var(--text); z-index: 2; }
+  .grafico-tip b { display: block; color: #fff; font-variant-numeric: tabular-nums; }
+  .grafico-tip small { display: block; color: var(--muted); }
+  .grafico-tabla { padding: 0 18px 14px; }
+  .grafico-tabla summary { cursor: pointer; color: var(--muted); font-size: .88rem; padding: 4px 0; }
+  .grafico-tabla .tabla-caja { max-height: 300px; overflow-y: auto; margin-top: 8px; }
 
   .pos { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, 1fr); gap: 18px; align-items: start; }
   .pos-busqueda { padding: 16px; }
@@ -322,6 +346,18 @@
   .form-hint { margin: -4px 0 0; font-size: .92rem; color: var(--ok); min-height: 1.2em; }
   .form-hint.mal { color: var(--danger); }
   .form-hint:empty { display: none; }
+  .form-grid.tres { grid-template-columns: 1.4fr 1fr 1fr; }
+  .modal-box.login { width: min(420px, 100%); }
+  .login-usuarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 6px 0 16px; }
+  .login-usuarios button { min-height: 52px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: rgba(2, 14, 28, .55);
+                           color: var(--text); cursor: pointer; font: 600 1rem/1.2 var(--font); transition: border-color .2s, box-shadow .2s; }
+  .login-usuarios button:hover { border-color: var(--accent); }
+  .login-usuarios button[aria-checked="true"] { border-color: var(--accent); background: rgba(var(--c), .16); box-shadow: var(--glow); color: #fff; }
+  .login-pin { display: flex; flex-direction: column; gap: 6px; font: 600 .62rem/1.3 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .login-pin .campo { font-size: 1.4rem; letter-spacing: .4em; text-align: center; height: 50px; }
+  #usLista { margin-bottom: 8px; }
+  #usLista .pin-nuevo { width: 110px; height: 34px; }
+  #usLista select.campo { width: auto; height: 34px; }
   .form-err { color: var(--danger); min-height: 1.2em; margin: 12px 0 0; font-size: .95rem; }
   .form-err:empty { display: none; }
   .modal-box.lote { width: min(740px, 100%); }
@@ -393,7 +429,7 @@
     .vista { padding: 18px max(16px, env(safe-area-inset-left)) 92px max(16px, env(safe-area-inset-right)); }
     .rejilla-2, .pos { grid-template-columns: 1fr; }
     .ticket { position: static; }
-    .form-grid { grid-template-columns: 1fr; }
+    .form-grid, .form-grid.tres { grid-template-columns: 1fr; }
     .compra-linea { grid-template-columns: 1fr 1fr; }
     .campo { font-size: 16px; }
     .tabla.adaptable thead { display: none; }
@@ -402,6 +438,7 @@
     .tabla.adaptable td { border: 0; padding: 4px 8px; }
     .tabla.adaptable td[data-t]::before { content: attr(data-t); display: inline-block; min-width: 96px; color: var(--faint); font-size: .82rem; }
     .tabla.adaptable .acciones { text-align: left; width: auto; }
+    #v-resultados .tabla.adaptable td.der { text-align: left; }
     .pagina h1 { font-size: 1.1rem; }
     #reactorGrande { width: min(100%, 250px); }
   }
@@ -416,6 +453,8 @@
     <symbol id="i-vender" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6.2"/><circle cx="10" cy="20.5" r="1.2"/><circle cx="17" cy="20.5" r="1.2"/></symbol>
     <symbol id="i-caja" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
     <symbol id="i-clientes" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14a6.5 6.5 0 0 1 3 6"/></symbol>
+    <symbol id="i-salir" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/></symbol>
+    <symbol id="i-grafico" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-4M11 16V8M15 16v-6M19 16V5"/></symbol>
     <symbol id="i-recibo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2Z"/><path d="M9 7.5h6M9 11.5h6M9 15.5h4"/></symbol>
     <symbol id="i-camion" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h11v10H2zM13 9h4.5l3.5 4v3h-8"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/></symbol>
     <symbol id="i-fabrica" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l6 4V10l6 4V4h6v17Z"/><path d="M7 17h2M12 17h2M17 17h2"/></symbol>
@@ -450,14 +489,18 @@
     </div>
     <div class="seccion">Ventas</div>
     <a class="item" href="#inicio" data-vista="inicio"><svg><use href="#i-inicio"/></svg>Inicio</a>
-    <a class="item" href="#vender" data-vista="vender"><svg><use href="#i-vender"/></svg>Vender</a>
-    <a class="item" href="#inventario" data-vista="inventario"><svg><use href="#i-caja"/></svg>Inventario</a>
-    <a class="item" href="#clientes" data-vista="clientes"><svg><use href="#i-clientes"/></svg>Clientes</a>
-    <a class="item" href="#comprobantes" data-vista="comprobantes"><svg><use href="#i-recibo"/></svg>Comprobantes</a>
-    <div class="seccion">Abastecimiento</div>
-    <a class="item" href="#compras" data-vista="compras"><svg><use href="#i-camion"/></svg>Compras</a>
-    <a class="item" href="#proveedores" data-vista="proveedores"><svg><use href="#i-fabrica"/></svg>Proveedores</a>
+    <a class="item" href="#resultados" data-vista="resultados" data-permiso="REPORTES"><svg><use href="#i-grafico"/></svg>Resultados</a>
+    <a class="item" href="#vender" data-vista="vender" data-permiso="VENDER"><svg><use href="#i-vender"/></svg>Vender</a>
+    <a class="item" href="#inventario" data-vista="inventario" data-permiso="INVENTARIO"><svg><use href="#i-caja"/></svg>Inventario</a>
+    <a class="item" href="#clientes" data-vista="clientes" data-permiso="CLIENTES"><svg><use href="#i-clientes"/></svg>Clientes</a>
+    <a class="item" href="#comprobantes" data-vista="comprobantes" data-permiso="COMPROBANTES"><svg><use href="#i-recibo"/></svg>Comprobantes</a>
+    <div class="seccion" data-permiso="COMPRAS">Abastecimiento</div>
+    <a class="item" href="#compras" data-vista="compras" data-permiso="COMPRAS"><svg><use href="#i-camion"/></svg>Compras</a>
+    <a class="item" href="#proveedores" data-vista="proveedores" data-permiso="COMPRAS"><svg><use href="#i-fabrica"/></svg>Proveedores</a>
+    <button class="item" id="salirBtn" type="button" hidden><svg><use href="#i-salir"/></svg><span id="salirTexto">Salir</span></button>
     <div class="pie">
+      <button class="item" id="negocioBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-fabrica"/></svg>Mi negocio</button>
+      <button class="item" id="usuariosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-clientes"/></svg>Usuarios</button>
       <details class="equipo" id="equipo">
         <summary><svg><use href="#i-equipo"/></svg>Equipo</summary>
         <div class="medidores">
@@ -484,8 +527,8 @@
       <header>
         <div><h1 id="saludo">Hola</h1><p class="sub" id="fechaHoy">—</p></div>
         <div class="rapido">
-          <a class="boton primario" href="#vender"><svg><use href="#i-vender"/></svg>Nueva venta</a>
-          <button class="boton" type="button" data-accion="nuevo-producto"><svg><use href="#i-mas"/></svg>Producto</button>
+          <a class="boton primario" href="#vender" data-permiso="VENDER"><svg><use href="#i-vender"/></svg>Nueva venta</a>
+          <button class="boton" type="button" data-accion="nuevo-producto" data-permiso="INVENTARIO"><svg><use href="#i-mas"/></svg>Producto</button>
         </div>
       </header>
       <div class="hero">
@@ -504,7 +547,7 @@
         </div>
       </div>
       <div class="rejilla-2">
-        <div class="tarjeta">
+        <div class="tarjeta" data-permiso="COMPROBANTES">
           <div class="tarjeta-cab"><h2>Últimas ventas</h2><a class="boton" href="#comprobantes">Ver todas</a></div>
           <div class="tabla-caja" id="ultimas"></div>
         </div>
@@ -512,6 +555,38 @@
           <div class="tarjeta-cab"><h2>Reponer pronto</h2><small id="reponerCuenta"></small></div>
           <ul class="lista-reponer" id="reponer"></ul>
         </div>
+      </div>
+    </section>
+
+    <section class="pagina" id="v-resultados" hidden>
+      <header>
+        <div><h1>Resultados</h1><p class="sub">Ventas, ganancia y alertas del negocio. La ganancia es la venta sin IGV menos el costo.</p></div>
+        <div class="rapido">
+          <select class="campo" id="resDias" aria-label="Días del gráfico" title="Días del gráfico">
+            <option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option>
+          </select>
+          <button class="boton" type="button" id="resExcel" title="Ventas del periodo en Excel"><svg><use href="#i-excel"/></svg>Exportar ventas</button>
+        </div>
+      </header>
+      <div class="kpis" id="resKpis"></div>
+      <div class="tarjeta grafico-caja">
+        <div class="tarjeta-cab"><h2>Ventas por día</h2><small id="resRango"></small></div>
+        <div class="grafico" id="resGrafico"></div>
+        <details class="grafico-tabla"><summary>Ver como tabla</summary><div class="tabla-caja" id="resTablaDias"></div></details>
+      </div>
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <div class="tarjeta-cab"><h2>Más vendidos</h2><small id="resTopRango"></small></div>
+          <div class="tabla-caja" id="resTop"></div>
+        </div>
+        <div class="tarjeta">
+          <div class="tarjeta-cab"><h2>Alertas de stock</h2><small id="resAlertasCuenta"></small></div>
+          <ul class="lista-reponer" id="resAlertas"></ul>
+        </div>
+      </div>
+      <div class="tarjeta" style="margin-top:18px">
+        <div class="tarjeta-cab"><h2>Sin movimiento</h2><small id="resQuietosCuenta"></small></div>
+        <div class="tabla-caja" id="resQuietos"></div>
       </div>
     </section>
 
@@ -585,7 +660,7 @@
         <div><h1>Comprobantes</h1><p class="sub">Toque uno para verlo, imprimirlo o sacar su PDF.</p></div>
         <div class="rapido">
           <button class="boton" type="button" id="compExcel" title="Ventas del periodo con costo y ganancia"><svg><use href="#i-excel"/></svg>Exportar Excel</button>
-          <button class="boton" type="button" id="anularUltima">Anular la última venta</button>
+          <button class="boton" type="button" id="anularUltima" data-permiso="ANULAR_VENTAS">Anular la última venta</button>
         </div>
       </header>
       <div class="barra">
@@ -654,6 +729,8 @@
     </div>
     <div class="atajos">
       <button class="atajo" type="button" data-cmd="Cierre de caja">Cierre de caja</button>
+      <button class="atajo" type="button" data-cmd="¿Cuánto gané esta semana?" data-permiso="REPORTES">Ganancia de la semana</button>
+      <button class="atajo" type="button" data-cmd="¿Qué productos se están acabando?">Qué se acaba</button>
       <button class="atajo" type="button" data-cmd="Nueva venta">Venta por voz</button>
       <button class="atajo" type="button" data-cmd="Último comprobante">Último comprobante</button>
       <button class="atajo" type="button" data-cmd="Imprime la boleta" title="Imprime el último comprobante (ticket de 80 mm)">Imprimir boleta</button>
@@ -864,6 +941,63 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </div>
 </div>
 
+<div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitulo">
+  <form class="modal-box login" id="loginForm" novalidate>
+    <h3 id="loginTitulo">Iniciar sesión</h3>
+    <p>Elija su usuario y escriba su PIN.</p>
+    <div class="login-usuarios" id="loginUsuarios" role="radiogroup" aria-label="Usuario"></div>
+    <label class="login-pin">PIN<input class="campo" id="loginPin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></label>
+    <p class="form-err" id="loginErr" role="alert"></p>
+    <div class="modal-btns"><button type="submit" class="boton primario grande" id="loginEntrar">Entrar</button></div>
+  </form>
+</div>
+
+<div id="negocioModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="negTitulo">
+  <form class="modal-box" id="negocioForm" novalidate>
+    <h3 id="negTitulo">Mi negocio</h3>
+    <p>Salen en las boletas, los tickets, los PDF y los Excel. La moneda se usa en toda la pantalla y en lo que dice JARVIS.</p>
+    <div class="form-grid">
+      <label class="full">Nombre del negocio<input class="campo" id="negNombre" maxlength="80" autocomplete="organization"></label>
+      <label>RUC <i>opcional</i><input class="campo" id="negRuc" inputmode="numeric" maxlength="11" autocomplete="off"></label>
+      <label>Teléfono <i>opcional</i><input class="campo" id="negTelefono" inputmode="tel" maxlength="20" autocomplete="tel"></label>
+      <label class="full">Dirección <i>opcional</i><input class="campo" id="negDireccion" maxlength="150" autocomplete="street-address"></label>
+      <label class="full">Correo <i>opcional</i><input class="campo" id="negEmail" type="email" maxlength="120" autocomplete="email"></label>
+    </div>
+    <div class="form-grid tres">
+      <label>Símbolo <i>S/, $, US$</i><input class="campo" id="negSimbolo" maxlength="4" autocomplete="off"></label>
+      <label>Moneda <i>en plural</i><input class="campo" id="negMoneda" maxlength="20" autocomplete="off"></label>
+      <label>En singular<input class="campo" id="negSingular" maxlength="20" autocomplete="off"></label>
+    </div>
+    <p class="form-err" id="negErr" role="alert"></p>
+    <div class="modal-btns">
+      <button type="button" class="boton" id="negCancelar">Cancelar</button>
+      <button type="submit" class="boton primario">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<div id="usuariosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="usTitulo">
+  <div class="modal-box ancho">
+    <h3 id="usTitulo">Usuarios</h3>
+    <p>El cajero vende y ve clientes y comprobantes, sin costos ni ganancias. Almacén maneja inventario, compras y proveedores.
+      El administrador puede todo. Mientras no haya usuarios, JARVIS no pide PIN.</p>
+    <div class="tabla-caja" id="usLista"></div>
+    <form id="usForm" novalidate>
+      <div class="form-grid tres">
+        <label>Nombre<input class="campo" id="usNombre" maxlength="40" autocomplete="off"></label>
+        <label>Rol<select class="campo" id="usRol"><option value="CAJERO">Cajero</option><option value="ALMACEN">Almacén</option>
+          <option value="ADMIN">Administrador</option></select></label>
+        <label>PIN <i>4 a 6 números</i><input class="campo" id="usPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+      </div>
+      <p class="form-err" id="usErr" role="alert"></p>
+      <div class="modal-btns">
+        <button class="boton" type="button" id="usCerrar">Cerrar</button>
+        <button class="boton primario" type="submit" id="usAgregar"><svg><use href="#i-mas"/></svg>Agregar usuario</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="atajosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="atajosTitulo">
   <div class="modal-box">
     <h3 id="atajosTitulo">Atajos de teclado y voz</h3>
@@ -904,7 +1038,8 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
 const $ = id => document.getElementById(id);
 const stateEl = $('state'), logEl = $('log'), transcriptEl = $('transcript');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const soles = n => 'S/ ' + Number(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const moneda = { simbolo: 'S/', nombre: 'soles' };
+const soles = n => moneda.simbolo + ' ' + Number(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const cant = n => Number(n || 0).toLocaleString('es-PE', { maximumFractionDigits: 3 });
 const nroComp = n => String(n).padStart(6, '0');
 const sinTildes = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -943,8 +1078,11 @@ function avisar(texto, mal) {
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(),
-                                                    'X-Jarvis-Session': SESSION_ID, ...(opts.headers || {}) } });
-  if (r.status === 401) { saveToken(''); }
+                                                    'X-Jarvis-Session': SESSION_ID, 'X-Jarvis-Usuario': leer('jarvisUsuario') || '',
+                                                    ...(opts.headers || {}) } });
+  if (r.status === 401) {
+    if (r.headers.get('X-Jarvis-Login')) pedirLogin(); else saveToken('');
+  }
   return r;
 }
 async function invCall(path, method, body) {
@@ -961,10 +1099,15 @@ async function traer(path) {
   try { const r = await api(path); return r.ok ? await r.json() : null; } catch (e) { return null; }
 }
 
-const VISTAS = ['inicio', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
+const VISTAS = ['inicio', 'resultados', 'vender', 'inventario', 'clientes', 'comprobantes', 'compras', 'proveedores'];
+const PERMISO_VISTA = { resultados: 'REPORTES', vender: 'VENDER', inventario: 'INVENTARIO', clientes: 'CLIENTES',
+  comprobantes: 'COMPROBANTES', compras: 'COMPRAS', proveedores: 'COMPRAS' };
+let conUsuarios = false, yo = null;
+const puede = p => !conUsuarios || !!(yo && yo.permisos.includes(p));
+const vistaPermitida = v => !PERMISO_VISTA[v] || puede(PERMISO_VISTA[v]);
 let vista = 'inicio';
 function irA(v) {
-  if (!VISTAS.includes(v)) v = 'inicio';
+  if (!VISTAS.includes(v) || !vistaPermitida(v)) v = 'inicio';
   vista = v;
   VISTAS.forEach(x => { $('v-' + x).hidden = x !== v; });
   document.querySelectorAll('.nav a.item[data-vista]').forEach(a => {
@@ -973,6 +1116,7 @@ function irA(v) {
   });
   $('vista').scrollTop = 0;
   if (v === 'inicio') refreshResumen();
+  if (v === 'resultados') refreshResultados();
   if (v === 'clientes') refreshClientes();
   if (v === 'comprobantes') refreshComprobantes();
   if (v === 'vender') { renderPos(); setTimeout(() => $('posBuscar').focus(), 30); }
@@ -1263,7 +1407,8 @@ function pintarSaludo() {
 }
 async function refreshResumen() {
   pintarSaludo();
-  const [r, ultimas] = await Promise.all([traer('/api/inventory/resumen'), traer('/api/inventory/comprobantes?limite=6')]);
+  const [r, ultimas] = await Promise.all([traer('/api/inventory/resumen'),
+    puede('COMPROBANTES') ? traer('/api/inventory/comprobantes?limite=6') : null]);
   if (r) {
     resumen = r;
     $('k-total').textContent = soles(r.totalHoy);
@@ -1290,6 +1435,106 @@ async function refreshResumen() {
     </li>`).join('')
     : '<li class="vacio" style="display:block"><b>Todo en orden</b>Ningún producto está por debajo de su mínimo.</li>';
 }
+let panel = null;
+const diaMes = f => { const [, m, d] = (f || '').split('-'); return d ? `${d}/${m}` : ''; };
+async function refreshResultados() {
+  const p = await traer('/api/reportes/panel?dias=' + $('resDias').value);
+  if (!p) return;
+  panel = p;
+  const r = p.rango, n = p.porDia.length;
+  const ganancia = per => `<span class="gan${Number(per.ganancia) < 0 ? ' neg' : ''}">Ganancia ${soles(per.ganancia)}${per.lineasSinCosto ? ' *' : ''}</span>`;
+  const tarjeta = (titulo, per, destacado) => `<div class="tarjeta kpi${destacado ? ' destacado' : ''}"><span>${titulo}</span>
+      <strong>${soles(per.total)}</strong>
+      <small>${per.ventas === 1 ? '1 venta' : per.ventas + ' ventas'}${per.anuladas ? ` · ${per.anuladas} anulada${per.anuladas === 1 ? '' : 's'}` : ''}</small>
+      ${ganancia(per)}</div>`;
+  const ticket = r.ventas ? Number(r.total) / r.ventas : 0;
+  const margen = Number(r.base) > 0 ? Math.round(Number(r.ganancia) * 100 / Number(r.base)) : null;
+  $('resKpis').innerHTML = tarjeta('Hoy', p.deHoy, true) + tarjeta('Esta semana', p.semana) + tarjeta('Este mes', p.mes)
+    + `<div class="tarjeta kpi"><span>Ticket promedio</span><strong>${soles(ticket)}</strong><small>últimos ${n} días</small>
+        <span class="gan">${margen === null ? 'Margen —' : 'Margen ' + margen + ' %'}</span></div>`
+    + ([p.deHoy, p.semana, p.mes, r].some(x => x.lineasSinCosto)
+      ? '<p class="nota-kpi">* Se vendieron productos sin costo registrado y su ganancia no se cuenta. Agregue el costo en la ficha del producto o registre su compra.</p>' : '');
+  $('resRango').textContent = `${diaMes(r.desde)} al ${diaMes(r.hasta)} · ${soles(r.total)}`;
+  $('resTopRango').textContent = `últimos ${n} días`;
+  pintarGrafico(p.porDia);
+  $('resTablaDias').innerHTML = `<table class="tabla"><thead><tr><th>Día</th><th class="der">Ventas</th><th class="der">Total</th><th class="der">Ganancia</th></tr></thead>
+    <tbody>${p.porDia.slice().reverse().map(d => `<tr><td class="num">${fechaCorta(d.fecha)}</td><td class="der num">${d.ventas}</td>
+      <td class="der num">${soles(d.total)}</td><td class="der num">${soles(d.ganancia)}</td></tr>`).join('')}</tbody></table>`;
+
+  $('resTop').innerHTML = p.masVendidos.length ? `<table class="tabla adaptable"><thead><tr><th>Producto</th><th class="der">Cantidad</th><th class="der">Vendido</th><th class="der">Ganancia</th></tr></thead>
+    <tbody>${p.masVendidos.map((m, i) => `<tr><td data-t="Producto"><span class="num" style="color:var(--faint)">${i + 1}.</span> ${esc(m.producto)}</td>
+      <td data-t="Cantidad" class="der num">${cant(m.cantidad)} ${esc(m.unidad)}</td><td data-t="Vendido" class="der num">${soles(m.total)}</td>
+      <td data-t="Ganancia" class="der num">${m.ganancia === null ? '<span style="color:var(--faint)" title="Sin costo registrado">—</span>' : soles(m.ganancia)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="vacio"><b>Sin ventas en este periodo</b>Cuando venda, aquí verá lo que más sale.</div>';
+
+  $('resAlertasCuenta').textContent = p.alertas.length ? p.alertas.length + (p.alertas.length === 1 ? ' producto' : ' productos') : '';
+  $('resAlertas').innerHTML = p.alertas.length ? p.alertas.slice(0, 12).map(a => `<li>
+      <div><b>${esc(a.producto)}</b><small>Mínimo ${cant(a.stockMin)} ${esc(a.unidad)}</small></div>
+      <span class="etiqueta ${a.estado === 'SIN_STOCK' ? 'mal' : 'aviso'}">${a.estado === 'SIN_STOCK' ? 'Sin stock' : 'Bajo · ' + cant(a.stock) + ' ' + esc(a.unidad)}</span>
+    </li>`).join('')
+    : '<li class="vacio" style="display:block"><b>Todo en orden</b>Ningún producto está por debajo de su mínimo.</li>';
+
+  const q = p.sinMovimiento;
+  $('resQuietosCuenta').textContent = `con stock y sin ventas en ${p.diasSinMovimiento} días`;
+  $('resQuietos').innerHTML = q.length ? `<table class="tabla adaptable"><thead><tr><th>Producto</th><th class="der">Stock</th><th class="der">Valor parado</th><th>Última venta</th></tr></thead>
+    <tbody>${q.map(s => `<tr><td data-t="Producto">${esc(s.producto)}</td><td data-t="Stock" class="der num">${cant(s.stock)} ${esc(s.unidad)}</td>
+      <td data-t="Valor parado" class="der num">${soles(s.valorVenta)}</td>
+      <td data-t="Última venta" class="num">${s.ultimaVenta ? fechaCorta(s.ultimaVenta) : '<span style="color:var(--faint)">Nunca</span>'}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="vacio"><b>Todo se mueve</b>Cada producto con stock se vendió en el último mes.</div>';
+}
+function pintarGrafico(dias) {
+  const caja = $('resGrafico');
+  if (!dias.some(d => Number(d.total) > 0)) {
+    caja.innerHTML = '<div class="vacio"><b>Sin ventas en este periodo</b>Registre ventas y aquí verá cómo van día a día.</div>';
+    return;
+  }
+  const W = Math.max(caja.clientWidth - 36, 260), H = 240, izq = 50, abajo = 22, arriba = 8, alto = H - arriba - abajo;
+  const max = Math.max(...dias.map(d => Number(d.total)));
+  const paso = [1, 10, 100, 1000, 10000, 100000, 1000000].flatMap(e => [e, 2 * e, 5 * e]).find(s => max / s <= 4);
+  const tope = Math.ceil(max / paso) * paso;
+  const y = v => arriba + alto * (1 - v / tope);
+  const ancho = (W - izq) / dias.length, barra = Math.max(2, Math.min(24, ancho - 2));
+  const cada = Math.ceil(dias.length / Math.max(1, Math.floor((W - izq) / 48)));
+  let svg = '';
+  for (let v = 0; v <= tope; v += paso)
+    svg += `<line class="${v === 0 ? 'base' : 'guia'}" x1="${izq}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/>`
+      + `<text class="eje" x="${izq - 8}" y="${y(v) + 4}" text-anchor="end">${v >= 1000 ? (v / 1000).toLocaleString('es-PE') + ' mil' : v}</text>`;
+  dias.forEach((d, i) => {
+    const x = izq + i * ancho + (ancho - barra) / 2, top = y(Number(d.total)), r = Math.min(4, barra / 2, y(0) - top);
+    const forma = top < y(0) ? `M${x},${y(0)}V${top + r}Q${x},${top} ${x + r},${top}H${x + barra - r}Q${x + barra},${top} ${x + barra},${top + r}V${y(0)}Z` : '';
+    svg += `<rect class="zona" data-i="${i}" x="${izq + i * ancho}" y="${arriba}" width="${ancho}" height="${alto}" tabindex="0"`
+      + ` aria-label="${fechaCorta(d.fecha)}: ${soles(d.total)}, ${d.ventas === 1 ? '1 venta' : d.ventas + ' ventas'}"/><path class="barra-dia" d="${forma}"/>`;
+    if ((dias.length - 1 - i) % cada === 0)
+      svg += `<text class="eje" x="${izq + i * ancho + ancho / 2}" y="${H - 6}" text-anchor="middle">${diaMes(d.fecha)}</text>`;
+  });
+  caja.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas por día en ${esc(moneda.nombre)}">${svg}</svg><div class="grafico-tip" hidden></div>`;
+  const tip = caja.querySelector('.grafico-tip');
+  const mostrar = z => {
+    const d = dias[z.dataset.i], b = z.getBoundingClientRect(), c = caja.getBoundingClientRect();
+    tip.innerHTML = `<small>${fechaCorta(d.fecha)}</small><b>${soles(d.total)}</b>`
+      + `<small>${d.ventas === 1 ? '1 venta' : d.ventas + ' ventas'} · ganancia ${soles(d.ganancia)}</small>`;
+    tip.hidden = false;
+    tip.style.left = Math.min(Math.max(b.left - c.left + b.width / 2, 90), c.width - 90) + 'px';
+    tip.style.top = (b.top - c.top + (y(Number(d.total)) - arriba) * b.height / alto) + 'px';
+  };
+  caja.querySelectorAll('.zona').forEach(z => {
+    z.addEventListener('mouseenter', () => mostrar(z));
+    z.addEventListener('focus', () => mostrar(z));
+    z.addEventListener('click', () => mostrar(z));
+    z.addEventListener('mouseleave', () => { tip.hidden = true; });
+    z.addEventListener('blur', () => { tip.hidden = true; });
+  });
+}
+$('resDias').addEventListener('change', refreshResultados);
+$('resExcel').onclick = () => {
+  if (panel) descargar('/api/reportes/ventas.xlsx?' + new URLSearchParams({ desde: panel.rango.desde, hasta: panel.rango.hasta }), 'ventas.xlsx');
+};
+let redibujo;
+window.addEventListener('resize', () => {
+  clearTimeout(redibujo);
+  redibujo = setTimeout(() => { if (vista === 'resultados' && panel) pintarGrafico(panel.porDia); }, 150);
+});
+
 function filaComprobante(c) {
   const fecha = (c.fecha || '').split('-').reverse().join('/');
   return `<tr class="clic" data-comp="${c.numero}" tabindex="0" title="Enter: ver el comprobante">
@@ -1994,7 +2239,7 @@ async function verCompra(codigo) {
       ${esc(c.proveedor)} (RUC ${esc(c.proveedorRuc)})<br>Registrada el ${fechaCorta(c.fecha)} a las ${esc(c.hora)}${c.observacion ? ' · ' + esc(c.observacion) : ''}</p>
     <div class="tabla-caja"><table class="tabla compacta"><thead><tr><th>#</th><th>Producto</th><th class="der">Cantidad</th><th class="der">Costo</th><th class="der">Importe</th></tr></thead>
     <tbody>${c.detalles.map(d => `<tr><td>${d.item}</td><td>${esc(d.producto)}</td><td class="der num">${cant(d.cantidad)} ${esc(d.unidad)}</td>
-      <td class="der num">S/ ${Number(d.costo).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
+      <td class="der num">${esc(moneda.simbolo)} ${Number(d.costo).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
       <td class="der num">${soles(d.importe)}</td></tr>`).join('')}</tbody></table></div>
     <div class="totales" style="padding:12px 0 0"><div><span>${c.modoIgv === 'EXONERADO' ? 'Op. exonerada' : 'Op. gravada'}</span><span>${soles(c.base)}</span></div>
       <div><span>IGV</span><span>${soles(c.igv)}</span></div><div class="total"><span>Total</span><span>${soles(c.total)}</span></div></div>`;
@@ -2130,7 +2375,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
-  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal'].forEach(id => $(id).classList.remove('show'));
+  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal', 'usuariosModal', 'negocioModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
@@ -2149,6 +2394,10 @@ async function refreshSystem() {
   const m = s.uptimeMin;
   $('i-up').textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
   negocio.ruc = s.negocioRuc || ''; negocio.direccion = s.negocioDireccion || '';
+  if (s.monedaSimbolo && (s.monedaSimbolo !== moneda.simbolo || s.monedaNombre !== moneda.nombre)) {
+    moneda.simbolo = s.monedaSimbolo; moneda.nombre = s.monedaNombre || moneda.nombre;
+    refrescarDatos();
+  }
   if ((s.negocio || '') !== negocio.nombre) {
     negocio.nombre = s.negocio || '';
     $('negocio').textContent = negocio.nombre || 'Asistente de inventario';
@@ -2533,7 +2782,8 @@ document.addEventListener('keydown', e => {
 const normalDicho = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
 const SECCIONES = { inicio: 'inicio', vender: 'vender', ventas: 'vender', inventario: 'inventario', productos: 'inventario',
-  clientes: 'clientes', comprobantes: 'comprobantes', boletas: 'comprobantes', compras: 'compras', proveedores: 'proveedores' };
+  clientes: 'clientes', comprobantes: 'comprobantes', boletas: 'comprobantes', compras: 'compras', proveedores: 'proveedores',
+  resultados: 'resultados', ganancias: 'resultados', reportes: 'resultados', panel: 'resultados' };
 const FORMULARIOS = [
   [/^(nuevo producto|agregar producto|crear producto|registrar (un )?producto)$/, () => openProduct(null), 'Formulario de producto nuevo'],
   [/^(registrar|registra|agregar|agrega|crear) (un )?cliente$/, () => abrirCliente(null), 'Formulario de cliente nuevo'],
@@ -2552,8 +2802,11 @@ function ordenDePantalla(text, porVoz, silentUser) {
   const sec = t.match(/^(?:ir a|ve a|vamos a|abre|abrir|abreme|muestra|muestrame|mostrar|ver|pantalla)(?: la)?(?: pantalla)?(?: de)?(?: los| las| el)? (\w+)$/);
   if (sec && SECCIONES[sec[1]]) {
     const v = SECCIONES[sec[1]];
-    irAyEnfocar(v);
-    hecho = 'Pantalla ' + document.querySelector(`.nav a[data-vista="${v}"]`).textContent.trim() + '.';
+    if (!vistaPermitida(v)) hecho = 'Su usuario no tiene acceso a la pantalla ' + document.querySelector(`.nav a[data-vista="${v}"]`).textContent.trim() + '.';
+    else {
+      irAyEnfocar(v);
+      hecho = 'Pantalla ' + document.querySelector(`.nav a[data-vista="${v}"]`).textContent.trim() + '.';
+    }
   } else {
     for (const [re, abrir, nombre] of FORMULARIOS) if (re.test(t)) { abrir(); hecho = nombre + '. Dicte el primer campo.'; break; }
   }
@@ -2696,8 +2949,165 @@ function escribirEn(el, texto) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function aplicarSesion() {
+  document.querySelectorAll('[data-permiso]').forEach(el => { el.hidden = !puede(el.dataset.permiso); });
+  const conNombre = conUsuarios && yo && yo.nombre !== 'Laptop';
+  $('salirBtn').hidden = !conNombre;
+  $('salirTexto').textContent = conNombre ? 'Salir · ' + yo.nombre : 'Salir';
+  $('salirBtn').title = conNombre ? `${yo.nombre} (${yo.rolDescripcion}). Toque para cerrar la sesión.` : '';
+  if (!vistaPermitida(vista)) irA('inicio');
+}
+async function cargarSesion() {
+  const s = await traer('/api/sesion');
+  if (!s) return;
+  conUsuarios = s.usuarios;
+  yo = s.yo;
+  aplicarSesion();
+  if (conUsuarios && !yo) mostrarLogin(s.nombres);
+}
+let loginElegido = '';
+function mostrarLogin(nombres) {
+  const caja = $('loginUsuarios');
+  caja.innerHTML = nombres.map(n => `<button type="button" role="radio" aria-checked="false" data-nombre="${esc(n)}">${esc(n)}</button>`).join('');
+  loginElegido = nombres.length === 1 ? nombres[0] : '';
+  caja.querySelectorAll('button').forEach(b => {
+    b.setAttribute('aria-checked', String(b.dataset.nombre === loginElegido));
+    b.onclick = () => {
+      loginElegido = b.dataset.nombre;
+      caja.querySelectorAll('button').forEach(x => x.setAttribute('aria-checked', String(x === b)));
+      $('loginPin').focus();
+    };
+  });
+  $('loginPin').value = '';
+  $('loginErr').textContent = '';
+  $('loginModal').classList.add('show');
+  setTimeout(() => (loginElegido ? $('loginPin') : caja.querySelector('button'))?.focus(), 80);
+}
+let pidiendoLogin = false;
+async function pedirLogin() {
+  if (pidiendoLogin || $('loginModal').classList.contains('show')) return;
+  pidiendoLogin = true;
+  guardar('jarvisUsuario', '');
+  yo = null;
+  try { await cargarSesion(); } finally { pidiendoLogin = false; }
+}
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!loginElegido) { $('loginErr').textContent = 'Elija su usuario.'; return; }
+  const pin = $('loginPin').value.trim();
+  if (!/^\d{4,6}$/.test(pin)) { $('loginErr').textContent = 'El PIN tiene de 4 a 6 números.'; $('loginPin').focus(); return; }
+  $('loginEntrar').disabled = true;
+  const res = await invCall('/api/sesion', 'POST', { usuario: loginElegido, pin });
+  $('loginEntrar').disabled = false;
+  if (!res.ok) { $('loginErr').textContent = res.reply || 'No pude iniciar sesión.'; $('loginPin').select(); return; }
+  guardar('jarvisUsuario', res.data.token);
+  yo = res.data.yo;
+  $('loginModal').classList.remove('show');
+  aplicarSesion();
+  irA(vistaPermitida(vista) ? vista : 'inicio');
+  refrescarTodo();
+  avisar(res.reply);
+});
+$('salirBtn').onclick = async () => {
+  await invCall('/api/sesion', 'DELETE');
+  guardar('jarvisUsuario', '');
+  yo = null;
+  await cargarSesion();
+};
+
+let usuariosLista = [];
+async function abrirUsuarios() {
+  $('usErr').textContent = '';
+  $('usuariosModal').classList.add('show');
+  await refreshUsuarios();
+}
+async function refreshUsuarios() {
+  const l = await traer('/api/usuarios');
+  if (!l) { $('usLista').innerHTML = '<div class="vacio">No pude leer los usuarios.</div>'; return; }
+  usuariosLista = l;
+  const roles = [['ADMIN', 'Administrador'], ['CAJERO', 'Cajero'], ['ALMACEN', 'Almacén']];
+  $('usLista').innerHTML = l.length ? `<table class="tabla adaptable"><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Nuevo PIN</th><th class="acciones"></th></tr></thead>
+    <tbody>${l.map((u, i) => `<tr data-i="${i}"><td data-t="Usuario"><b>${esc(u.nombre)}</b></td>
+      <td data-t="Rol"><select class="campo" data-accion="rol" aria-label="Rol de ${esc(u.nombre)}">${roles.map(([v, t]) =>
+        `<option value="${v}"${u.rol === v ? ' selected' : ''}>${t}</option>`).join('')}</select></td>
+      <td data-t="Estado"><span class="etiqueta ${u.activo ? 'ok' : 'mal'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>
+      <td data-t="Nuevo PIN"><input class="campo pin-nuevo" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"
+        aria-label="Nuevo PIN de ${esc(u.nombre)}" placeholder="••••"> <button class="boton" type="button" data-accion="pin">Cambiar</button></td>
+      <td class="acciones"><button class="boton" type="button" data-accion="activo">${u.activo ? 'Desactivar' : 'Activar'}</button>
+        <button class="icono peligro" type="button" data-accion="eliminar" title="Eliminar a ${esc(u.nombre)}" aria-label="Eliminar a ${esc(u.nombre)}"><svg><use href="#i-basura"/></svg></button></td></tr>`).join('')}</tbody></table>`
+    : '<div class="vacio"><b>Aún no hay usuarios</b>Cree primero al administrador: desde ese momento los celulares pedirán usuario y PIN.</div>';
+  $('usRol').value = l.length ? 'CAJERO' : 'ADMIN';
+}
+async function cambiarUsuario(u, cambios, aviso) {
+  const res = await invCall('/api/usuarios/' + u.id, 'PATCH', cambios);
+  $('usErr').textContent = res.ok ? '' : res.reply;
+  if (res.ok) avisar(aviso || res.reply);
+  await refreshUsuarios();
+  cargarSesion();
+}
+$('usLista').addEventListener('change', e => {
+  const sel = e.target.closest('select[data-accion="rol"]'); if (!sel) return;
+  cambiarUsuario(usuariosLista[sel.closest('tr').dataset.i], { rol: sel.value });
+});
+$('usLista').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-accion]'); if (!b) return;
+  const fila = b.closest('tr'), u = usuariosLista[fila.dataset.i]; if (!u) return;
+  if (b.dataset.accion === 'pin') {
+    const pin = fila.querySelector('.pin-nuevo').value.trim();
+    if (!pin) { $('usErr').textContent = 'Escriba el nuevo PIN de ' + u.nombre + '.'; fila.querySelector('.pin-nuevo').focus(); return; }
+    cambiarUsuario(u, { pin }, 'PIN de ' + u.nombre + ' cambiado.');
+  } else if (b.dataset.accion === 'activo') {
+    cambiarUsuario(u, { activo: !u.activo });
+  } else if (b.dataset.accion === 'eliminar') {
+    if (!await confirmar('Eliminar usuario', `¿Eliminar a ${u.nombre}? Sus ventas y movimientos se conservan.`, 'Eliminar')) return;
+    const res = await invCall('/api/usuarios/' + u.id, 'DELETE');
+    $('usErr').textContent = res.ok ? '' : res.reply;
+    if (res.ok) avisar(res.reply);
+    await refreshUsuarios();
+    cargarSesion();
+  }
+});
+$('usForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const datos = { nombre: $('usNombre').value.trim(), rol: $('usRol').value, pin: $('usPin').value.trim() };
+  if (!datos.nombre) { $('usErr').textContent = 'Escriba el nombre del usuario.'; $('usNombre').focus(); return; }
+  const res = await invCall('/api/usuarios', 'POST', datos);
+  $('usErr').textContent = res.ok ? '' : res.reply;
+  if (!res.ok) return;
+  avisar(res.reply);
+  $('usNombre').value = ''; $('usPin').value = '';
+  await refreshUsuarios();
+  cargarSesion();
+});
+$('usuariosBtn').onclick = abrirUsuarios;
+
+const CAMPOS_NEGOCIO = { negNombre: 'nombre', negRuc: 'ruc', negTelefono: 'telefono', negDireccion: 'direccion', negEmail: 'email',
+  negSimbolo: 'monedaSimbolo', negMoneda: 'monedaNombre', negSingular: 'monedaSingular' };
+async function abrirNegocio() {
+  const d = await traer('/api/negocio');
+  if (!d) { avisar('No pude leer los datos del negocio.', true); return; }
+  Object.entries(CAMPOS_NEGOCIO).forEach(([id, k]) => { $(id).value = d[k] || ''; });
+  $('negErr').textContent = '';
+  $('negocioModal').classList.add('show');
+}
+$('negocioForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const datos = {};
+  Object.entries(CAMPOS_NEGOCIO).forEach(([id, k]) => { datos[k] = $(id).value.trim(); });
+  const res = await invCall('/api/negocio', 'PUT', datos);
+  if (!res.ok) { $('negErr').textContent = res.reply; return; }
+  $('negocioModal').classList.remove('show');
+  avisar(res.reply);
+  await refreshSystem();
+  pintarSaludo();
+});
+$('negocioBtn').onclick = abrirNegocio;
+$('negCancelar').onclick = () => $('negocioModal').classList.remove('show');
+$('usCerrar').onclick = () => $('usuariosModal').classList.remove('show');
+
 (async function arrancar() {
   getToken();
+  await cargarSesion();
   irA(location.hash.slice(1) || 'inicio');
   setState('idle');
   await refreshSystem();

@@ -10,6 +10,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jarvis.security.ClientSession;
+import com.jarvis.security.Rol.Permiso;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,11 +113,12 @@ public class InventoryService {
 
     public record Linea(Producto producto, BigDecimal cantidad) {}
 
-    public enum Estado { OK, ERROR, NO_ENCONTRADO }
+    public enum Estado { OK, ERROR, NO_ENCONTRADO, PROHIBIDO }
     public record Resultado(Estado estado, String mensaje) {
-        static Resultado ok(String m) { return new Resultado(Estado.OK, m); }
-        static Resultado error(String m) { return new Resultado(Estado.ERROR, m); }
-        static Resultado noEncontrado(String m) { return new Resultado(Estado.NO_ENCONTRADO, m); }
+        public static Resultado ok(String m) { return new Resultado(Estado.OK, m); }
+        public static Resultado error(String m) { return new Resultado(Estado.ERROR, m); }
+        public static Resultado noEncontrado(String m) { return new Resultado(Estado.NO_ENCONTRADO, m); }
+        public static Resultado prohibido(String m) { return new Resultado(Estado.PROHIBIDO, m); }
         public boolean ok() { return estado == Estado.OK; }
     }
 
@@ -149,6 +151,8 @@ public class InventoryService {
     private final Igv.Modo igvPorDefecto;
     private final Clientes clientes;
     private final Compras compras;
+    private final Usuarios usuarios;
+    private final Ajustes ajustes;
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
@@ -169,6 +173,8 @@ public class InventoryService {
         this.almacen = new Almacen(esBase ? ruta : ruta.resolveSibling(nombre.replaceFirst("\\.json$", "") + ".db"));
         this.clientes = new Clientes(almacen.baseDatos());
         this.compras = new Compras(almacen.baseDatos());
+        this.usuarios = new Usuarios(almacen.baseDatos());
+        this.ajustes = new Ajustes(almacen.baseDatos());
         cargar();
     }
 
@@ -181,6 +187,10 @@ public class InventoryService {
     public Clientes clientes() { return clientes; }
 
     public Compras compras() { return compras; }
+
+    public Usuarios usuarios() { return usuarios; }
+
+    public Ajustes ajustes() { return ajustes; }
 
     public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
 
@@ -317,6 +327,8 @@ public class InventoryService {
     private static final BigDecimal UNO_MAS_IGV = BigDecimal.ONE.add(Igv.TASA);
 
     public synchronized Resultado registrarCompra(Compras.NuevaCompra c) {
+        String no = ClientSession.sinPermiso(Permiso.COMPRAS);
+        if (no != null) return Resultado.prohibido(no);
         if (c == null) return Resultado.error("Faltan los datos de la compra.");
         String ruc = c.ruc() == null ? "" : c.ruc().trim();
         if (!ruc.matches(Compras.PATRON_RUC)) return Resultado.error("Ingrese un RUC de proveedor válido (11 dígitos, empieza con 10, 15, 17 o 20).");
@@ -379,12 +391,14 @@ public class InventoryService {
                 LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")), ruc, razon, tipo, numeroDoc, fechaDoc.toString(), modo,
                 totales, c.observacion() == null ? "" : c.observacion().trim(), ClientSession.usuario(), detalles);
         if (!guardarTodo(cx -> { compras.insertar(cx, reg); return null; })) return Resultado.error(NO_GUARDADO);
-        return Resultado.ok(String.format("Compra %s registrada: %s %s de %s por %.2f soles. Ingresaron %d %s al stock.",
+        return Resultado.ok(String.format("Compra %s registrada: %s %s de %s por %.2f " + Moneda.nombre() + ". Ingresaron %d %s al stock.",
                 codigo, tipo.descripcion.toLowerCase(), numeroDoc, razon, totales.total(), detalles.size(),
                 detalles.size() == 1 ? "producto" : "productos"));
     }
 
     public synchronized Resultado anularCompra(String codigoONumero) {
+        String no = ClientSession.sinPermiso(Permiso.COMPRAS);
+        if (no != null) return Resultado.prohibido(no);
         Optional<Compras.Compra> encontrada = compras.obtener(codigoONumero);
         if (encontrada.isEmpty()) return Resultado.noEncontrado("No encontré la compra " + codigoONumero + ".");
         Compras.Compra c = encontrada.get();
@@ -443,6 +457,8 @@ public class InventoryService {
     private static boolean cantidadInvalida(BigDecimal c) { return c == null || c.signum() <= 0; }
 
     public synchronized String entrada(BigDecimal cantidad, String textoProducto, BigDecimal precio, String unidad, boolean confirmado) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return no;
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor. Por favor repita la orden.";
         cantidad = Num.cantidad(cantidad);
         Match m = buscar(textoProducto);
@@ -486,6 +502,8 @@ public class InventoryService {
     }
 
     public synchronized String salida(BigDecimal cantidad, String textoProducto, boolean confirmado, Opciones opciones) {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return no;
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor. Por favor repita la orden.";
         cantidad = Num.cantidad(cantidad);
         Match m = buscar(textoProducto);
@@ -507,6 +525,8 @@ public class InventoryService {
     public record Pedido(String nombre, BigDecimal cantidad) {}
 
     public synchronized Resultado vender(List<Pedido> pedido, Opciones opciones) {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return Resultado.prohibido(no);
         if (pedido == null || pedido.isEmpty()) return Resultado.error("La venta no tiene productos.");
         List<Linea> lineas = new ArrayList<>();
         for (Pedido x : pedido) {
@@ -613,6 +633,149 @@ public class InventoryService {
                 Num.dinero(ventaConCosto.subtract(costoTotal)));
     }
 
+    public record Periodo(String desde, String hasta, int ventas, int anuladas, BigDecimal total, BigDecimal base, BigDecimal costo,
+                          BigDecimal ganancia, int lineasSinCosto) {}
+
+    public record DiaPanel(String fecha, int ventas, BigDecimal total, BigDecimal ganancia) {}
+
+    /** {@code ganancia} es null si ninguna de sus ventas tenía costo registrado. */
+    public record MasVendido(String producto, String unidad, BigDecimal cantidad, BigDecimal total, BigDecimal ganancia) {}
+
+    public record Alerta(String producto, String unidad, BigDecimal stock, BigDecimal stockMin, String estado) {}
+
+    public record SinMovimiento(String producto, String unidad, BigDecimal stock, BigDecimal valorVenta, String ultimaVenta) {}
+
+    public record Panel(String hoy, Periodo deHoy, Periodo semana, Periodo mes, Periodo rango, List<DiaPanel> porDia,
+                        List<MasVendido> masVendidos, List<Alerta> alertas, List<SinMovimiento> sinMovimiento, int diasSinMovimiento) {}
+
+    public static final int DIAS_SIN_MOVIMIENTO = 30;
+
+    /** Ventas y ganancia de hoy, la semana (desde el lunes), el mes y los últimos {@code dias} días, más alertas de stock. */
+    public synchronized Panel panel(int dias) {
+        return panel(LocalDate.now(), dias);
+    }
+
+    synchronized Panel panel(LocalDate hoy, int dias) {
+        dias = Math.min(Math.max(dias, 7), 366);
+        LocalDate inicioRango = hoy.minusDays(dias - 1L);
+        List<Comprobante> todos = ventasPeriodo(null, null);
+        Map<String, String> ultimaVenta = new HashMap<>();
+        for (Comprobante c : todos) {
+            if (c.anulado) continue;
+            for (Venta v : c.items) ultimaVenta.merge(Palabras.norm(v.producto), c.fecha, (a, b) -> a.compareTo(b) >= 0 ? a : b);
+        }
+
+        Map<String, DiaPanel> porDia = new LinkedHashMap<>();
+        for (LocalDate d = inicioRango; !d.isAfter(hoy); d = d.plusDays(1))
+            porDia.put(d.toString(), new DiaPanel(d.toString(), 0, Num.dinero(BigDecimal.ZERO), Num.dinero(BigDecimal.ZERO)));
+        List<Comprobante> delRango = new ArrayList<>();
+        for (Comprobante c : todos) {
+            if (c.anulado || !enPeriodo(c.fecha, inicioRango.toString(), hoy.toString())) continue;
+            delRango.add(c);
+            BigDecimal[] g = ganancia(c);
+            porDia.computeIfPresent(c.fecha, (k, d) -> new DiaPanel(k, d.ventas() + 1, d.total().add(c.total), d.ganancia().add(g[1])));
+        }
+        List<MasVendido> top = masVendidos(delRango, 10);
+
+        List<Alerta> alertas = new ArrayList<>();
+        List<SinMovimiento> quietos = new ArrayList<>();
+        String limiteQuieto = hoy.minusDays(DIAS_SIN_MOVIMIENTO).toString();
+        for (Producto p : productos) {
+            if (p.stock.signum() <= 0) alertas.add(new Alerta(p.nombre, p.unidad, p.stock, p.stockMin, "SIN_STOCK"));
+            else if (p.stockBajo()) alertas.add(new Alerta(p.nombre, p.unidad, p.stock, p.stockMin, "BAJO"));
+            if (p.stock.signum() > 0) {
+                String ultima = ultimaVenta.get(Palabras.norm(p.nombre));
+                if (ultima == null || ultima.compareTo(limiteQuieto) < 0)
+                    quietos.add(new SinMovimiento(p.nombre, p.unidad, p.stock, Num.dinero(p.precio.multiply(p.stock)), ultima));
+            }
+        }
+        alertas.sort(Comparator.comparing((Alerta a) -> a.estado().equals("SIN_STOCK") ? 0 : 1)
+                .thenComparing(a -> a.stock().subtract(a.stockMin()))
+                .thenComparing(a -> Palabras.norm(a.producto())));
+        quietos.sort(Comparator.comparing(SinMovimiento::valorVenta).reversed().thenComparing(s -> Palabras.norm(s.producto())));
+
+        LocalDate lunes = hoy.minusDays(hoy.getDayOfWeek().getValue() - 1L);
+        return new Panel(hoy.toString(), periodo(todos, hoy, hoy), periodo(todos, lunes, hoy),
+                periodo(todos, hoy.withDayOfMonth(1), hoy), periodo(todos, inicioRango, hoy), new ArrayList<>(porDia.values()),
+                top, alertas, quietos.size() > 20 ? quietos.subList(0, 20) : quietos, DIAS_SIN_MOVIMIENTO);
+    }
+
+    /** Ventas y ganancia entre dos fechas (inclusive). */
+    public synchronized Periodo ventasDe(LocalDate desde, LocalDate hasta) {
+        return periodo(ventasPeriodo(desde.toString(), hasta.toString()), desde, hasta);
+    }
+
+    /** Lo más vendido entre dos fechas, de mayor a menor importe. */
+    public synchronized List<MasVendido> masVendidos(LocalDate desde, LocalDate hasta, int limite) {
+        return masVendidos(ventasPeriodo(desde.toString(), hasta.toString()).stream().filter(c -> !c.anulado).toList(), limite);
+    }
+
+    private static List<MasVendido> masVendidos(List<Comprobante> validos, int limite) {
+        Map<String, BigDecimal[]> vendidos = new HashMap<>();
+        Map<String, String[]> nombres = new HashMap<>();
+        for (Comprobante c : validos) {
+            BigDecimal factor = factorBase(c);
+            for (Venta v : c.items) {
+                String clave = Palabras.norm(v.producto);
+                nombres.putIfAbsent(clave, new String[]{v.producto, v.unidad});
+                BigDecimal[] acc = vendidos.computeIfAbsent(clave, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, null});
+                acc[0] = acc[0].add(v.cantidad);
+                acc[1] = acc[1].add(v.monto);
+                if (v.costoUnitario != null)
+                    acc[2] = (acc[2] == null ? BigDecimal.ZERO : acc[2]).add(v.monto.multiply(factor).subtract(v.costoUnitario.multiply(v.cantidad)));
+            }
+        }
+        return vendidos.entrySet().stream()
+                .sorted(Comparator.comparing((Map.Entry<String, BigDecimal[]> e) -> e.getValue()[1]).reversed()
+                        .thenComparing(Map.Entry::getKey))
+                .limit(Math.max(limite, 1))
+                .map(e -> new MasVendido(nombres.get(e.getKey())[0], nombres.get(e.getKey())[1], Num.cantidad(e.getValue()[0]),
+                        Num.dinero(e.getValue()[1]), Num.dinero(e.getValue()[2])))
+                .toList();
+    }
+
+    /** Nombre exacto del producto que se entiende por {@code texto}, o null si no se reconoce. */
+    public synchronized String nombreDe(String texto) {
+        Match m = buscar(texto);
+        return m == null || m.empate() ? null : m.producto.nombre;
+    }
+
+    private static Periodo periodo(List<Comprobante> todos, LocalDate desde, LocalDate hasta) {
+        String d = desde.toString(), h = hasta.toString();
+        int n = 0, anuladas = 0, sinCosto = 0;
+        BigDecimal total = BigDecimal.ZERO, base = BigDecimal.ZERO, costo = BigDecimal.ZERO, ganancia = BigDecimal.ZERO;
+        for (Comprobante c : todos) {
+            if (!enPeriodo(c.fecha, d, h)) continue;
+            if (c.anulado) { anuladas++; continue; }
+            n++;
+            total = total.add(c.total);
+            base = base.add(c.base);
+            BigDecimal[] g = ganancia(c);
+            costo = costo.add(g[0]);
+            ganancia = ganancia.add(g[1]);
+            sinCosto += c.items.stream().filter(v -> v.costoUnitario == null).count();
+        }
+        return new Periodo(d, h, n, anuladas, Num.dinero(total), Num.dinero(base), Num.dinero(costo), Num.dinero(ganancia), sinCosto);
+    }
+
+    /** Parte de cada importe que es venta sin IGV (el costo de compra también se guarda sin IGV). */
+    private static BigDecimal factorBase(Comprobante c) {
+        BigDecimal suma = c.items.stream().map(v -> v.monto).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return suma.signum() == 0 ? BigDecimal.ONE : c.base.divide(suma, 10, RoundingMode.HALF_UP);
+    }
+
+    /** [costo, ganancia] del comprobante, solo con las líneas que tienen costo registrado. */
+    private static BigDecimal[] ganancia(Comprobante c) {
+        BigDecimal factor = factorBase(c), costo = BigDecimal.ZERO, ganancia = BigDecimal.ZERO;
+        for (Venta v : c.items) {
+            if (v.costoUnitario == null) continue;
+            BigDecimal cl = v.costoUnitario.multiply(v.cantidad);
+            costo = costo.add(cl);
+            ganancia = ganancia.add(v.monto.multiply(factor).subtract(cl));
+        }
+        return new BigDecimal[]{Num.dinero(costo), Num.dinero(ganancia)};
+    }
+
     public synchronized List<Comprobante> ventasPeriodo(String desde, String hasta) {
         Map<Integer, List<Venta>> porNumero = new TreeMap<>();
         for (Venta v : ventas)
@@ -637,6 +800,8 @@ public class InventoryService {
     }
 
     public synchronized String venderVarios(List<BigDecimal> cantidades, List<String> textos, Opciones opciones) {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return no;
         List<Linea> lineas = new ArrayList<>();
         for (int i = 0; i < textos.size(); i++) {
             BigDecimal c = cantidades.get(i);
@@ -693,13 +858,13 @@ public class InventoryService {
             Venta v = items.get(0);
             Producto p = lineas.get(0).producto();
             msg = "Venta registrada: " + Num.txt(v.cantidad) + " " + v.unidad + " de " + v.producto
-                    + String.format(". Total: %.2f soles. %s. Stock actual: %s.", c.total, capitaliza(c.hablado()), Num.txt(p.stock));
+                    + String.format(". Total: %.2f " + Moneda.nombre() + ". %s. Stock actual: %s.", c.total, capitaliza(c.hablado()), Num.txt(p.stock));
         } else {
-            msg = String.format("Venta registrada: %d productos. Total: %.2f soles. %s.", items.size(), c.total, capitaliza(c.hablado()));
+            msg = String.format("Venta registrada: %d productos. Total: %.2f " + Moneda.nombre() + ". %s.", items.size(), c.total, capitaliza(c.hablado()));
         }
         if (cliente != null) msg += " Cliente: " + cliente.nombre() + ".";
         else if (tipo == TipoComprobante.BOLETA && c.total.compareTo(BOLETA_CON_DNI_DESDE) >= 0)
-            msg += " Atención: en boletas de 700 soles o más se debe identificar al cliente con su DNI.";
+            msg += " Atención: en boletas de 700 " + Moneda.nombre() + " o más se debe identificar al cliente con su DNI.";
         for (Producto p : pedido.keySet()) {
             String quien = items.size() == 1 ? "el producto" : p.nombre;
             if (p.precio.signum() <= 0) msg += " Atención: " + quien + " no tiene precio registrado.";
@@ -719,6 +884,8 @@ public class InventoryService {
     }
 
     public synchronized String abrirVenta(Opciones opciones) {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return no;
         String msg = abrirVenta();
         if (opciones == null || opciones.vacia() || !msg.startsWith("Venta nueva")) return msg;
         String r = opcionesVenta(opciones);
@@ -742,6 +909,8 @@ public class InventoryService {
     }
 
     public synchronized String agregarAlCarrito(BigDecimal cantidad, String textoProducto) {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return no;
         Sesion s = sesion();
         if (s.carrito == null) s.carrito = new ArrayList<>();
         if (cantidadInvalida(cantidad)) return "No entendí la cantidad, señor.";
@@ -758,7 +927,7 @@ public class InventoryService {
             return "Atención: stock insuficiente. Solo quedan " + Num.txt(p.stock) + " " + p.unidad + " de " + p.nombre + ".";
         s.carrito.removeIf(l -> l.producto() == p);
         s.carrito.add(new Linea(p, total));
-        return String.format("Agregado: %s %s de %s, %.2f soles. Total parcial: %.2f soles.",
+        return String.format("Agregado: %s %s de %s, %.2f " + Moneda.nombre() + ". Total parcial: %.2f " + Moneda.nombre() + ".",
                 Num.txt(cantidad), p.unidad, p.nombre, Num.monto(p.precio, cantidad), totalCarrito(s));
     }
 
@@ -768,7 +937,7 @@ public class InventoryService {
         Match m = buscar(textoProducto);
         if (m == null || !s.carrito.removeIf(l -> l.producto() == m.producto))
             return "Ese producto no está en la venta, señor.";
-        return String.format("Quitado: %s. Total parcial: %.2f soles.", m.producto.nombre, totalCarrito(s));
+        return String.format("Quitado: %s. Total parcial: %.2f " + Moneda.nombre() + ".", m.producto.nombre, totalCarrito(s));
     }
 
     public synchronized String verCarrito() {
@@ -779,10 +948,12 @@ public class InventoryService {
             Linea l = s.carrito.get(i);
             sb.append(i == 0 ? "" : ", ").append(Num.txt(l.cantidad())).append(" ").append(l.producto().unidad).append(" de ").append(l.producto().nombre);
         }
-        return sb.append(String.format(". Total: %.2f soles.", totalCarrito(s))).toString();
+        return sb.append(String.format(". Total: %.2f " + Moneda.nombre() + ".", totalCarrito(s))).toString();
     }
 
     public synchronized String cobrar() {
+        String no = ClientSession.sinPermiso(Permiso.VENDER);
+        if (no != null) return no;
         Sesion s = sesion();
         if (s.carrito == null || s.carrito.isEmpty()) return "La venta está vacía, señor. Dígame qué productos lleva el cliente.";
         String msg = emitir(s.carrito, s.opciones);
@@ -817,7 +988,7 @@ public class InventoryService {
         if (productos.isEmpty()) return "El inventario está vacío, señor.";
         StringBuilder sb = new StringBuilder("Lista de precios:\n");
         for (Producto p : productos)
-            sb.append(String.format("• %s: %.2f soles (stock: %s %s)%n", p.nombre, p.precio, Num.txt(p.stock), p.unidad));
+            sb.append(String.format("• %s: %.2f " + Moneda.nombre() + " (stock: %s %s)%n", p.nombre, p.precio, Num.txt(p.stock), p.unidad));
         return sb.toString().trim();
     }
 
@@ -826,23 +997,29 @@ public class InventoryService {
         if (m == null) return "No encontré ese producto, señor.";
         if (m.empate()) {
             StringBuilder sb = new StringBuilder("Tengo varios parecidos:");
-            for (Producto x : m.empatados) sb.append(String.format(" %s cuesta %.2f soles.", x.nombre, x.precio));
+            for (Producto x : m.empatados) sb.append(String.format(" %s cuesta %.2f " + Moneda.nombre() + ".", x.nombre, x.precio));
             return sb.toString();
         }
         Producto p = m.producto;
         if (p.precio.signum() <= 0) return p.nombre + " aún no tiene precio registrado, señor.";
-        return String.format("%s cuesta %.2f soles. Quedan %s %s.", p.nombre, p.precio, Num.txt(p.stock), p.unidad);
+        return String.format("%s cuesta %.2f " + Moneda.nombre() + ". Quedan %s %s.", p.nombre, p.precio, Num.txt(p.stock), p.unidad);
     }
 
     public synchronized String cambiarPrecio(String textoProducto, BigDecimal nuevo) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return no;
         return editarProducto(textoProducto, false, nuevo, null, null).mensaje();
     }
 
     public synchronized String cambiarStockMinimo(String textoProducto, BigDecimal minimo) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return no;
         return editarProducto(textoProducto, false, null, minimo, null).mensaje();
     }
 
     public synchronized String cambiarUnidad(String textoProducto, String unidad) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return no;
         return editarProducto(textoProducto, false, null, null, unidad).mensaje();
     }
 
@@ -882,7 +1059,7 @@ public class InventoryService {
         Map<String, BigDecimal> porProducto = new HashMap<>();
         for (Venta v : validas) porProducto.merge(v.producto, v.cantidad, BigDecimal::add);
         String top = porProducto.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("-");
-        return String.format("Cierre del día: se registraron %d ventas por un total de %.2f soles. Producto más vendido: %s.", n, total, top)
+        return String.format("Cierre del día: se registraron %d ventas por un total de %.2f " + Moneda.nombre() + ". Producto más vendido: %s.", n, total, top)
                 + (anuladas > 0 ? " Ventas anuladas: " + anuladas + "." : "");
     }
 
@@ -904,10 +1081,12 @@ public class InventoryService {
     }
 
     public synchronized String ultimoComprobante() {
+        String no = ClientSession.sinPermiso(Permiso.COMPROBANTES);
+        if (no != null) return no;
         Comprobante c = ultimo();
         if (c == null) return "Aún no se ha emitido ningún comprobante, señor.";
         sesion().comprobanteNuevo = c;
-        return String.format("Mostrando la %s%s. Total: %.2f soles.", c.hablado(), c.anulado ? " (ANULADA)" : "", c.total);
+        return String.format("Mostrando la %s%s. Total: %.2f " + Moneda.nombre() + ".", c.hablado(), c.anulado ? " (ANULADA)" : "", c.total);
     }
 
     private Comprobante ultimo() {
@@ -922,16 +1101,20 @@ public class InventoryService {
     }
 
     public synchronized String pedirAnularUltimaVenta() {
+        String no = ClientSession.sinPermiso(Permiso.ANULAR_VENTAS);
+        if (no != null) return no;
         Comprobante c = ultimo();
         if (c == null) return "No hay ventas para anular, señor.";
         if (c.anulado) return "La " + c.hablado() + " ya está anulada, señor.";
         Pendiente p = new Pendiente();
         p.tipo = Tipo.ANULAR; p.numero = c.numero;
-        p.pregunta = String.format("¿Confirma anular la %s por %.2f soles? Diga sí o no.", c.hablado(), c.total);
+        p.pregunta = String.format("¿Confirma anular la %s por %.2f " + Moneda.nombre() + "? Diga sí o no.", c.hablado(), c.total);
         return preguntar(p);
     }
 
     public synchronized Resultado anularUltimaVenta() {
+        String no = ClientSession.sinPermiso(Permiso.ANULAR_VENTAS);
+        if (no != null) return Resultado.prohibido(no);
         Comprobante c = ultimo();
         return c == null ? Resultado.noEncontrado("No hay ventas para anular, señor.") : anular(c.numero);
     }
@@ -948,12 +1131,14 @@ public class InventoryService {
             p.stock = Num.cantidad(p.stock.add(v.cantidad));
             registrar("ANULACION", p, v.cantidad, (c.codigo.isEmpty() ? "venta " + numero : c.codigo) + ", stock " + Num.txt(p.stock));
         }
-        String msg = String.format("Venta anulada: %s por %.2f soles. Devolví los productos al stock.", c.hablado(), c.total);
+        String msg = String.format("Venta anulada: %s por %.2f " + Moneda.nombre() + ". Devolví los productos al stock.", c.hablado(), c.total);
         if (!sinProducto.isEmpty()) msg += " Ojo: " + String.join(", ", sinProducto) + " ya no existe, no se devolvió.";
         return Resultado.ok(persistir(msg));
     }
 
     public synchronized Resultado corregirUltimaVenta(String textoProducto, BigDecimal nueva, boolean exacto) {
+        String no = ClientSession.sinPermiso(Permiso.ANULAR_VENTAS);
+        if (no != null) return Resultado.prohibido(no);
         if (nueva == null || nueva.signum() < 0) return Resultado.error("No entendí la nueva cantidad, señor.");
         nueva = Num.cantidad(nueva);
         Comprobante c = ultimo();
@@ -994,7 +1179,7 @@ public class InventoryService {
         Comprobante corregido = comprobante(c.numero);
         sesion().comprobanteNuevo = corregido;
         String que = nueva.signum() == 0 ? "quité " + p.nombre : p.nombre + " ahora es " + Num.txt(nueva) + " " + p.unidad;
-        return Resultado.ok(persistir(String.format("Corregí la %s: %s. Nuevo total: %.2f soles. Stock actual: %s.",
+        return Resultado.ok(persistir(String.format("Corregí la %s: %s. Nuevo total: %.2f " + Moneda.nombre() + ". Stock actual: %s.",
                 corregido.hablado(), que, corregido.total, Num.txt(p.stock))));
     }
 
@@ -1019,6 +1204,8 @@ public class InventoryService {
 
     public synchronized Resultado crearProducto(String nombre, BigDecimal precio, BigDecimal stock, String unidad,
                                                 BigDecimal stockMin, List<String> alias, Producto.Ficha ficha) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return Resultado.prohibido(no);
         String n = limpiarNombre(nombre);
         String u = unidad == null ? "" : unidad.trim().toLowerCase();
         String error = errorAlCrear(n, precio, stock, u, stockMin);
@@ -1030,7 +1217,7 @@ public class InventoryService {
 
         Producto p = nuevo(n, aliasDe(n, alias), precio, stock, u, stockMin, ficha, "");
         return Resultado.ok(persistir("Producto registrado: " + p.nombre + ". Stock: " + Num.txt(p.stock) + " " + p.unidad
-                + String.format(". Precio: %.2f soles.", p.precio) + avisoCosto(p)));
+                + String.format(". Precio: %.2f " + Moneda.nombre() + ".", p.precio) + avisoCosto(p)));
     }
 
     private static String limpio(String s) { return s == null ? null : s.trim().replaceAll("\\s+", " "); }
@@ -1056,7 +1243,7 @@ public class InventoryService {
 
     private static String avisoCosto(Producto p) {
         return p.costo != null && p.costo.compareTo(p.precio) > 0
-                ? String.format(" Atención: el costo (%.2f soles) es mayor que el precio de venta.", p.costo) : "";
+                ? String.format(" Atención: el costo (%.2f " + Moneda.nombre() + ") es mayor que el precio de venta.", p.costo) : "";
     }
 
     public record ResultadoLote(int agregados, List<ListaProductos.ErrorLinea> omitidosDetalle,
@@ -1146,6 +1333,8 @@ public class InventoryService {
     }
 
     public synchronized Resultado ajustarStock(String nombre, BigDecimal cantidad) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return Resultado.prohibido(no);
         Producto p = porNombre(nombre);
         if (p == null) return Resultado.noEncontrado("No encontré ese producto, señor.");
         if (cantidad == null || cantidad.signum() == 0) return Resultado.error("Dígame cuánto sumo o resto, señor.");
@@ -1167,6 +1356,8 @@ public class InventoryService {
     }
 
     public synchronized Resultado editarProducto(String nombre, boolean exacto, Cambios c) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return Resultado.prohibido(no);
         Producto p;
         if (exacto) {
             p = porNombre(nombre);
@@ -1217,7 +1408,7 @@ public class InventoryService {
         if (c.precio() != null) {
             registrar("PRECIO", p, null, p.precio + " -> " + Num.dinero(c.precio()));
             p.precio = Num.dinero(c.precio());
-            hecho.add(String.format("Precio actualizado: %s ahora cuesta %.2f soles.", p.nombre, p.precio));
+            hecho.add(String.format("Precio actualizado: %s ahora cuesta %.2f " + Moneda.nombre() + ".", p.nombre, p.precio));
         }
         String unidadFinal = nuevaUnidad != null ? nuevaUnidad : p.unidad;
         if (c.stock() != null && c.stock().compareTo(p.stock) != 0) {
@@ -1259,7 +1450,7 @@ public class InventoryService {
             registrar("COSTO", p, null, (p.costo == null ? "sin costo" : p.costo) + " -> " + (costo == null ? "sin costo" : costo));
             p.costo = costo;
             hecho.add(costo == null ? p.nombre + " quedó sin costo registrado."
-                    : String.format("Costo de %s: %.2f soles (margen de %.2f soles sobre el precio de venta).", p.nombre, costo,
+                    : String.format("Costo de %s: %.2f " + Moneda.nombre() + " (margen de %.2f " + Moneda.nombre() + " sobre el precio de venta).", p.nombre, costo,
                             p.precio.subtract(costo)));
         }
         if (c.precio() != null || c.ficha() != null && c.ficha().costo() != null) {
@@ -1285,6 +1476,8 @@ public class InventoryService {
     }
 
     public synchronized String pedirEliminarProducto(String textoProducto) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return no;
         Match m = buscar(textoProducto);
         if (m == null) return "No encontré ese producto, señor.";
         if (m.empate()) return cualDe(m);
@@ -1294,6 +1487,8 @@ public class InventoryService {
     }
 
     public synchronized Resultado eliminarProducto(String nombre, boolean exacto) {
+        String no = ClientSession.sinPermiso(Permiso.INVENTARIO);
+        if (no != null) return Resultado.prohibido(no);
         Producto p = exacto ? porNombre(nombre) : Optional.ofNullable(buscar(nombre)).map(x -> x.producto).orElse(null);
         if (p == null) return Resultado.noEncontrado("No encontré ese producto, señor.");
         productos.remove(p);
@@ -1303,6 +1498,8 @@ public class InventoryService {
     }
 
     public synchronized String pedirNuevoInventario() {
+        String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
+        if (no != null) return no;
         if (productos.isEmpty() && ventas.isEmpty()) return "El inventario ya está vacío, señor. Puede agregar productos cuando quiera.";
         return preguntar(pend(Tipo.NUEVO_INVENTARIO, null, null, null, resumenAntesDeVaciar() + " Diga sí o no."));
     }
@@ -1314,6 +1511,8 @@ public class InventoryService {
     }
 
     public synchronized Resultado empezarDeCero() {
+        String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
+        if (no != null) return Resultado.prohibido(no);
         Path base = almacen.archivo();
         Path copia = base.resolveSibling(base.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
         try {

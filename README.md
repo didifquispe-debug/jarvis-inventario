@@ -248,6 +248,38 @@ solo con su razón social), documento (factura, boleta, guía de remisión o not
   - *Compras:* las compras del periodo (y del filtro) con su detalle.
 - API: `/api/inventory/valorizado`, `/api/inventory/kardex?nombre=…` y `/api/reportes/*.xlsx` (ver `ReportesController.java`).
 
+### Resultados (panel del negocio)
+La pantalla **Resultados** (o "ir a resultados" por voz) muestra:
+- Ventas y **ganancia** de hoy, de esta semana (desde el lunes) y de este mes, el ticket promedio y el margen.
+  La ganancia es la venta **sin IGV** menos el costo guardado en cada venta; las ventas de productos sin costo
+  no suman ganancia (se avisa con un `*`) y las anuladas no cuentan.
+- Un gráfico de **ventas por día** (7, 30 o 90 días), también como tabla.
+- Los **más vendidos** del periodo, las **alertas de stock** (sin stock o bajo el mínimo) y los productos con stock
+  **sin movimiento** en 30 días (mercadería parada, de mayor a menor valor).
+- API: `GET /api/reportes/panel?dias=30`.
+
+### Usuarios y roles
+Mientras no haya usuarios, JARVIS funciona como siempre: basta la clave del aparato. En **Usuarios** (abajo en el
+menú de la laptop) se crea primero al **administrador** y luego a los demás, cada uno con un PIN de 4 a 6 números
+(no se aceptan 1111 ni 1234). Desde ese momento los celulares piden **usuario y PIN**, y el menú muestra solo lo
+que cada rol puede usar:
+
+| Rol | Puede | No puede |
+|---|---|---|
+| Administrador | todo, incluidos usuarios, ganancias y "nuevo inventario" | — |
+| Cajero | vender, clientes, comprobantes, cierre de caja | ver costos o ganancias, cambiar productos o precios, anular ventas, compras |
+| Almacén | productos, stock, costos, kardex, compras y proveedores | vender, clientes, ganancias |
+
+- Los permisos se revisan en el servidor, en la API y en las órdenes por voz o chat (al cajero que dice
+  "nuevo inventario" o "abre la calculadora" JARVIS le responde que no tiene permiso), y los costos se quitan de
+  todas las respuestas para quien no puede verlos.
+- La **laptop** entra sola como administrador. Si la laptop la usa un cajero, ponga
+  `jarvis.usuarios.laptop-admin=false` en `application.properties` y entre con usuario y PIN también ahí.
+- El PIN se guarda cifrado (PBKDF2); tras 5 intentos fallidos el usuario queda bloqueado 5 minutos. Siempre queda
+  al menos un administrador activo. Cada movimiento del kardex guarda quién lo hizo.
+- API: `GET/POST/DELETE /api/sesion` (estado, entrar con `{usuario, pin}`, salir) y `/api/usuarios` (solo
+  administrador). El token de la sesión va en la cabecera `X-Jarvis-Usuario`.
+
 ### Clientes
 Se registran por la API (`/api/clientes`, ver abajo): DNI de 8 dígitos o RUC de 11 (que empiece con 10, 15, 17 o
 20), nombre, y opcionalmente correo, teléfono (6 a 9 dígitos) y dirección. No se repite el documento, y un cliente
@@ -357,10 +389,14 @@ Para que entienda las palabras de su negocio ("chompa" = polera, "zapas" = zapat
 ### Eliminar por voz
 *"Elimina la polera roja M"*, *"borra la gorra negra"* o *"da de baja la casaca"*: pregunta y solo borra si dice **sí**.
 
-### Nombre del negocio
-En `application.properties` ponga `jarvis.negocio=` con el nombre de su negocio (escriba la ñ como
-`\u00f1`, la í como `\u00ed`…). Sale en el saludo (*"…Bienvenido a Zapatería Mi Paso."*), en el título
-de la pantalla y en el comprobante. Vacío = no se muestra.
+### Mi negocio: nombre, RUC, dirección y moneda
+En la laptop, **Mi negocio** (abajo en el menú, solo administrador) guarda el nombre, RUC, dirección, teléfono y
+correo del negocio, y la **moneda** (símbolo, nombre en plural y en singular; por defecto S/, soles, sol). Sale en
+el saludo (*"…Bienvenido a Zapatería Mi Paso."*), el título de la pantalla, el ticket, el PDF, los Excel, el total
+en letras ("CIEN CON 00/100 DÓLARES") y en lo que dice JARVIS ("Total: 25.00 dólares"). Se guarda en la base de
+datos, así que viaja con los respaldos. Mientras no se edite ahí, se usan `jarvis.negocio=`, `jarvis.negocio.ruc=`…
+y `jarvis.moneda.simbolo=`, `jarvis.moneda.nombre=`, `jarvis.moneda.singular=` de `application.properties`
+(escriba la ñ como `\u00f1`, la í como `\u00ed`…). API: `GET /api/negocio` y `PUT /api/negocio` (administrador).
 
 ### Qué entiende por voz
 | Dices | JARVIS hace |

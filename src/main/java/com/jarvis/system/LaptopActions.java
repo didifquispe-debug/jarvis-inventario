@@ -58,6 +58,10 @@ public class LaptopActions {
         }
     }
 
+    public boolean conoceApp(String spoken) {
+        return APPS.keySet().stream().anyMatch(spoken::contains);
+    }
+
     public Optional<String> openApp(String spoken) {
         for (var e : APPS.entrySet()) {
             if (spoken.contains(e.getKey())) {

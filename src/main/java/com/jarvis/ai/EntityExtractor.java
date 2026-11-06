@@ -4,6 +4,7 @@
  */
 package com.jarvis.ai;
 
+import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Num;
 import com.jarvis.inventory.Palabras;
 
@@ -80,7 +81,7 @@ public final class EntityExtractor {
         for (int i = 0; i < palabras.size(); i++) {
             if (qty.cubre(i)) continue;
             String w = palabras.get(i);
-            if (w.isBlank() || RUIDO.contains(w) || Palabras.esNumeroPalabra(w)) continue;
+            if (w.isBlank() || RUIDO.contains(w) || esMoneda(w) || Palabras.esNumeroPalabra(w)) continue;
             if (Palabras.esNumero(w) && (!hayNombre || esPrecio(palabras, i))) continue;
             sb.append(w).append(" ");
             hayNombre = true;
@@ -90,6 +91,10 @@ public final class EntityExtractor {
 
     private static boolean esPrecio(List<String> palabras, int i) {
         return (i > 0 && (palabras.get(i - 1).equals("a") || COSTO.contains(palabras.get(i - 1))))
-                || (i + 1 < palabras.size() && Set.of("soles", "sol").contains(palabras.get(i + 1)));
+                || (i + 1 < palabras.size() && esMoneda(palabras.get(i + 1)));
+    }
+
+    private static boolean esMoneda(String w) {
+        return w.equals("soles") || w.equals("sol") || w.equals(Palabras.norm(Moneda.nombre())) || w.equals(Palabras.norm(Moneda.singular()));
     }
 }

@@ -7,7 +7,9 @@ package com.jarvis.ia;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jarvis.ComponentesIncluidos;
+import com.jarvis.core.DatosNegocio;
 import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Palabras;
 import com.jarvis.inventory.Producto;
 import com.jarvis.core.OrdenesPorConfirmar;
@@ -15,6 +17,7 @@ import com.jarvis.security.ClientSession;
 import com.jarvis.skills.InventorySkill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +27,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 @Component
 public class AsistenteIA {
@@ -62,24 +66,36 @@ public class AsistenteIA {
     private final Predicate<String> soloConsulta;
     private final ClienteLLM cliente;
     private final String owner;
-    private final String negocio;
+    private final Supplier<String> negocio;
     private final ObjectMapper json = new ObjectMapper();
     private final Map<String, Conversacion> conversaciones = new HashMap<>();
     private final OrdenesPorConfirmar porConfirmar;
     private volatile long sinServidorHasta;
 
+    @Autowired
     public AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar,
                        @Value("${jarvis.ia.enabled:true}") boolean enabled,
                        @Value("${jarvis.ia.base-url:http://localhost:11434/v1}") String baseUrl,
                        @Value("${jarvis.ia.model:llama3.2:3b}") String modelo,
                        @Value("${jarvis.ia.timeout-segundos:20}") int timeoutSegundos,
                        @Value("${jarvis.owner:señor}") String owner,
-                       @Value("${jarvis.negocio:}") String negocio) {
+                       DatosNegocio datos) {
+        this(inv, reglasInventario, porConfirmar, enabled, baseUrl, modelo, timeoutSegundos, owner, (Supplier<String>) datos::nombre);
+    }
+
+    public AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
+                       String baseUrl, String modelo, int timeoutSegundos, String owner, String negocio) {
+        this(inv, reglasInventario, porConfirmar, enabled, baseUrl, modelo, timeoutSegundos, owner,
+                (Supplier<String>) () -> negocio == null ? "" : negocio.trim());
+    }
+
+    private AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
+                        String baseUrl, String modelo, int timeoutSegundos, String owner, Supplier<String> negocio) {
         this.inv = inv;
         this.soloConsulta = reglasInventario::soloConsulta;
         this.porConfirmar = porConfirmar;
         this.owner = owner == null || owner.isBlank() ? "señor" : owner.trim();
-        this.negocio = negocio == null ? "" : negocio.trim();
+        this.negocio = negocio;
         ClienteLLM c = null;
         if (!enabled) {
             log.info("Asistente con IA apagado (jarvis.ia.enabled=false): se usan solo las reglas.");
@@ -216,7 +232,7 @@ public class AsistenteIA {
     }
 
     String sistema() {
-        String n = negocio.isEmpty() ? "un negocio" : negocio;
+        String n = negocio.get().isEmpty() ? "un negocio" : negocio.get();
         return """
                 Eres J.A.R.V.I.S., el asistente de inventario y ventas de %s. Tratas al usuario de usted y lo llamas "%s". \
                 Respondes SIEMPRE con un objeto JSON y nada más, de una de estas dos formas:
@@ -228,6 +244,8 @@ public class AsistenteIA {
                 "cuántas tengo de zapatilla nike 40" | "cuánto cuesta la polera roja M" | "lista de precios" | "inventario" |
                 "cambia el precio de la polera roja M a 30" | "stock mínimo de la polera roja M en 5" |
                 "último comprobante" | "anula la última venta" | "cierre de caja" | "nueva venta" | "cobrar" |
+                "cuánto gané esta semana" | "cuánto vendí el mes pasado" | "qué es lo más vendido del mes" |
+                "qué productos se están acabando" | "qué productos no se venden" | "qué le compré a Andina" | "cuánto vale mi inventario" |
                 "elimina el producto polera roja M" | "nuevo inventario" | "anota llamar al proveedor" |
                 "aprende que chompa significa polera".
                 Usa el nombre exacto del producto de la lista. Escribe los números con cifras. \
@@ -236,10 +254,10 @@ public class AsistenteIA {
                 Nunca digas que ya hiciste algo.
 
                 La "respuesta" se lee en voz alta: en español, una a tres frases cortas, sin markdown ni emojis. \
-                Montos en soles ("25.50 soles"). Usa solo los datos de abajo; si no sabes algo, dilo.
+                Montos en %s ("25.50 %s"). Usa solo los datos de abajo; si no sabes algo, dilo.
 
                 Productos (nombre | stock | precio):
-                %s""".formatted(n, owner, productos());
+                %s""".formatted(n, owner, Moneda.nombre(), Moneda.nombre(), productos());
     }
 
     private String productos() {
@@ -250,7 +268,7 @@ public class AsistenteIA {
         orden.sort(Comparator.comparing((Producto p) -> !p.stockBajo()));
         for (Producto p : orden.subList(0, Math.min(MAX_PRODUCTOS, orden.size()))) {
             sb.append("- ").append(p.nombre).append(" | ").append(p.stock.toPlainString()).append(' ').append(p.unidad)
-                    .append(p.stockBajo() ? " (stock bajo)" : "").append(" | ").append(p.precio.toPlainString()).append(" soles\n");
+                    .append(p.stockBajo() ? " (stock bajo)" : "").append(" | ").append(p.precio.toPlainString()).append(' ').append(Moneda.nombre()).append('\n');
         }
         if (ps.size() > MAX_PRODUCTOS) sb.append("(y ").append(ps.size() - MAX_PRODUCTOS).append(" productos más)\n");
         return sb.toString().trim();

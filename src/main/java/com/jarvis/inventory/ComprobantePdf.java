@@ -153,10 +153,10 @@ public final class ComprobantePdf {
         PdfPTable t = new PdfPTable(new float[]{60, 40});
         t.setWidthPercentage(100);
         boolean conIgv = c.tasaIgv.signum() > 0;
-        filaTotal(t, conIgv ? "OP. GRAVADA" : "OP. EXONERADA", "S/ " + IMPORTE.format(c.base), false);
+        filaTotal(t, conIgv ? "OP. GRAVADA" : "OP. EXONERADA", Moneda.simbolo() + " " + IMPORTE.format(c.base), false);
         String tasa = c.tasaIgv.multiply(BigDecimal.valueOf(100)).stripTrailingZeros().toPlainString();
-        filaTotal(t, "IGV (" + tasa + "%)", "S/ " + IMPORTE.format(c.igv), false);
-        filaTotal(t, "IMPORTE TOTAL", "S/ " + IMPORTE.format(c.total), true);
+        filaTotal(t, "IGV (" + tasa + "%)", Moneda.simbolo() + " " + IMPORTE.format(c.igv), false);
+        filaTotal(t, "IMPORTE TOTAL", Moneda.simbolo() + " " + IMPORTE.format(c.total), true);
         PdfPCell celda = new PdfPCell(t);
         celda.setBorder(Rectangle.NO_BORDER);
         celda.setPadding(0);

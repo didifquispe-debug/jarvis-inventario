@@ -109,7 +109,7 @@ public final class ReportesExcel {
                 numero(r, 6, c.anulado ? cero : c.base, e.moneda);
                 numero(r, 7, c.anulado ? cero : c.igv, e.moneda);
                 numero(r, 8, c.anulado ? cero : c.total, e.monedaNegrita);
-                texto(r, 9, c.anulado ? "ANULADO (S/ " + c.total + ")" : "EMITIDO", c.anulado ? e.estadoMal : e.estadoOk);
+                texto(r, 9, c.anulado ? "ANULADO (" + Moneda.simbolo() + " " + c.total + ")" : "EMITIDO", c.anulado ? e.estadoMal : e.estadoOk);
             }
             cerrar(hoja, e, t.length, primera, f, new int[]{6, 7, 8});
 
@@ -174,7 +174,7 @@ public final class ReportesExcel {
                 numero(r, 7, c.anulada() ? cero : c.base(), e.moneda);
                 numero(r, 8, c.anulada() ? cero : c.igv(), e.moneda);
                 numero(r, 9, c.anulada() ? cero : c.total(), e.monedaNegrita);
-                texto(r, 10, c.anulada() ? "ANULADA (S/ " + c.total() + ")" : "REGISTRADA", c.anulada() ? e.estadoMal : e.estadoOk);
+                texto(r, 10, c.anulada() ? "ANULADA (" + Moneda.simbolo() + " " + c.total() + ")" : "REGISTRADA", c.anulada() ? e.estadoMal : e.estadoOk);
             }
             cerrar(hoja, e, t.length, primera, f, new int[]{7, 8, 9});
 
@@ -340,9 +340,9 @@ public final class ReportesExcel {
             entero = formato(libro, normal, borde, df.getFormat("#,##0"));
             cantidad = formato(libro, normal, borde, df.getFormat("#,##0.###"));
             cantidadNegrita = formato(libro, negrita, borde, df.getFormat("#,##0.###"));
-            moneda = formato(libro, normal, borde, df.getFormat("\"S/\" #,##0.00"));
-            monedaNegrita = formato(libro, negrita, borde, df.getFormat("\"S/\" #,##0.00"));
-            costo = formato(libro, normal, borde, df.getFormat("\"S/\" #,##0.00##"));
+            moneda = formato(libro, normal, borde, df.getFormat("\"" + Moneda.simbolo() + "\" #,##0.00"));
+            monedaNegrita = formato(libro, negrita, borde, df.getFormat("\"" + Moneda.simbolo() + "\" #,##0.00"));
+            costo = formato(libro, normal, borde, df.getFormat("\"" + Moneda.simbolo() + "\" #,##0.00##"));
             fecha = formato(libro, normal, borde, df.getFormat("dd/mm/yyyy"));
             fechaHora = formato(libro, normal, borde, df.getFormat("dd/mm/yyyy hh:mm"));
             estadoOk = estilo(libro, fuente(libro, 9, true, color(21, 128, 77)), color(226, 243, 233), borde);
@@ -354,7 +354,7 @@ public final class ReportesExcel {
             total.setTopBorderColor(acento);
             totalMoneda = libro.createCellStyle();
             totalMoneda.cloneStyleFrom(total);
-            totalMoneda.setDataFormat(df.getFormat("\"S/\" #,##0.00"));
+            totalMoneda.setDataFormat(df.getFormat("\"" + Moneda.simbolo() + "\" #,##0.00"));
         }
 
         private static XSSFCellStyle formato(XSSFWorkbook libro, XSSFFont fuente, XSSFColor borde, short formato) {
