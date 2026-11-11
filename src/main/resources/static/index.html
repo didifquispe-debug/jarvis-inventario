@@ -269,7 +269,13 @@
   .cifras .tarjeta::before, .cifras .tarjeta::after { width: 9px; height: 9px; }
   .cifras span { color: var(--muted); font-size: .88rem; } .cifras b { font-family: var(--head); font-size: .9rem; color: var(--accent); font-variant-numeric: tabular-nums; }
   .modal-box.ancho { width: min(840px, 100%); }
+  #usuariosModal .modal-box.ancho { width: min(1000px, 100%); }
   .pu58 { display: none; }
+  .tienda-actual { display: flex; flex-direction: column; gap: 5px; padding: 0 8px 16px; }
+  .tienda-actual label { font: 600 .6rem/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .tienda-actual span { font-weight: 600; color: var(--text); }
+  .ti-nombre { display: flex; gap: 8px; align-items: center; }
+  .ti-nombre input { flex: 1; min-width: 0; }
   .nueva-version { color: var(--ok) !important; }
   .casilla { flex-direction: row !important; align-items: flex-start; gap: 10px !important; font: 500 .86rem/1.4 var(--font) !important;
     letter-spacing: 0 !important; text-transform: none !important; color: var(--text) !important; cursor: pointer; }
@@ -497,6 +503,11 @@
       </svg>
       <div><b>J.A.R.V.I.S.</b><small id="negocio">Asistente de inventario</small></div>
     </div>
+    <div class="tienda-actual" id="tiendaCaja" hidden>
+      <label for="tiendaSel">Tienda</label>
+      <select class="campo" id="tiendaSel"></select>
+      <span id="tiendaNombre"></span>
+    </div>
     <div class="seccion">Ventas</div>
     <a class="item" href="#inicio" data-vista="inicio"><svg><use href="#i-inicio"/></svg>Inicio</a>
     <a class="item" href="#resultados" data-vista="resultados" data-permiso="REPORTES"><svg><use href="#i-grafico"/></svg>Resultados</a>
@@ -511,6 +522,7 @@
     <div class="pie">
       <button class="item" id="negocioBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-fabrica"/></svg>Mi negocio</button>
       <button class="item" id="usuariosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-clientes"/></svg>Usuarios</button>
+      <button class="item" id="tiendasBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-inicio"/></svg>Tiendas</button>
       <button class="item" id="respaldosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-escudo"/></svg>Copias de seguridad</button>
       <a class="item nueva-version" id="nuevaVersion" hidden target="_blank" rel="noopener"><svg><use href="#i-subir"/></svg><span id="nuevaVersionTxt">Versión nueva</span></a>
       <details class="equipo" id="equipo">
@@ -1019,6 +1031,25 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
   </div>
 </div>
 
+<div id="tiendasModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="tiTitulo">
+  <div class="modal-box ancho">
+    <h3 id="tiTitulo">Tiendas</h3>
+    <p>Cada tienda es como un negocio aparte: sus propios productos, precios, stock, ventas, compras, caja y copias de seguridad.
+      Cada usuario trabaja en la tienda que se le asigna en <b>Usuarios</b>; el administrador elige la tienda arriba, en el menú.</p>
+    <div class="tabla-caja" id="tiLista"></div>
+    <form id="tiForm" novalidate>
+      <div class="form-grid">
+        <label class="full">Nueva tienda<input class="campo" id="tiNombre" maxlength="60" autocomplete="off" placeholder="Por ejemplo: Tienda Centro"></label>
+      </div>
+      <p class="form-err" id="tiErr" role="alert"></p>
+      <div class="modal-btns">
+        <button class="boton" type="button" id="tiCerrar">Cerrar</button>
+        <button class="boton primario" type="submit"><svg><use href="#i-mas"/></svg>Crear tienda</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="usuariosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="usTitulo">
   <div class="modal-box ancho">
     <h3 id="usTitulo">Usuarios</h3>
@@ -1031,6 +1062,7 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
         <label>Rol<select class="campo" id="usRol"><option value="CAJERO">Cajero</option><option value="ALMACEN">Almacén</option>
           <option value="ADMIN">Administrador</option></select></label>
         <label>PIN <i>4 a 6 números</i><input class="campo" id="usPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+        <label id="usTiendaLbl" hidden>Tienda<select class="campo" id="usTienda"></select></label>
       </div>
       <p class="form-err" id="usErr" role="alert"></p>
       <div class="modal-btns">
@@ -1122,6 +1154,7 @@ function avisar(texto, mal) {
 async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Jarvis-Token': getToken(),
                                                     'X-Jarvis-Session': SESSION_ID, 'X-Jarvis-Usuario': leer('jarvisUsuario') || '',
+                                                    'X-Jarvis-Tienda': leer('jarvisTienda') || '',
                                                     ...(opts.headers || {}) } });
   if (r.status === 401) {
     if (r.headers.get('X-Jarvis-Login')) pedirLogin(); else saveToken('');
@@ -2480,7 +2513,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
-  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal', 'usuariosModal', 'negocioModal', 'respaldosModal'].forEach(id => $(id).classList.remove('show'));
+  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal', 'usuariosModal', 'negocioModal', 'respaldosModal', 'tiendasModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
@@ -3067,6 +3100,9 @@ async function cargarSesion() {
   if (!s) return;
   conUsuarios = s.usuarios;
   yo = s.yo;
+  tiendaActual = s.tienda || tiendaActual;
+  tiendasLista = s.tiendas || [];
+  pintarTienda();
   aplicarSesion();
   if (conUsuarios && !yo) mostrarLogin(s.nombres);
 }
@@ -3131,10 +3167,14 @@ async function refreshUsuarios() {
   if (!l) { $('usLista').innerHTML = '<div class="vacio">No pude leer los usuarios.</div>'; return; }
   usuariosLista = l;
   const roles = [['ADMIN', 'Administrador'], ['CAJERO', 'Cajero'], ['ALMACEN', 'Almacén']];
-  $('usLista').innerHTML = l.length ? `<table class="tabla adaptable"><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Nuevo PIN</th><th class="acciones"></th></tr></thead>
+  const variasTiendas = tiendasLista.length > 1;
+  $('usTiendaLbl').hidden = !variasTiendas;
+  if (variasTiendas) $('usTienda').innerHTML = opcionesTienda(tiendaActual.id);
+  $('usLista').innerHTML = l.length ? `<table class="tabla adaptable"><thead><tr><th>Usuario</th><th>Rol</th>${variasTiendas ? '<th>Tienda</th>' : ''}<th>Estado</th><th>Nuevo PIN</th><th class="acciones"></th></tr></thead>
     <tbody>${l.map((u, i) => `<tr data-i="${i}"><td data-t="Usuario"><b>${esc(u.nombre)}</b></td>
       <td data-t="Rol"><select class="campo" data-accion="rol" aria-label="Rol de ${esc(u.nombre)}">${roles.map(([v, t]) =>
         `<option value="${v}"${u.rol === v ? ' selected' : ''}>${t}</option>`).join('')}</select></td>
+      ${variasTiendas ? `<td data-t="Tienda"><select class="campo" data-accion="tienda" aria-label="Tienda de ${esc(u.nombre)}">${opcionesTienda(u.tienda)}</select></td>` : ''}
       <td data-t="Estado"><span class="etiqueta ${u.activo ? 'ok' : 'mal'}">${u.activo ? 'Activo' : 'Inactivo'}</span></td>
       <td data-t="Nuevo PIN"><input class="campo pin-nuevo" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"
         aria-label="Nuevo PIN de ${esc(u.nombre)}" placeholder="••••"> <button class="boton" type="button" data-accion="pin">Cambiar</button></td>
@@ -3151,8 +3191,10 @@ async function cambiarUsuario(u, cambios, aviso) {
   cargarSesion();
 }
 $('usLista').addEventListener('change', e => {
-  const sel = e.target.closest('select[data-accion="rol"]'); if (!sel) return;
-  cambiarUsuario(usuariosLista[sel.closest('tr').dataset.i], { rol: sel.value });
+  const sel = e.target.closest('select[data-accion]'); if (!sel) return;
+  const u = usuariosLista[sel.closest('tr').dataset.i];
+  if (sel.dataset.accion === 'tienda') cambiarUsuario(u, { tienda: Number(sel.value) }, `${u.nombre} ahora trabaja en otra tienda.`);
+  else cambiarUsuario(u, { rol: sel.value });
 });
 $('usLista').addEventListener('click', async e => {
   const b = e.target.closest('button[data-accion]'); if (!b) return;
@@ -3174,7 +3216,8 @@ $('usLista').addEventListener('click', async e => {
 });
 $('usForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const datos = { nombre: $('usNombre').value.trim(), rol: $('usRol').value, pin: $('usPin').value.trim() };
+  const datos = { nombre: $('usNombre').value.trim(), rol: $('usRol').value, pin: $('usPin').value.trim(),
+    tienda: tiendasLista.length > 1 ? Number($('usTienda').value) : 1 };
   if (!datos.nombre) { $('usErr').textContent = 'Escriba el nombre del usuario.'; $('usNombre').focus(); return; }
   const res = await invCall('/api/usuarios', 'POST', datos);
   $('usErr').textContent = res.ok ? '' : res.reply;
@@ -3217,6 +3260,75 @@ $('negocioForm').addEventListener('submit', async e => {
 $('negocioBtn').onclick = abrirNegocio;
 $('negCancelar').onclick = () => $('negocioModal').classList.remove('show');
 $('usCerrar').onclick = () => $('usuariosModal').classList.remove('show');
+
+let tiendaActual = { id: 1, nombre: '' }, tiendasLista = [];
+const opcionesTienda = sel => tiendasLista.map(t => `<option value="${t.id}"${t.id === sel ? ' selected' : ''}>${esc(t.nombre)}</option>`).join('');
+function pintarTienda() {
+  const elige = tiendasLista.length > 1;
+  $('tiendaCaja').hidden = !elige && tiendaActual.id === 1;
+  $('tiendaSel').hidden = !elige;
+  $('tiendaNombre').hidden = elige;
+  $('tiendaNombre').textContent = tiendaActual.nombre || '';
+  if (elige) $('tiendaSel').innerHTML = opcionesTienda(tiendaActual.id);
+  if ((leer('jarvisTienda') || '1') !== String(tiendaActual.id)) guardar('jarvisTienda', String(tiendaActual.id));
+}
+async function cambiarTienda(id) {
+  guardar('jarvisTienda', String(id));
+  posLineas = []; posCliente = null; guardarPos();
+  await cargarSesion();
+  await refreshSystem();
+  cargarImpresion();
+  refrescarDatos();
+  irA(vista);
+  avisar('Trabajando en ' + tiendaActual.nombre + '.');
+}
+$('tiendaSel').onchange = () => cambiarTienda(Number($('tiendaSel').value));
+
+async function refreshTiendas() {
+  const d = await traer('/api/tiendas');
+  if (!d) { $('tiLista').innerHTML = '<div class="vacio">No pude leer las tiendas.</div>'; return; }
+  tiendasLista = d.tiendas;
+  $('tiLista').innerHTML = `<table class="tabla adaptable"><thead><tr><th>Nombre</th><th>Creada</th><th class="acciones"></th></tr></thead>
+    <tbody>${tiendasLista.map((t, i) => `<tr data-i="${i}">
+      <td data-t="Nombre"><div class="ti-nombre"><input class="campo" value="${esc(t.nombre)}" maxlength="60" aria-label="Nombre de la tienda ${esc(t.nombre)}">
+        <button class="boton" type="button" data-accion="renombrar">Guardar</button></div></td>
+      <td data-t="Creada">${esc((t.creada || '').slice(0, 10).split('-').reverse().join('/'))}</td>
+      <td class="acciones">${t.id === tiendaActual.id ? '<span class="etiqueta ok">En uso</span>'
+        : '<button class="boton" type="button" data-accion="usar">Trabajar aquí</button>'}</td></tr>`).join('')}</tbody></table>`;
+}
+async function abrirTiendas() {
+  $('tiErr').textContent = '';
+  $('tiendasModal').classList.add('show');
+  await refreshTiendas();
+}
+$('tiendasBtn').onclick = abrirTiendas;
+$('tiCerrar').onclick = () => $('tiendasModal').classList.remove('show');
+$('tiForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nombre = $('tiNombre').value.trim();
+  if (!nombre) { $('tiErr').textContent = 'Escriba el nombre de la tienda.'; $('tiNombre').focus(); return; }
+  const res = await invCall('/api/tiendas', 'POST', { nombre });
+  $('tiErr').textContent = res.ok ? '' : res.reply;
+  if (!res.ok) return;
+  avisar(res.reply);
+  $('tiNombre').value = '';
+  await refreshTiendas();
+  await cargarSesion();
+});
+$('tiLista').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-accion]'); if (!b) return;
+  const fila = b.closest('tr'), t = tiendasLista[fila.dataset.i]; if (!t) return;
+  if (b.dataset.accion === 'usar') {
+    await cambiarTienda(t.id);
+    await refreshTiendas();
+    return;
+  }
+  const res = await invCall('/api/tiendas/' + t.id, 'PATCH', { nombre: fila.querySelector('input').value.trim() });
+  $('tiErr').textContent = res.ok ? '' : res.reply;
+  if (res.ok) avisar(res.reply);
+  await refreshTiendas();
+  await cargarSesion();
+});
 
 const TIPOS_RESPALDO = { DIARIO: ['Diaria', 'ok'], MANUAL: ['Manual', 'acento'], ANTES_DE_NUEVO: ['Antes de inventario nuevo', 'aviso'],
   ANTES_DE_RESTAURAR: ['Antes de restaurar', 'aviso'] };

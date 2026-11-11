@@ -20,11 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Usuarios con rol y PIN. Mientras no haya ninguno activo, JARVIS funciona como siempre: sin iniciar sesión. */
 public class Usuarios {
 
-    public record Usuario(long id, String nombre, Rol rol, boolean activo, String creado) {
+    public record Usuario(long id, String nombre, Rol rol, boolean activo, String creado, int tienda) {
         public String rolDescripcion() { return rol.descripcion; }
     }
 
-    public record Sesion(String token, long usuarioId, String nombre, Rol rol) {}
+    public record Sesion(String token, long usuarioId, String nombre, Rol rol, int tienda) {}
 
     public enum Ingreso { OK, PIN_INCORRECTO, BLOQUEADO }
 
@@ -52,8 +52,9 @@ public class Usuarios {
         return db.leer(cx -> {
             List<Usuario> out = new ArrayList<>();
             try (Statement st = cx.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT id, nombre, rol, activo, creado FROM usuario ORDER BY nombre COLLATE NOCASE")) {
-                while (rs.next()) out.add(new Usuario(rs.getLong(1), rs.getString(2), Rol.valueOf(rs.getString(3)), rs.getInt(4) == 1, rs.getString(5)));
+                 ResultSet rs = st.executeQuery("SELECT id, nombre, rol, activo, creado, tienda FROM usuario ORDER BY nombre COLLATE NOCASE")) {
+                while (rs.next()) out.add(new Usuario(rs.getLong(1), rs.getString(2), Rol.valueOf(rs.getString(3)), rs.getInt(4) == 1,
+                        rs.getString(5), rs.getInt(6)));
             }
             return out;
         });
@@ -64,7 +65,12 @@ public class Usuarios {
     }
 
     public synchronized InventoryService.Resultado crear(String nombre, String rolTexto, String pin) {
+        return crear(nombre, rolTexto, pin, 1);
+    }
+
+    public synchronized InventoryService.Resultado crear(String nombre, String rolTexto, String pin, int tienda) {
         String n = limpio(nombre);
+        if (!tiendaExiste(tienda)) return InventoryService.Resultado.error("Esa tienda no existe.");
         Rol rol = Rol.de(rolTexto);
         String error = errorNombre(n);
         if (error == null && rol == null) error = "El rol es administrador, cajero o almacén.";
@@ -75,11 +81,12 @@ public class Usuarios {
             return InventoryService.Resultado.error("El primer usuario debe ser administrador, para que alguien pueda manejar a los demás.");
         try {
             db.transaccion(cx -> {
-                try (PreparedStatement ps = cx.prepareStatement("INSERT INTO usuario (nombre, rol, pin_hash, activo, creado) VALUES (?,?,?,1,?)")) {
+                try (PreparedStatement ps = cx.prepareStatement("INSERT INTO usuario (nombre, rol, pin_hash, activo, creado, tienda) VALUES (?,?,?,1,?,?)")) {
                     ps.setString(1, n);
                     ps.setString(2, rol.name());
                     ps.setString(3, hash(pin.trim()));
                     ps.setString(4, LocalDateTime.now().withNano(0).toString());
+                    ps.setInt(5, tienda);
                     ps.executeUpdate();
                 }
                 return null;
@@ -93,6 +100,11 @@ public class Usuarios {
 
     /** Cambia lo que no sea null. Siempre debe quedar al menos un administrador activo. */
     public synchronized InventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo) {
+        return editar(id, rolTexto, pin, activo, null);
+    }
+
+    public synchronized InventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo, Integer tienda) {
+        if (tienda != null && !tiendaExiste(tienda)) return InventoryService.Resultado.error("Esa tienda no existe.");
         Optional<Usuario> actual = listar().stream().filter(u -> u.id() == id).findFirst();
         if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No existe ese usuario.");
         Usuario u = actual.get();
@@ -107,11 +119,12 @@ public class Usuarios {
             return InventoryService.Resultado.error("Debe quedar al menos un administrador activo.");
         try {
             db.transaccion(cx -> {
-                try (PreparedStatement ps = cx.prepareStatement("UPDATE usuario SET rol=?, activo=?, pin_hash=COALESCE(?, pin_hash) WHERE id=?")) {
+                try (PreparedStatement ps = cx.prepareStatement("UPDATE usuario SET rol=?, activo=?, pin_hash=COALESCE(?, pin_hash), tienda=COALESCE(?, tienda) WHERE id=?")) {
                     ps.setString(1, rol.name());
                     ps.setInt(2, queda ? 1 : 0);
                     ps.setString(3, pin == null || pin.isBlank() ? null : hash(pin.trim()));
-                    ps.setLong(4, id);
+                    if (tienda == null) ps.setNull(4, java.sql.Types.INTEGER); else ps.setInt(4, tienda);
+                    ps.setLong(5, id);
                     ps.executeUpdate();
                 }
                 return null;
@@ -158,7 +171,7 @@ public class Usuarios {
         }
         String[] f = fila.get();
         String token = token();
-        Sesion s = new Sesion(token, Long.parseLong(f[0]), f[1], Rol.valueOf(f[2]));
+        Sesion s = new Sesion(token, Long.parseLong(f[0]), f[1], Rol.valueOf(f[2]), Integer.parseInt(f[5]));
         sesiones.put(token, s);
         vencen.put(token, System.currentTimeMillis() + SESION_MS);
         if (sesiones.size() > 500) purgar();
@@ -186,6 +199,17 @@ public class Usuarios {
         sesiones.clear();
         vencen.clear();
         hay = null;
+    }
+
+    /** La tienda 1 (la principal) siempre existe; las demás, si están en la tabla de tiendas. */
+    private boolean tiendaExiste(int tienda) {
+        if (tienda == 1) return true;
+        return db.leer(cx -> {
+            try (PreparedStatement ps = cx.prepareStatement("SELECT 1 FROM tienda WHERE id = ?")) {
+                ps.setInt(1, tienda);
+                try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+            }
+        });
     }
 
     private void cerrarSesionesDe(long id) {
@@ -217,10 +241,10 @@ public class Usuarios {
     private Optional<String[]> buscar(String nombre) {
         if (nombre == null || nombre.isBlank()) return Optional.empty();
         return db.leer(cx -> {
-            try (PreparedStatement ps = cx.prepareStatement("SELECT id, nombre, rol, activo, pin_hash FROM usuario WHERE nombre = ?")) {
+            try (PreparedStatement ps = cx.prepareStatement("SELECT id, nombre, rol, activo, pin_hash, tienda FROM usuario WHERE nombre = ?")) {
                 ps.setString(1, nombre);
                 try (ResultSet rs = ps.executeQuery()) {
-                    return rs.next() ? Optional.of(new String[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)})
+                    return rs.next() ? Optional.of(new String[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6)})
                             : Optional.<String[]>empty();
                 }
             }

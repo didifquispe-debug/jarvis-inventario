@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -28,7 +30,9 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+/** El inventario de una tienda. En la aplicación se usa el de la tienda del pedido en curso (ver TiendaScope y Tiendas). */
 @Service
+@Scope(value = TiendaScope.NOMBRE, proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class InventoryService {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
@@ -305,6 +309,8 @@ public class InventoryService {
     public Usuarios usuarios() { return usuarios; }
 
     public Ajustes ajustes() { return ajustes; }
+
+    BaseDatos baseDatos() { return almacen.baseDatos(); }
 
     public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
 

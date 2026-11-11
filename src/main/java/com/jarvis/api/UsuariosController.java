@@ -4,7 +4,7 @@
  */
 package com.jarvis.api;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.Tiendas;
 import com.jarvis.inventory.Usuarios;
 import com.jarvis.security.ApiAuthFilter;
 import com.jarvis.security.ClientSession;
@@ -23,14 +23,16 @@ import java.util.Map;
 public class UsuariosController {
 
     private final Usuarios usuarios;
+    private final Tiendas tiendas;
 
-    public UsuariosController(InventoryService inv) {
-        this.usuarios = inv.usuarios();
+    public UsuariosController(Tiendas tiendas) {
+        this.tiendas = tiendas;
+        this.usuarios = tiendas.principal().usuarios();
     }
 
     public record Ingreso(String usuario, String pin) {}
-    public record NuevoUsuario(String nombre, String rol, String pin) {}
-    public record CambioUsuario(String rol, String pin, Boolean activo) {}
+    public record NuevoUsuario(String nombre, String rol, String pin, Integer tienda) {}
+    public record CambioUsuario(String rol, String pin, Boolean activo, Integer tienda) {}
 
     /** Si hay usuarios, quién es este aparato y qué puede hacer. Lo usa la pantalla para pedir el PIN. */
     @GetMapping("/api/sesion")
@@ -41,6 +43,10 @@ public class UsuariosController {
         body.put("nombres", hay ? usuarios.nombresActivos() : List.of());
         Rol rol = ClientSession.rol();
         body.put("yo", hay && rol != null ? yo(nombre(), rol) : null);
+        int t = ClientSession.tienda();
+        body.put("tienda", Map.of("id", t, "nombre", tiendas.nombre(t)));
+        boolean eligeTienda = rol == null || rol == Rol.ADMIN;
+        body.put("tiendas", eligeTienda ? tiendas.listar() : List.of());
         return body;
     }
 
@@ -74,12 +80,13 @@ public class UsuariosController {
         if (!usuarios.hayUsuarios() && !ApiAuthFilter.esLocal(http.getRemoteAddr()))
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("ok", false, "reply", "El primer usuario (el administrador) se crea desde la laptop de JARVIS."));
-        return InventoryController.responder(usuarios.crear(req.nombre(), req.rol(), req.pin()));
+        return InventoryController.responder(usuarios.crear(req.nombre(), req.rol(), req.pin(),
+                req.tienda() == null ? ClientSession.TIENDA_PRINCIPAL : req.tienda()));
     }
 
     @PatchMapping("/api/usuarios/{id}")
     public ResponseEntity<Map<String, Object>> editar(@PathVariable long id, @RequestBody CambioUsuario req) {
-        return InventoryController.responder(usuarios.editar(id, req.rol(), req.pin(), req.activo()));
+        return InventoryController.responder(usuarios.editar(id, req.rol(), req.pin(), req.activo(), req.tienda()));
     }
 
     @DeleteMapping("/api/usuarios/{id}")

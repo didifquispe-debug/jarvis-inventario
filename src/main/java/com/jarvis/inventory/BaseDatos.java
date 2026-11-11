@@ -36,7 +36,7 @@ final class BaseDatos {
     static final int RESPALDOS_MANUALES = 10;
     static final int RESPALDOS_EXTRA = 30;
     static final String PREFIJO_EXTRA = "jarvis-respaldo-";
-    private static final int VERSION = 6;
+    private static final int VERSION = 7;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
@@ -312,14 +312,15 @@ final class BaseDatos {
             if (version > VERSION)
                 throw new SQLException("el archivo es de una versión más nueva de JARVIS (" + version + ")");
             if (version < 1) crearVersion1(st);
-            if (version < 6) {
+            if (version < 7) {
                 cx.setAutoCommit(false);
                 try {
                     if (version < 2) migrarAVersion2(st);
                     if (version < 3) migrarAVersion3(st);
                     if (version < 4) migrarAVersion4(st);
                     if (version < 5) migrarAVersion5(st);
-                    migrarAVersion6(st);
+                    if (version < 6) migrarAVersion6(st);
+                    migrarAVersion7(st);
                     cx.commit();
                 } catch (SQLException e) {
                     cx.rollback();
@@ -327,6 +328,13 @@ final class BaseDatos {
                 }
             }
         }
+    }
+
+    /** Varias tiendas: la lista vive en la base principal y cada usuario pertenece a una (la 1 por defecto). */
+    private static void migrarAVersion7(Statement st) throws SQLException {
+        st.execute("CREATE TABLE IF NOT EXISTS tienda (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE COLLATE NOCASE, creada TEXT NOT NULL)");
+        st.execute("ALTER TABLE usuario ADD COLUMN tienda INTEGER NOT NULL DEFAULT 1");
+        st.execute("PRAGMA user_version = 7");
     }
 
     private static void migrarAVersion6(Statement st) throws SQLException {

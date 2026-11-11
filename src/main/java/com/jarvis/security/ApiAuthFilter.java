@@ -5,7 +5,7 @@
 package com.jarvis.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.Tiendas;
 import com.jarvis.inventory.Usuarios;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -29,6 +29,8 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(ApiAuthFilter.class);
 
     public static final String CABECERA_USUARIO = "X-Jarvis-Usuario";
+    /** El administrador elige con qué tienda trabaja; los demás usuarios siempre usan la suya. */
+    public static final String CABECERA_TIENDA = "X-Jarvis-Tienda";
     public static final String NOMBRE_LAPTOP = "Laptop";
     private static final Set<String> LOCALES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "::1");
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -37,13 +39,15 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     private final FailureLimiter limiter;
     private final Usuarios usuarios;
     private final boolean laptopAdmin;
+    private final Tiendas tiendas;
 
-    public ApiAuthFilter(AccessToken token, InventoryService inv,
+    public ApiAuthFilter(AccessToken token, Tiendas tiendas,
                          @Value("${jarvis.security.max-failures-per-minute:10}") int maxFallos,
                          @Value("${jarvis.usuarios.laptop-admin:true}") boolean laptopAdmin) {
         this.token = token;
         this.limiter = new FailureLimiter(maxFallos, 60_000);
-        this.usuarios = inv.usuarios();
+        this.tiendas = tiendas;
+        this.usuarios = tiendas.principal().usuarios();
         this.laptopAdmin = laptopAdmin;
     }
 
@@ -71,11 +75,13 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         String path = req.getRequestURI().substring(req.getContextPath().length());
         String nombre = null;
         Rol rol = null;
+        int tienda = ClientSession.TIENDA_PRINCIPAL;
         if (usuarios.hayUsuarios()) {
             Optional<Usuarios.Sesion> s = usuarios.sesion(req.getHeader(CABECERA_USUARIO));
             if (s.isPresent()) {
                 nombre = s.get().nombre();
                 rol = s.get().rol();
+                tienda = s.get().tienda();
             } else if (laptopAdmin && esLocal(ip)) {
                 nombre = NOMBRE_LAPTOP;
                 rol = Rol.ADMIN;
@@ -90,7 +96,12 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 return;
             }
         }
-        ClientSession.abrir(req.getHeader(ClientSession.CABECERA), ip, nombre, rol);
+        if (rol == null || rol == Rol.ADMIN) {
+            String pedida = req.getHeader(CABECERA_TIENDA);
+            if (pedida != null && pedida.trim().matches("\\d{1,6}")) tienda = Integer.parseInt(pedida.trim());
+        }
+        if (!tiendas.existe(tienda)) tienda = ClientSession.TIENDA_PRINCIPAL;
+        ClientSession.abrir(req.getHeader(ClientSession.CABECERA), ip, nombre, rol, tienda);
         try {
             chain.doFilter(req, res);
         } finally {
@@ -104,6 +115,7 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     static Rol.Permiso permisoPara(String metodo, String path) {
         boolean lee = "GET".equals(metodo);
         if (path.startsWith("/api/usuarios") || path.startsWith("/api/respaldos")
+                || (path.startsWith("/api/tiendas") && !lee)
                 || ((path.equals("/api/negocio") || path.equals("/api/impresion")) && !lee))
             return Rol.Permiso.ADMINISTRAR;
         if (path.equals("/api/reportes/panel") || path.equals("/api/reportes/ventas.xlsx")) return Rol.Permiso.REPORTES;

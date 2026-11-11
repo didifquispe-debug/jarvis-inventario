@@ -7,6 +7,8 @@ package com.jarvis.core;
 import com.jarvis.inventory.ComprobantePdf;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.inventory.Moneda;
+import com.jarvis.inventory.Tiendas;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,7 @@ public class DatosNegocio {
                         String monedaSimbolo, String monedaNombre, String monedaSingular) {}
 
     private final InventoryService inv;
+    private Tiendas tiendas;
     private final Datos porDefecto;
     private volatile Datos actuales;
 
@@ -52,7 +55,7 @@ public class DatosNegocio {
     public synchronized void recargar() {
         Map<String, String> g;
         try {
-            g = inv.ajustes().leer();
+            g = principal().ajustes().leer();
         } catch (RuntimeException e) {
             log.warn("No pude leer los datos del negocio guardados: {}. Uso los de application.properties.", e.getMessage());
             g = Map.of();
@@ -69,6 +72,12 @@ public class DatosNegocio {
         }
         usar(d);
     }
+
+    /** Por ahora los datos del negocio son los mismos para todas las tiendas: viven en la base principal. */
+    private InventoryService principal() { return tiendas == null ? inv : tiendas.principal(); }
+
+    @Autowired(required = false)
+    void usarTiendas(Tiendas tiendas) { this.tiendas = tiendas; }
 
     public Datos datos() { return actuales; }
 
@@ -104,7 +113,7 @@ public class DatosNegocio {
         m.put("moneda.nombre", d.monedaNombre());
         m.put("moneda.singular", d.monedaSingular());
         try {
-            inv.ajustes().guardar(m);
+            principal().ajustes().guardar(m);
         } catch (SQLException e) {
             return InventoryService.Resultado.error("No pude guardar los datos del negocio: " + e.getMessage());
         }

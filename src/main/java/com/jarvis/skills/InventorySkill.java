@@ -44,7 +44,7 @@ public class InventorySkill implements Skill {
     private static final Pattern CONSULTA = Pattern.compile(
             "\\b(stock|quedan|queda|disponibles?)\\b" +
             "|\\b(cuantos|cuantas)\\b" +
-            "|\\bcuanto\\b.*\\b(hay|tengo)\\b");
+            "|\\b(cuanto|cuanta)\\b.*\\b(hay|tengo)\\b");
     private static final Pattern ES_CALCULO = Pattern.compile("\\bcuanto es\\b|\\bcalcula\\b");
     private static final Pattern CIERRE = Pattern.compile("\\b(cierre|cierra|reporte|resumen)\\b.*\\b(caja|dia|diario|jornada|ventas)\\b|\\bcierre de caja\\b|\\bcierre del dia\\b");
     private static final Pattern RECIBO = Pattern.compile("\\b(comprobante|recibo|boleta|ticket)\\b");

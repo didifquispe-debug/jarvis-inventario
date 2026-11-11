@@ -85,8 +85,11 @@ public class CompraPorVozSkill implements Skill {
     private Borrador borrador() {
         long ahora = System.currentTimeMillis();
         borradores.values().removeIf(b -> ahora - b.usado > VIGENCIA_MS);
-        return borradores.get(ClientSession.id());
+        return borradores.get(clave());
     }
+
+    /** Cada usuario tiene su borrador en cada tienda. */
+    private static String clave() { return ClientSession.id() + "@" + ClientSession.tienda(); }
 
     @Override
     public synchronized Optional<String> handle(String dicho, String original) {
@@ -103,7 +106,7 @@ public class CompraPorVozSkill implements Skill {
             if (OrdenesPorConfirmar.esNo(cmd)) return Optional.of("Bien, no la registré; la compra sigue abierta. " + siguiente(b));
         }
         if (CANCELAR.matcher(cmd).matches()) {
-            borradores.remove(ClientSession.id());
+            borradores.remove(clave());
             return Optional.of("Listo, descarté la compra; no se registró nada.");
         }
         if (TERMINAR.matcher(cmd).matches()) return Optional.of(terminar(b));
@@ -151,7 +154,7 @@ public class CompraPorVozSkill implements Skill {
         if (no != null) return no;
         if (inv.ventaAbierta()) return "Hay una venta en curso, señor. Primero cóbrela o cancélela y luego empezamos la compra.";
         Borrador b = new Borrador();
-        borradores.put(ClientSession.id(), b);
+        borradores.put(clave(), b);
         if (proveedorDicho == null || proveedorDicho.isBlank())
             return "Empecemos la compra. ¿A qué proveedor? Dígame su nombre o su RUC.";
         String resto = proveedorDicho.trim();
@@ -225,7 +228,7 @@ public class CompraPorVozSkill implements Skill {
         b.lineas.forEach((n, v) -> items.add(new Compras.LineaCompra(n, v[0], v[1])));
         InventoryService.Resultado r = inv.registrarCompra(new Compras.NuevaCompra(b.ruc, b.razon, b.tipo, b.numero, null, b.igv,
                 "Registrada por voz", items));
-        if (r.ok()) borradores.remove(ClientSession.id());
+        if (r.ok()) borradores.remove(clave());
         return r.ok() ? r.mensaje() : "No la registré: " + r.mensaje() + " La compra sigue abierta para corregirla.";
     }
 
