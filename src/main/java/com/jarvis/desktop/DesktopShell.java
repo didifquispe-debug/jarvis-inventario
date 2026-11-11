@@ -4,6 +4,7 @@
  */
 package com.jarvis.desktop;
 
+import com.jarvis.core.Impresion;
 import com.jarvis.security.AccessToken;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -24,13 +25,16 @@ public class DesktopShell {
     private final boolean enabled;
     private final String url;
     private final AccessToken token;
+    private final Impresion impresion;
     private TrayIcon trayIcon;
 
     public DesktopShell(ConfigurableApplicationContext context,
                         @Value("${jarvis.desktop.enabled:true}") boolean enabled,
                         @Value("${server.port:8081}") int port,
                         AccessToken token,
-                        @Value("${jarvis.browser:chrome}") String browser) {
+                        @Value("${jarvis.browser:chrome}") String browser,
+                        Impresion impresion) {
+        this.impresion = impresion;
         this.context = context;
         this.enabled = enabled;
         this.token = token;
@@ -46,7 +50,24 @@ public class DesktopShell {
     public void onReady() {
         if (!enabled || GraphicsEnvironment.isHeadless()) return;
         installTrayIcon();
-        AppWindow.open(url);
+        abrirVentana();
+    }
+
+    private void abrirVentana() {
+        boolean directa;
+        try {
+            directa = impresion.config().directa();
+        } catch (RuntimeException e) {
+            directa = false;
+        }
+        AppWindow.Abierta r = AppWindow.open(url, directa);
+        if (trayIcon == null || r == AppWindow.Abierta.VENTANA) return;
+        if (r == AppWindow.Abierta.NAVEGADOR)
+            trayIcon.displayMessage("J.A.R.V.I.S.", "Abri JARVIS en su navegador. Para tener su propia ventana e imprimir tickets"
+                    + " directo, instale Google Chrome o Microsoft Edge.", TrayIcon.MessageType.INFO);
+        else
+            trayIcon.displayMessage("J.A.R.V.I.S. - sin ventana", "No encontre Chrome, Edge ni un navegador. Instale Google Chrome"
+                    + " o Microsoft Edge, o abra " + url.replaceFirst("#.*$", "") + " en cualquier navegador.", TrayIcon.MessageType.WARNING);
     }
 
     private void installTrayIcon() {
@@ -54,7 +75,7 @@ public class DesktopShell {
         PopupMenu menu = new PopupMenu();
 
         MenuItem abrir = new MenuItem("Abrir JARVIS");
-        abrir.addActionListener(e -> AppWindow.open(url));
+        abrir.addActionListener(e -> abrirVentana());
         menu.add(abrir);
         menu.addSeparator();
 
@@ -64,7 +85,7 @@ public class DesktopShell {
 
         trayIcon = new TrayIcon(drawIcon(), "J.A.R.V.I.S. - en linea", menu);
         trayIcon.setImageAutoSize(true);
-        trayIcon.addActionListener(e -> AppWindow.open(url));
+        trayIcon.addActionListener(e -> abrirVentana());
         try {
             SystemTray.getSystemTray().add(trayIcon);
             if (token.generada()) {

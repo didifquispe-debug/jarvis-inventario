@@ -7,6 +7,8 @@ package com.jarvis.desktop;
 import java.awt.Desktop;
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +24,18 @@ public final class AppWindow {
         if (browser != null && !browser.isBlank()) preferred = browser.trim().toLowerCase();
     }
 
-    public static void open(String url) {
+    /** Cómo quedó la ventana: en Chrome/Edge como aplicación, en el navegador predeterminado, o no se pudo abrir. */
+    public enum Abierta { VENTANA, NAVEGADOR, NO }
+
+    /** Perfil propio de la ventana: no se mezcla con el Chrome personal y permite la impresión directa. */
+    static Path perfil() {
+        return Paths.get(System.getProperty("user.home"), ".jarvis-ventana");
+    }
+
+    public static Abierta open(String url) { return open(url, false); }
+
+    /** {@code impresionDirecta}: imprime en la impresora predeterminada sin mostrar el diálogo (--kiosk-printing). */
+    public static Abierta open(String url, boolean impresionDirecta) {
         String exe = findBrowser(preferred);
         try {
             if (exe != null) {
@@ -32,18 +45,30 @@ public final class AppWindow {
                 } else {
                     cmd.add(exe);
                 }
-                cmd.add("--app=" + url);
-                cmd.add("--window-size=1280,820");
-                cmd.add("--start-maximized");
+                cmd.addAll(argumentos(url, impresionDirecta, perfil()));
                 new ProcessBuilder(cmd).start();
-                return;
+                return Abierta.VENTANA;
             }
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(new URI(url));
+                return Abierta.NAVEGADOR;
             }
         } catch (Exception e) {
             System.err.println("No pude abrir la ventana de JARVIS: " + e.getMessage());
         }
+        return Abierta.NO;
+    }
+
+    static List<String> argumentos(String url, boolean impresionDirecta, Path perfil) {
+        List<String> a = new ArrayList<>();
+        a.add("--app=" + url);
+        a.add("--user-data-dir=" + perfil.toAbsolutePath());
+        a.add("--no-first-run");
+        a.add("--no-default-browser-check");
+        if (impresionDirecta) a.add("--kiosk-printing");
+        a.add("--window-size=1280,820");
+        a.add("--start-maximized");
+        return a;
     }
 
     private static String findBrowser(String pref) {

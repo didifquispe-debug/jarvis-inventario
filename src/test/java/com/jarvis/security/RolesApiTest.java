@@ -93,6 +93,10 @@ class RolesApiTest {
         mvc.perform(desde(post("/api/inventory/ventas/ultima/anular"), CELULAR, cajero)).andExpect(status().isForbidden());
         mvc.perform(desde(post("/api/respaldos/restaurar"), CELULAR, cajero).content("{\"nombre\":\"x\"}"))
                 .andExpect(status().isForbidden());
+        mvc.perform(desde(get("/api/impresion"), CELULAR, cajero)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.ancho").value(80));
+        mvc.perform(desde(put("/api/impresion"), CELULAR, cajero).content("{\"ancho\":58,\"alCobrar\":true,\"directa\":false}"))
+                .andExpect(status().isForbidden());
         mvc.perform(desde(post("/api/command"), CELULAR, cajero).content("{\"text\":\"nuevo inventario\"}"))
                 .andExpect(jsonPath("$.reply").value(containsString("no tiene permiso")));
         mvc.perform(desde(post("/api/command"), CELULAR, cajero).content("{\"text\":\"abre la calculadora\"}"))

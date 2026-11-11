@@ -269,6 +269,12 @@
   .cifras .tarjeta::before, .cifras .tarjeta::after { width: 9px; height: 9px; }
   .cifras span { color: var(--muted); font-size: .88rem; } .cifras b { font-family: var(--head); font-size: .9rem; color: var(--accent); font-variant-numeric: tabular-nums; }
   .modal-box.ancho { width: min(840px, 100%); }
+  .pu58 { display: none; }
+  .casilla { flex-direction: row !important; align-items: flex-start; gap: 10px !important; font: 500 .86rem/1.4 var(--font) !important;
+    letter-spacing: 0 !important; text-transform: none !important; color: var(--text) !important; cursor: pointer; }
+  .casilla input { accent-color: var(--accent); width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
+  .casilla small { display: block; color: var(--muted); font-size: .76rem; }
+  .form-sub { margin-top: 18px; font: 600 .66rem/1.3 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
   .resp-donde { font-size: .78rem; color: var(--muted); word-break: break-all; margin-top: 4px; }
   .resp-lista { max-height: 320px; overflow-y: auto; margin-top: 12px; }
   .compra-linea { display: grid; grid-template-columns: minmax(0, 1fr) 110px 130px auto; gap: 8px; align-items: end; margin-top: 6px; }
@@ -972,6 +978,15 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
       <label>Moneda <i>en plural</i><input class="campo" id="negMoneda" maxlength="20" autocomplete="off"></label>
       <label>En singular<input class="campo" id="negSingular" maxlength="20" autocomplete="off"></label>
     </div>
+    <div class="form-sub">Ticket</div>
+    <div class="form-grid">
+      <label>Papel de la ticketera<select class="campo" id="negAncho"><option value="80">80 mm (el más común)</option>
+        <option value="58">58 mm (ticketera pequeña)</option></select></label>
+      <label class="casilla"><input type="checkbox" id="negAlCobrar"><span>Imprimir el ticket al cobrar
+        <small>Cada venta sale impresa sin pulsar «Imprimir».</small></span></label>
+      <label class="casilla full"><input type="checkbox" id="negDirecta"><span>Imprimir directo, sin preguntar (solo en la laptop)
+        <small>Usa la impresora predeterminada de Windows. Se aplica al cerrar y volver a abrir JARVIS.</small></span></label>
+    </div>
     <p class="form-err" id="negErr" role="alert"></p>
     <div class="modal-btns">
       <button type="button" class="boton" id="negCancelar">Cancelar</button>
@@ -1275,7 +1290,7 @@ async function send(text, silentUser, porVoz) {
     const e = addEntry('bot', data.reply, true);
     ultimaPregunta = /\?\s*$/.test(data.reply || '');
     speak(data.reply);
-    if (data.recibo) { dysaMostrarRecibo(data.recibo); dysaEnlaceRecibo(e, data.recibo); }
+    if (data.recibo) { dysaMostrarRecibo(data.recibo); dysaEnlaceRecibo(e, data.recibo); if (impresion.alCobrar) dysaImprimirRecibo(); }
     renderCart(data.carrito);
     if (/estado del sistema|diagnostico|diagnóstico/i.test(text)) { $('equipo').open = true; refreshSystem(); }
     refrescarDatos();
@@ -1293,10 +1308,12 @@ document.addEventListener('click', e => {
 
 // DYSA: último comprobante cobrado o abierto; es el que imprime "imprime la boleta".
 let dysaUltimoRecibo = null;
+let impresion = { ancho: 80, alCobrar: false, directa: false };
+async function cargarImpresion() { const d = await traer('/api/impresion'); if (d) impresion = d; }
 let negocio = { nombre: '', ruc: '', direccion: '' };
 const itemRows = items => items.map(v => `<tr>
     <td class="num">${cant(v.cantidad)}</td>
-    <td>${esc(v.producto)}<br><small style="opacity:.6">${esc(v.unidad)}</small></td>
+    <td>${esc(v.producto)}<br><small style="opacity:.6">${esc(v.unidad)}<span class="pu58"> · ${soles(v.precioUnitario)} c/u</span></small></td>
     <td class="n">${soles(v.precioUnitario)}</td>
     <td class="n">${soles(v.monto)}</td>
   </tr>`).join('');
@@ -1362,8 +1379,11 @@ function dysaImprimirRecibo() {
   d.open();
   d.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(codigoDe(dysaUltimoRecibo.comprobante))}</title>
     <style>
-      @page { size: 80mm auto; margin: 4mm; }
-      body { font: 13px/1.35 "Courier New", monospace; color: #000; background: #fff; width: 72mm; margin: 0 auto; }
+      @page { size: ${impresion.ancho}mm auto; margin: ${impresion.ancho === 58 ? 2 : 4}mm; }
+      body { font: ${impresion.ancho === 58 ? 11 : 13}px/1.35 "Courier New", monospace; color: #000; background: #fff;
+        width: ${impresion.ancho === 58 ? 52 : 72}mm; margin: 0 auto; }
+      .pu58 { display: none; }
+      ${impresion.ancho === 58 ? 'th:nth-child(3), td:nth-child(3) { display: none; } .pu58 { display: inline; } th { font-size: 9px; } .rc-head b, .rc-total { font-size: 13px !important; } .rc-letras { font-size: 9px; }' : ''}
       .rc-head { text-align: center; margin-bottom: 8px; } .rc-head b { display: block; font-size: 15px; } .rc-head span { display: block; }
       .rc-meta { display: flex; justify-content: space-between; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; }
       table { width: 100%; border-collapse: collapse; margin: 6px 0; } th { text-align: left; font-size: 11px; border-bottom: 1px solid #000; }
@@ -1642,9 +1662,57 @@ $('posBuscar').addEventListener('keydown', e => {
   const exacto = invItems.find(p => [p.codigo, p.codigoBarras].some(c => c && c.toLowerCase() === q.toLowerCase()));
   const lista = buscarProductos(q);
   const p = exacto || (lista.length === 1 ? lista[0] : null);
-  if (p) { agregarPos(p); $('posBuscar').value = ''; renderResultados(); }
+  if (p) { agregarPos(p); $('posBuscar').value = ''; renderResultados(); pitido(true); }
+  else if (!lista.length && pareceCodigo(q)) codigoDesconocido(q);
   else avisar(lista.length ? 'Hay varios parecidos: toque el que corresponde.' : 'No encontré ese producto.', !lista.length);
 });
+
+// Lector de código de barras: escribe muy rápido y termina con Enter. En Vender se acepta aunque el cursor no esté en el buscador.
+const pareceCodigo = q => /^[0-9A-Za-z-]{4,40}$/.test(q) && /\d/.test(q);
+function productoPorCodigo(c) {
+  const x = c.toLowerCase();
+  return invItems.find(p => [p.codigo, p.codigoBarras].some(k => k && k.toLowerCase() === x));
+}
+let sonido = null;
+function pitido(bien) {
+  try {
+    sonido = sonido || new (window.AudioContext || window.webkitAudioContext)();
+    const o = sonido.createOscillator(), g = sonido.createGain();
+    o.frequency.value = bien ? 1500 : 320; o.type = 'square'; g.gain.value = .04;
+    o.connect(g); g.connect(sonido.destination); o.start(); o.stop(sonido.currentTime + (bien ? .07 : .22));
+  } catch (e) {}
+}
+async function codigoDesconocido(codigo) {
+  pitido(false);
+  if (!puede('INVENTARIO')) { avisar(`El código ${codigo} no es de ningún producto. Pida que lo registren en Inventario.`, true); return; }
+  if (!await confirmar('Código nuevo', `El código ${codigo} no es de ningún producto. ¿Registrar un producto nuevo con este código?`, 'Registrar')) return;
+  $('posBuscar').value = ''; renderResultados();
+  openProduct(null);
+  $('fBarras').value = codigo;
+}
+function escaneado(codigo) {
+  $('receipt').classList.remove('show');
+  const p = productoPorCodigo(codigo);
+  if (p) {
+    if (Number(p.stock) <= 0) { pitido(false); avisar(`${p.nombre} no tiene stock.`, true); return; }
+    agregarPos(p); pitido(true);
+  } else codigoDesconocido(codigo);
+}
+const lector = { texto: '', ultimo: 0 };
+document.addEventListener('keydown', e => {
+  if (vista !== 'vender' || e.ctrlKey || e.altKey || e.metaKey || document.querySelector('.modal.show:not(#receipt)')) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  const ahora = performance.now();
+  if (ahora - lector.ultimo > 60) lector.texto = '';
+  lector.ultimo = ahora;
+  if (e.key === 'Enter') {
+    const c = lector.texto; lector.texto = '';
+    if (c.length >= 4) { e.preventDefault(); escaneado(c); }
+    return;
+  }
+  if (e.key.length === 1) lector.texto += e.key;
+}, true);
 $('posResultados').addEventListener('click', e => {
   const b = e.target.closest('[data-nombre]'); if (!b || b.classList.contains('agotado')) return;
   agregarPos(productoPos(b.dataset.nombre));
@@ -1684,7 +1752,7 @@ $('posCobrar').onclick = async () => {
   const res = await invCall('/api/inventory/ventas', 'POST', { items: posLineas, tipo: posTipo, cliente: posCliente ? posCliente.documento : null });
   $('posCobrar').disabled = false;
   if (!res.ok) { avisar(res.reply, true); return; }
-  if (res.data.recibo) dysaMostrarRecibo(res.data.recibo);
+  if (res.data.recibo) { dysaMostrarRecibo(res.data.recibo); if (impresion.alCobrar) dysaImprimirRecibo(); }
   avisar(res.reply);
   posLineas = []; posCliente = null; $('posDni').value = ''; guardarPos();
   await refreshInventory(); renderPos();
@@ -3113,6 +3181,10 @@ async function abrirNegocio() {
   const d = await traer('/api/negocio');
   if (!d) { avisar('No pude leer los datos del negocio.', true); return; }
   Object.entries(CAMPOS_NEGOCIO).forEach(([id, k]) => { $(id).value = d[k] || ''; });
+  await cargarImpresion();
+  $('negAncho').value = String(impresion.ancho);
+  $('negAlCobrar').checked = impresion.alCobrar;
+  $('negDirecta').checked = impresion.directa;
   $('negErr').textContent = '';
   $('negocioModal').classList.add('show');
 }
@@ -3122,8 +3194,12 @@ $('negocioForm').addEventListener('submit', async e => {
   Object.entries(CAMPOS_NEGOCIO).forEach(([id, k]) => { datos[k] = $(id).value.trim(); });
   const res = await invCall('/api/negocio', 'PUT', datos);
   if (!res.ok) { $('negErr').textContent = res.reply; return; }
+  const imp = await invCall('/api/impresion', 'PUT',
+    { ancho: Number($('negAncho').value), alCobrar: $('negAlCobrar').checked, directa: $('negDirecta').checked });
+  if (!imp.ok) { $('negErr').textContent = imp.reply; return; }
+  await cargarImpresion();
   $('negocioModal').classList.remove('show');
-  avisar(res.reply);
+  avisar(res.reply + (/directa/.test(imp.reply) ? ' ' + imp.reply.replace(/^[^.]*\. /, '') : ''));
   await refreshSystem();
   pintarSaludo();
 });
@@ -3201,6 +3277,7 @@ $('respLista').addEventListener('click', async e => {
 (async function arrancar() {
   getToken();
   await cargarSesion();
+  cargarImpresion();
   irA(location.hash.slice(1) || 'inicio');
   setState('idle');
   await refreshSystem();
