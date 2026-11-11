@@ -9,6 +9,7 @@ import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
 import com.jarvis.ia.AsistenteIA;
 import com.jarvis.inventory.InventoryService;
+import com.jarvis.skills.CompraPorVozSkill;
 import com.jarvis.skills.ConsultasSkill;
 import com.jarvis.skills.DiccionarioSkill;
 import com.jarvis.skills.GestionSkill;
@@ -42,12 +43,13 @@ public class JarvisService {
     private final OrdenesPorConfirmar porConfirmar;
     private final ConsultasSkill consultas;
     private final GestionSkill gestion;
+    private final CompraPorVozSkill compraVoz;
     private final boolean confirmarVoz;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
                          Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
                          AsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar, ConsultasSkill consultas,
-                         GestionSkill gestion, @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
+                         GestionSkill gestion, CompraPorVozSkill compraVoz, @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
@@ -59,6 +61,7 @@ public class JarvisService {
         this.porConfirmar = porConfirmar;
         this.consultas = consultas;
         this.gestion = gestion;
+        this.compraVoz = compraVoz;
         this.confirmarVoz = confirmarVoz;
     }
 
@@ -74,7 +77,7 @@ public class JarvisService {
                 : acercaDe.responder(normalize(original), asistente.disponible());
         if (sobreJarvis.isPresent()) return sobreJarvis.get();
         String dicho = diccionario.aplicar(normalize(original));
-        if (porVoz && confirmarVoz && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()
+        if (porVoz && confirmarVoz && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso() && !compraVoz.abierta()
                 && !consultas.entiende(dicho) && (inventario.delicadaPorVoz(dicho) || gestion.delicadaPorVoz(original)))
             return porConfirmar.proponer(original.trim().replaceFirst("(?i)^(oye |hey )?jarvis[,.]?\\s*", ""));
         String r = procesarConReglas(original);
