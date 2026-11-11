@@ -107,3 +107,15 @@ haz `git commit` y `git push`.
 - No subas archivos generados ni datos personales: `target/`, `dist/`, `*.log`, `.idea/`, bases de datos,
   claves. El `.gitignore` ya ignora la mayoría. Revisa con `git status` antes de `git add .`.
 - Si cambias cómo funciona algo, actualiza el `README.md` y el manual (`src/main/resources/static/manual.html`).
+
+## 5. Publicar una versión nueva
+
+JARVIS revisa una vez al día la última *release* de GitHub y, si es más nueva, el administrador ve
+**Versión nueva** en el menú (no se descarga ni instala nada solo).
+
+1. Sube el número en `pom.xml` (`<version>`) y en `packaging/jarvis.iss` (`AppVersion`), por ejemplo `0.2.0`.
+2. Genera el instalador con `crear-exe.bat`.
+3. En GitHub: **Releases → Draft a new release**, etiqueta `v0.2.0`, adjunta `JARVIS-Setup-0.2.0.exe` y publícala
+   (no la marques como *pre-release*, esas no se avisan).
+
+Instalar encima conserva los datos: el inventario y las copias de seguridad están en la carpeta del usuario.

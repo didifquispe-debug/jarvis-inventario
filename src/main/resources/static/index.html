@@ -270,6 +270,7 @@
   .cifras span { color: var(--muted); font-size: .88rem; } .cifras b { font-family: var(--head); font-size: .9rem; color: var(--accent); font-variant-numeric: tabular-nums; }
   .modal-box.ancho { width: min(840px, 100%); }
   .pu58 { display: none; }
+  .nueva-version { color: var(--ok) !important; }
   .casilla { flex-direction: row !important; align-items: flex-start; gap: 10px !important; font: 500 .86rem/1.4 var(--font) !important;
     letter-spacing: 0 !important; text-transform: none !important; color: var(--text) !important; cursor: pointer; }
   .casilla input { accent-color: var(--accent); width: 18px; height: 18px; margin: 1px 0 0; flex: none; }
@@ -511,6 +512,7 @@
       <button class="item" id="negocioBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-fabrica"/></svg>Mi negocio</button>
       <button class="item" id="usuariosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-clientes"/></svg>Usuarios</button>
       <button class="item" id="respaldosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-escudo"/></svg>Copias de seguridad</button>
+      <a class="item nueva-version" id="nuevaVersion" hidden target="_blank" rel="noopener"><svg><use href="#i-subir"/></svg><span id="nuevaVersionTxt">Versión nueva</span></a>
       <details class="equipo" id="equipo">
         <summary><svg><use href="#i-equipo"/></svg>Equipo</summary>
         <div class="medidores">
@@ -1307,6 +1309,15 @@ document.addEventListener('click', e => {
 });
 
 // DYSA: último comprobante cobrado o abierto; es el que imprime "imprime la boleta".
+async function revisarVersion() {
+  const v = await traer('/api/version');
+  const a = $('nuevaVersion');
+  a.hidden = !(v && v.nueva && puede('ADMINISTRAR'));
+  if (a.hidden) return;
+  a.href = v.url;
+  $('nuevaVersionTxt').textContent = 'Versión nueva: ' + v.nueva;
+  a.title = 'Tiene la ' + v.actual + '. Descargue el instalador nuevo desde GitHub; sus datos se conservan.';
+}
 let dysaUltimoRecibo = null;
 let impresion = { ancho: 80, alCobrar: false, directa: false };
 async function cargarImpresion() { const d = await traer('/api/impresion'); if (d) impresion = d; }
@@ -3278,6 +3289,7 @@ $('respLista').addEventListener('click', async e => {
   getToken();
   await cargarSesion();
   cargarImpresion();
+  setTimeout(revisarVersion, 20000);
   irA(location.hash.slice(1) || 'inicio');
   setState('idle');
   await refreshSystem();

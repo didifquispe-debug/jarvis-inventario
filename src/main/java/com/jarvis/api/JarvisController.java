@@ -4,6 +4,7 @@
  */
 package com.jarvis.api;
 
+import com.jarvis.core.Actualizaciones;
 import com.jarvis.core.DatosNegocio;
 import com.jarvis.core.Impresion;
 import com.jarvis.core.JarvisService;
@@ -29,10 +30,13 @@ public class JarvisController {
     private final int port;
     private final DatosNegocio negocio;
     private final Impresion impresion;
+    private final Actualizaciones actualizaciones;
 
     public JarvisController(JarvisService jarvis, SystemMonitor monitor, InventoryService inv, GreetingSkill saludo,
-                            @Value("${server.port:8081}") int port, DatosNegocio negocio, Impresion impresion) {
+                            @Value("${server.port:8081}") int port, DatosNegocio negocio, Impresion impresion,
+                            Actualizaciones actualizaciones) {
         this.impresion = impresion;
+        this.actualizaciones = actualizaciones;
         this.jarvis = jarvis;
         this.monitor = monitor;
         this.inv = inv;
@@ -79,6 +83,11 @@ public class JarvisController {
     @PutMapping("/negocio")
     public ResponseEntity<Map<String, Object>> guardarNegocio(@RequestBody DatosNegocio.Datos datos) {
         return InventoryController.responder(negocio.guardar(datos));
+    }
+
+    @GetMapping("/version")
+    public Map<String, Object> version() {
+        return actualizaciones.estado();
     }
 
     @GetMapping("/impresion")
