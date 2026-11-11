@@ -11,6 +11,7 @@ import com.jarvis.ia.AsistenteIA;
 import com.jarvis.inventory.InventoryService;
 import com.jarvis.skills.ConsultasSkill;
 import com.jarvis.skills.DiccionarioSkill;
+import com.jarvis.skills.GestionSkill;
 import com.jarvis.skills.InventorySkill;
 import com.jarvis.skills.Skill;
 import org.slf4j.Logger;
@@ -40,12 +41,13 @@ public class JarvisService {
     private final AcercaDeJarvis acercaDe;
     private final OrdenesPorConfirmar porConfirmar;
     private final ConsultasSkill consultas;
+    private final GestionSkill gestion;
     private final boolean confirmarVoz;
 
     public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
                          Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
                          AsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar, ConsultasSkill consultas,
-                         @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
+                         GestionSkill gestion, @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
         this.skills = skills;
         this.brain = brain;
         this.inventario = inventario;
@@ -56,6 +58,7 @@ public class JarvisService {
         this.acercaDe = acercaDe;
         this.porConfirmar = porConfirmar;
         this.consultas = consultas;
+        this.gestion = gestion;
         this.confirmarVoz = confirmarVoz;
     }
 
@@ -72,7 +75,7 @@ public class JarvisService {
         if (sobreJarvis.isPresent()) return sobreJarvis.get();
         String dicho = diccionario.aplicar(normalize(original));
         if (porVoz && confirmarVoz && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso()
-                && !consultas.entiende(dicho) && inventario.delicadaPorVoz(dicho))
+                && !consultas.entiende(dicho) && (inventario.delicadaPorVoz(dicho) || gestion.delicadaPorVoz(original)))
             return porConfirmar.proponer(original.trim().replaceFirst("(?i)^(oye |hey )?jarvis[,.]?\\s*", ""));
         String r = procesarConReglas(original);
         if (NO_ENTENDI.equals(r) && asistente.disponible() && !inventario.esperandoConfirmacion() && !inventario.ventaEnCurso())
