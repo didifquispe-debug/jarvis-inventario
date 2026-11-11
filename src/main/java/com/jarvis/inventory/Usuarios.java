@@ -181,6 +181,13 @@ public class Usuarios {
         vencen.remove(token.trim());
     }
 
+    /** Tras restaurar un respaldo: la lista de usuarios pudo cambiar, así que todos vuelven a entrar. */
+    void cerrarTodas() {
+        sesiones.clear();
+        vencen.clear();
+        hay = null;
+    }
+
     private void cerrarSesionesDe(long id) {
         sesiones.values().removeIf(s -> {
             if (s.usuarioId() != id) return false;

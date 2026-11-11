@@ -175,7 +175,121 @@ public class InventoryService {
         this.compras = new Compras(almacen.baseDatos());
         this.usuarios = new Usuarios(almacen.baseDatos());
         this.ajustes = new Ajustes(almacen.baseDatos());
+        leerCarpetaExtra();
         cargar();
+    }
+
+    // ---------------------------------------------------------------- copias de seguridad
+
+    public static final String AJUSTE_CARPETA_RESPALDO = "respaldo.carpeta";
+
+    public record Respaldo(String nombre, String tipo, String fecha, long bytes) {}
+
+    public synchronized List<Respaldo> respaldos() throws IOException {
+        return almacen.baseDatos().listarRespaldos().stream()
+                .map(r -> new Respaldo(r.nombre(), r.tipo(), r.fecha().toString(), r.bytes())).toList();
+    }
+
+    /** Ruta del respaldo para descargarlo; null si no existe. */
+    public synchronized Path archivoRespaldo(String nombre) throws IOException {
+        return almacen.baseDatos().respaldo(nombre);
+    }
+
+    public String carpetaExtra() {
+        Path c = almacen.baseDatos().carpetaExtra();
+        return c == null ? "" : c.toString();
+    }
+
+    public synchronized Resultado respaldarAhora() {
+        String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
+        if (no != null) return Resultado.prohibido(no);
+        try {
+            String nombre = almacen.baseDatos().respaldoManual();
+            Path extra = almacen.baseDatos().carpetaExtra();
+            return Resultado.ok("Copia de seguridad lista: " + nombre + (extra == null ? "." : ", y otra en " + extra + "."));
+        } catch (SQLException e) {
+            log.error("No pude hacer la copia de seguridad: {}", e.getMessage());
+            return Resultado.error("No pude hacer la copia de seguridad: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            return Resultado.error("Atención: " + e.getMessage() + ".");
+        }
+    }
+
+    public synchronized Resultado restaurar(String nombre) {
+        String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
+        if (no != null) return Resultado.prohibido(no);
+        Path origen;
+        try {
+            origen = almacen.baseDatos().respaldo(nombre);
+        } catch (IOException e) {
+            return Resultado.error("No pude leer la carpeta de respaldos: " + e.getMessage());
+        }
+        if (origen == null) return Resultado.noEncontrado("No encuentro ese respaldo; actualice la lista.");
+        String antes;
+        try {
+            antes = almacen.baseDatos().restaurarDesde(origen);
+        } catch (SQLException e) {
+            log.error("No restauré {}: {}", origen, e.getMessage());
+            return Resultado.error("No restauré nada: " + e.getMessage() + ". El inventario sigue como estaba.");
+        }
+        porRegistrar.clear();
+        recargar();
+        for (Sesion s : sesiones.values()) s.opciones = Opciones.POR_DEFECTO;
+        usuarios.cerrarTodas();
+        leerCarpetaExtra();
+        log.warn("Inventario restaurado desde {}. El anterior quedó en {}.", origen.getFileName(), antes);
+        return Resultado.ok("Listo: restauré el inventario de la copia " + nombre + ". Por si acaso, el que había quedó guardado en "
+                + antes + ". Los demás usuarios deben volver a entrar.");
+    }
+
+    /** Carpeta aparte (USB, OneDrive) para otra copia de cada respaldo. Vacía para no usar ninguna. */
+    public synchronized Resultado usarCarpetaExtra(String texto) {
+        String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
+        if (no != null) return Resultado.prohibido(no);
+        String t = texto == null ? "" : texto.trim().replaceAll("^\"|\"$", "");
+        Path carpeta = null;
+        if (!t.isEmpty()) {
+            try {
+                carpeta = Paths.get(t);
+            } catch (InvalidPathException e) {
+                return Resultado.error("Esa ruta no es válida: " + t);
+            }
+            if (!carpeta.isAbsolute()) return Resultado.error("Escriba la ruta completa de la carpeta, por ejemplo D:\\Respaldos JARVIS.");
+            carpeta = carpeta.normalize();
+            if (carpeta.equals(almacen.archivo().toAbsolutePath().getParent().normalize()))
+                return Resultado.error("Elija otra carpeta: esa es donde ya está el inventario.");
+            try {
+                Files.createDirectories(carpeta);
+                Path prueba = Files.createTempFile(carpeta, "jarvis-prueba", ".tmp");
+                Files.delete(prueba);
+            } catch (IOException | RuntimeException e) {
+                return Resultado.error("No puedo escribir en " + carpeta + ". ¿Está conectada la USB o el disco?");
+            }
+        }
+        try {
+            ajustes.guardar(Map.of(AJUSTE_CARPETA_RESPALDO, carpeta == null ? "" : carpeta.toString()));
+        } catch (SQLException e) {
+            return Resultado.error("No pude guardar la carpeta: " + e.getMessage());
+        }
+        almacen.baseDatos().usarCarpetaExtra(carpeta);
+        return Resultado.ok(carpeta == null ? "Listo: ya no guardo copias en otra carpeta."
+                : "Listo: cada respaldo también se guardará en " + carpeta + ".");
+    }
+
+    private void leerCarpetaExtra() {
+        String t = "";
+        try {
+            t = ajustes.leer().getOrDefault(AJUSTE_CARPETA_RESPALDO, "").trim();
+        } catch (RuntimeException e) {
+            log.warn("No pude leer la carpeta de respaldos: {}", e.getMessage());
+        }
+        Path carpeta = null;
+        try {
+            if (!t.isEmpty()) carpeta = Paths.get(t);
+        } catch (InvalidPathException e) {
+            log.warn("La carpeta de respaldos guardada no es válida: {}", t);
+        }
+        almacen.baseDatos().usarCarpetaExtra(carpeta);
     }
 
     public synchronized boolean hayPendiente() { return sesion().pendiente != null; }
@@ -1513,8 +1627,7 @@ public class InventoryService {
     public synchronized Resultado empezarDeCero() {
         String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
         if (no != null) return Resultado.prohibido(no);
-        Path base = almacen.archivo();
-        Path copia = base.resolveSibling(base.getFileName() + ".antes-de-nuevo-" + LocalDateTime.now().format(SELLO));
+        Path copia = almacen.baseDatos().nombreLibre("antes-de-nuevo-");
         try {
             almacen.copiarA(copia);
         } catch (SQLException e) {

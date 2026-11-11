@@ -86,11 +86,13 @@ class RolesApiTest {
         mvc.perform(desde(get("/api/inventory/resumen"), CELULAR, cajero)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.valorCosto").doesNotExist());
         for (String url : new String[]{"/api/reportes/panel", "/api/inventory/valorizado", "/api/compras", "/api/proveedores",
-                "/api/usuarios", "/api/inventory/movimientos", "/api/reportes/inventario.xlsx"})
+                "/api/usuarios", "/api/respaldos", "/api/inventory/movimientos", "/api/reportes/inventario.xlsx"})
             mvc.perform(desde(get(url), CELULAR, cajero)).andExpect(status().isForbidden());
         mvc.perform(desde(post("/api/inventory/productos"), CELULAR, cajero).content("{\"nombre\":\"Gorra\",\"precio\":20,\"unidad\":\"unidades\"}"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.reply").value(containsString("cajero")));
         mvc.perform(desde(post("/api/inventory/ventas/ultima/anular"), CELULAR, cajero)).andExpect(status().isForbidden());
+        mvc.perform(desde(post("/api/respaldos/restaurar"), CELULAR, cajero).content("{\"nombre\":\"x\"}"))
+                .andExpect(status().isForbidden());
         mvc.perform(desde(post("/api/command"), CELULAR, cajero).content("{\"text\":\"nuevo inventario\"}"))
                 .andExpect(jsonPath("$.reply").value(containsString("no tiene permiso")));
         mvc.perform(desde(post("/api/command"), CELULAR, cajero).content("{\"text\":\"abre la calculadora\"}"))
@@ -114,6 +116,8 @@ class RolesApiTest {
                 .andExpect(jsonPath("$.deHoy.ganancia").value(20.0));
         mvc.perform(desde(get("/api/usuarios"), CELULAR, admin)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3)).andExpect(jsonPath("$[0].pinHash").doesNotExist());
+        mvc.perform(desde(get("/api/respaldos"), CELULAR, admin)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.respaldos[0].tipo").value("DIARIO"));
 
         // Cerrar sesión invalida el token.
         mvc.perform(desde(delete("/api/sesion"), CELULAR, cajero)).andExpect(status().isOk());

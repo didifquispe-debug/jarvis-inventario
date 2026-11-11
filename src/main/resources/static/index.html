@@ -269,6 +269,8 @@
   .cifras .tarjeta::before, .cifras .tarjeta::after { width: 9px; height: 9px; }
   .cifras span { color: var(--muted); font-size: .88rem; } .cifras b { font-family: var(--head); font-size: .9rem; color: var(--accent); font-variant-numeric: tabular-nums; }
   .modal-box.ancho { width: min(840px, 100%); }
+  .resp-donde { font-size: .78rem; color: var(--muted); word-break: break-all; margin-top: 4px; }
+  .resp-lista { max-height: 320px; overflow-y: auto; margin-top: 12px; }
   .compra-linea { display: grid; grid-template-columns: minmax(0, 1fr) 110px 130px auto; gap: 8px; align-items: end; margin-top: 6px; }
   .compra-linea label { display: flex; flex-direction: column; gap: 5px; font-size: .85rem; font-weight: 600; }
   .tabla.compacta td, .tabla.compacta th { padding: 8px 10px; }
@@ -465,6 +467,7 @@
     <symbol id="i-luna" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
     <symbol id="i-llave" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/></symbol>
     <symbol id="i-mas" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6Z"/><path d="m8.8 12.2 2.3 2.3 4.3-4.6"/></symbol>
     <symbol id="i-subir" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
     <symbol id="i-lapiz" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></symbol>
     <symbol id="i-basura" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
@@ -501,6 +504,7 @@
     <div class="pie">
       <button class="item" id="negocioBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-fabrica"/></svg>Mi negocio</button>
       <button class="item" id="usuariosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-clientes"/></svg>Usuarios</button>
+      <button class="item" id="respaldosBtn" type="button" data-permiso="ADMINISTRAR"><svg><use href="#i-escudo"/></svg>Copias de seguridad</button>
       <details class="equipo" id="equipo">
         <summary><svg><use href="#i-equipo"/></svg>Equipo</summary>
         <div class="medidores">
@@ -974,6 +978,28 @@ Zapatilla Nike 41; 180; 4; pares; 2; 110; Calzado; ZAP-NK-41; 7750182000123</spa
       <button type="submit" class="boton primario">Guardar</button>
     </div>
   </form>
+</div>
+
+<div id="respaldosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="respTitulo">
+  <div class="modal-box ancho">
+    <h3 id="respTitulo">Copias de seguridad</h3>
+    <p>JARVIS guarda solo una copia al día (las últimas 7). Haga una al momento antes de cambios grandes. Restaurar devuelve el
+      inventario, las ventas y los usuarios a como estaban en esa copia; el inventario de ahora se guarda antes, por si acaso.</p>
+    <p class="resp-donde" id="respDonde"></p>
+    <div class="tabla-caja resp-lista" id="respLista"></div>
+    <form id="respCarpetaForm" novalidate>
+      <div class="form-grid">
+        <label class="full">Otra carpeta para las copias <i>opcional: USB, disco externo u OneDrive</i>
+          <input class="campo" id="respCarpeta" maxlength="260" autocomplete="off" placeholder="Por ejemplo D:\Respaldos JARVIS" spellcheck="false"></label>
+      </div>
+      <p class="form-err" id="respErr" role="alert"></p>
+      <div class="modal-btns">
+        <button class="boton" type="button" id="respCerrar">Cerrar</button>
+        <button class="boton" type="submit" id="respGuardarCarpeta">Guardar carpeta</button>
+        <button class="boton primario" type="button" id="respAhora"><svg><use href="#i-escudo"/></svg>Hacer copia ahora</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div id="usuariosModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="usTitulo">
@@ -2375,7 +2401,7 @@ document.addEventListener('keydown', e => {
   if ($('confirmModal').classList.contains('show')) cerrarConfirmar(false);
   $('cliModal').classList.remove('show');
   $('receipt').classList.remove('show');
-  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal', 'usuariosModal', 'negocioModal'].forEach(id => $(id).classList.remove('show'));
+  ['compraModal', 'compraVer', 'provModal', 'kardexModal', 'atajosModal', 'usuariosModal', 'negocioModal', 'respaldosModal'].forEach(id => $(id).classList.remove('show'));
   if ($('asistente').classList.contains('abierto')) abrirAsistente(false);
 });
 
@@ -3104,6 +3130,73 @@ $('negocioForm').addEventListener('submit', async e => {
 $('negocioBtn').onclick = abrirNegocio;
 $('negCancelar').onclick = () => $('negocioModal').classList.remove('show');
 $('usCerrar').onclick = () => $('usuariosModal').classList.remove('show');
+
+const TIPOS_RESPALDO = { DIARIO: ['Diaria', 'ok'], MANUAL: ['Manual', 'acento'], ANTES_DE_NUEVO: ['Antes de inventario nuevo', 'aviso'],
+  ANTES_DE_RESTAURAR: ['Antes de restaurar', 'aviso'] };
+let respaldosLista = [];
+function tamano(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+function fechaRespaldo(r) {
+  const d = new Date(r.fecha);
+  if (isNaN(d)) return r.fecha;
+  const dia = d.toLocaleDateString('es-PE', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  return r.tipo === 'DIARIO' && d.getHours() === 0 && d.getMinutes() === 0 ? dia
+    : dia + ', ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+}
+async function refreshRespaldos(llenarCarpeta) {
+  const d = await traer('/api/respaldos');
+  if (!d) { $('respLista').innerHTML = '<div class="vacio">No pude leer las copias de seguridad.</div>'; return; }
+  respaldosLista = d.respaldos || [];
+  $('respDonde').textContent = 'Se guardan en ' + d.carpeta + (d.carpetaExtra ? ' y también en ' + d.carpetaExtra : '') + '.';
+  if (llenarCarpeta || document.activeElement !== $('respCarpeta')) $('respCarpeta').value = d.carpetaExtra || '';
+  $('respLista').innerHTML = respaldosLista.length ? `<table class="tabla adaptable"><thead><tr><th>Fecha</th><th>Tipo</th><th>Tamaño</th><th class="acciones"></th></tr></thead>
+    <tbody>${respaldosLista.map((r, i) => { const [t, c] = TIPOS_RESPALDO[r.tipo] || [r.tipo, '']; return `<tr data-i="${i}">
+      <td data-t="Fecha"><b>${esc(fechaRespaldo(r))}</b></td><td data-t="Tipo"><span class="etiqueta ${c}">${esc(t)}</span></td>
+      <td data-t="Tamaño">${tamano(r.bytes)}</td>
+      <td class="acciones"><button class="boton" type="button" data-accion="descargar" title="Guardar este archivo en otra parte">Descargar</button>
+        <button class="boton" type="button" data-accion="restaurar">Restaurar</button></td></tr>`; }).join('')}</tbody></table>`
+    : '<div class="vacio"><b>Aún no hay copias</b>Pulse «Hacer copia ahora» para crear la primera.</div>';
+}
+async function abrirRespaldos() {
+  $('respErr').textContent = '';
+  $('respaldosModal').classList.add('show');
+  await refreshRespaldos(true);
+}
+$('respaldosBtn').onclick = abrirRespaldos;
+$('respCerrar').onclick = () => $('respaldosModal').classList.remove('show');
+$('respAhora').onclick = async () => {
+  $('respAhora').disabled = true;
+  const res = await invCall('/api/respaldos', 'POST');
+  $('respAhora').disabled = false;
+  $('respErr').textContent = res.ok ? '' : res.reply;
+  if (res.ok) avisar(res.reply);
+  await refreshRespaldos();
+};
+$('respCarpetaForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const res = await invCall('/api/respaldos/carpeta', 'PUT', { carpeta: $('respCarpeta').value.trim() });
+  $('respErr').textContent = res.ok ? '' : res.reply;
+  if (res.ok) avisar(res.reply);
+  await refreshRespaldos();
+});
+$('respLista').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-accion]'); if (!b) return;
+  const r = respaldosLista[b.closest('tr').dataset.i]; if (!r) return;
+  if (b.dataset.accion === 'descargar') {
+    descargar('/api/respaldos/descargar?' + new URLSearchParams({ nombre: r.nombre }), 'jarvis-respaldo.db');
+    return;
+  }
+  if (!await confirmar('Restaurar copia', `¿Volver el inventario a como estaba el ${fechaRespaldo(r)}? Se perderá lo registrado después `
+      + '(el inventario de ahora quedará guardado como otra copia). Los demás usuarios tendrán que volver a entrar.', 'Restaurar')) return;
+  const res = await invCall('/api/respaldos/restaurar', 'POST', { nombre: r.nombre });
+  $('respErr').textContent = res.ok ? '' : res.reply;
+  if (!res.ok) return;
+  avisar(res.reply);
+  await refreshRespaldos();
+  await cargarSesion();
+  await refreshSystem();
+  pintarSaludo();
+  refrescarDatos();
+});
 
 (async function arrancar() {
   getToken();

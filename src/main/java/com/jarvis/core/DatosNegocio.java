@@ -45,6 +45,11 @@ public class DatosNegocio {
         this.inv = inv;
         this.porDefecto = new Datos((negocio.isBlank() ? nombre : negocio).trim(), ruc.trim(), direccion.trim(), telefono.trim(),
                 email.trim(), simbolo.trim(), moneda.trim().toLowerCase(), singular.trim().toLowerCase());
+        recargar();
+    }
+
+    /** Vuelve a leer los datos guardados (por ejemplo, tras restaurar una copia de seguridad). */
+    public synchronized void recargar() {
         Map<String, String> g;
         try {
             g = inv.ajustes().leer();

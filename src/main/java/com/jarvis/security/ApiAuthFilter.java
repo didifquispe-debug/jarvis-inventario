@@ -103,7 +103,8 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     /** Permiso que pide cada parte de la API; null si basta con haber iniciado sesión. */
     static Rol.Permiso permisoPara(String metodo, String path) {
         boolean lee = "GET".equals(metodo);
-        if (path.startsWith("/api/usuarios") || (path.equals("/api/negocio") && !lee)) return Rol.Permiso.ADMINISTRAR;
+        if (path.startsWith("/api/usuarios") || path.startsWith("/api/respaldos") || (path.equals("/api/negocio") && !lee))
+            return Rol.Permiso.ADMINISTRAR;
         if (path.equals("/api/reportes/panel") || path.equals("/api/reportes/ventas.xlsx")) return Rol.Permiso.REPORTES;
         if (path.equals("/api/reportes/compras.xlsx") || path.startsWith("/api/compras") || path.startsWith("/api/proveedores"))
             return Rol.Permiso.COMPRAS;

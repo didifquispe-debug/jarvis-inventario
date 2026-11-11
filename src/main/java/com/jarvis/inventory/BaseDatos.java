@@ -6,6 +6,7 @@ package com.jarvis.inventory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sqlite.SQLiteConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,9 +19,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 final class BaseDatos {
@@ -28,6 +33,9 @@ final class BaseDatos {
     private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
 
     static final int RESPALDOS = 7;
+    static final int RESPALDOS_MANUALES = 10;
+    static final int RESPALDOS_EXTRA = 30;
+    static final String PREFIJO_EXTRA = "jarvis-respaldo-";
     private static final int VERSION = 6;
     private static final DateTimeFormatter DIA = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter SELLO = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
@@ -35,8 +43,15 @@ final class BaseDatos {
     @FunctionalInterface
     interface Trabajo<T> { T hacer(Connection cx) throws SQLException; }
 
+    /** Una copia guardada del inventario: tipo es DIARIO, MANUAL, ANTES_DE_NUEVO o ANTES_DE_RESTAURAR. */
+    record Respaldo(String nombre, String tipo, LocalDateTime fecha, long bytes) {}
+
+    private static final Pattern RESPALDO = Pattern.compile(
+            "\\.(respaldo-(\\d{8})|respaldo-manual-(\\d{8}-\\d{6})|antes-de-nuevo-(\\d{8}-\\d{6})|antes-de-restaurar-(\\d{8}-\\d{6}))(-\\d{1,3})?");
+
     private final Path archivo;
     private LocalDate respaldadoEl;
+    private volatile Path carpetaExtra;
 
     BaseDatos(Path archivo) {
         this.archivo = archivo;
@@ -97,6 +112,142 @@ final class BaseDatos {
             for (int i = RESPALDOS; i < viejos.size(); i++) Files.deleteIfExists(viejos.get(i));
         } catch (SQLException | IOException e) {
             log.error("No pude hacer el respaldo diario del inventario en {}: {}", destino, e.getMessage());
+            return;
+        }
+        copiarAExtra(destino, PREFIJO_EXTRA + hoy.format(DIA) + ".db", false);
+    }
+
+    /** Copia del momento, aparte de la diaria. Devuelve el nombre del archivo. */
+    String respaldoManual() throws SQLException {
+        Path destino = nombreLibre("respaldo-manual-");
+        copiarA(destino);
+        try {
+            List<Respaldo> manuales = listarRespaldos().stream().filter(r -> r.tipo().equals("MANUAL")).toList();
+            for (int i = RESPALDOS_MANUALES; i < manuales.size(); i++)
+                Files.deleteIfExists(archivo.resolveSibling(manuales.get(i).nombre()));
+        } catch (IOException e) {
+            log.warn("No pude borrar respaldos manuales viejos: {}", e.getMessage());
+        }
+        copiarAExtra(destino, PREFIJO_EXTRA + destino.getFileName().toString().replaceFirst("^.*respaldo-manual-", "") + ".db", true);
+        return destino.getFileName().toString();
+    }
+
+    /** Archivo junto a la base con la fecha y hora de ahora, sin pisar uno que ya exista en el mismo segundo. */
+    Path nombreLibre(String tipo) {
+        String base = archivo.getFileName() + "." + tipo + LocalDateTime.now().format(SELLO);
+        Path p = archivo.resolveSibling(base);
+        for (int i = 2; Files.exists(p) && i < 1000; i++) p = archivo.resolveSibling(base + "-" + i);
+        return p;
+    }
+
+    /** Carpeta aparte (USB, OneDrive...) donde también se dejan las copias; null para no usar ninguna. */
+    void usarCarpetaExtra(Path carpeta) { this.carpetaExtra = carpeta; }
+
+    Path carpetaExtra() { return carpetaExtra; }
+
+    /** Copia el respaldo a la carpeta extra. Si {@code avisar}, lanza el error en vez de solo anotarlo. */
+    private void copiarAExtra(Path respaldo, String nombre, boolean avisar) {
+        Path carpeta = carpetaExtra;
+        if (carpeta == null) return;
+        try {
+            Files.createDirectories(carpeta);
+            Path destino = carpeta.resolve(nombre);
+            Path temporal = carpeta.resolve(nombre + ".tmp");
+            Files.copy(respaldo, temporal, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(temporal, destino, StandardCopyOption.REPLACE_EXISTING);
+            try (Stream<Path> s = Files.list(carpeta)) {
+                List<Path> viejos = s.filter(p -> p.getFileName().toString().startsWith(PREFIJO_EXTRA)
+                                && p.getFileName().toString().endsWith(".db"))
+                        .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed()).toList();
+                for (int i = RESPALDOS_EXTRA; i < viejos.size(); i++) Files.deleteIfExists(viejos.get(i));
+            }
+        } catch (IOException | RuntimeException e) {
+            log.error("No pude copiar el respaldo a la carpeta extra {}: {}", carpeta, e.getMessage());
+            if (avisar) throw new IllegalStateException("la copia quedó en la laptop, pero no pude dejarla en " + carpeta
+                    + " (" + e.getMessage() + ")", e);
+        }
+    }
+
+    /** Todas las copias que hay junto a la base, de la más nueva a la más vieja. */
+    List<Respaldo> listarRespaldos() throws IOException {
+        String base = archivo.getFileName().toString();
+        Path dir = archivo.toAbsolutePath().getParent();
+        List<Respaldo> lista = new ArrayList<>();
+        try (Stream<Path> s = Files.list(dir)) {
+            for (Path p : s.toList()) {
+                String nombre = p.getFileName().toString();
+                if (!nombre.startsWith(base) || !Files.isRegularFile(p)) continue;
+                Matcher m = RESPALDO.matcher(nombre.substring(base.length()));
+                if (!m.matches()) continue;
+                String tipo;
+                LocalDateTime fecha;
+                if (m.group(2) != null) { tipo = "DIARIO"; fecha = LocalDate.parse(m.group(2), DIA).atStartOfDay(); }
+                else if (m.group(3) != null) { tipo = "MANUAL"; fecha = LocalDateTime.parse(m.group(3), SELLO); }
+                else if (m.group(4) != null) { tipo = "ANTES_DE_NUEVO"; fecha = LocalDateTime.parse(m.group(4), SELLO); }
+                else { tipo = "ANTES_DE_RESTAURAR"; fecha = LocalDateTime.parse(m.group(5), SELLO); }
+                if (tipo.equals("DIARIO")) {
+                    LocalDateTime mod = LocalDateTime.ofInstant(Files.getLastModifiedTime(p).toInstant(), ZoneId.systemDefault());
+                    if (mod.toLocalDate().equals(fecha.toLocalDate())) fecha = mod.withNano(0);
+                }
+                lista.add(new Respaldo(nombre, tipo, fecha, Files.size(p)));
+            }
+        }
+        lista.sort(Comparator.comparing(Respaldo::fecha).thenComparingInt((Respaldo r) -> r.nombre().length()).thenComparing(Respaldo::nombre).reversed());
+        return lista;
+    }
+
+    /** Ruta de un respaldo por su nombre; null si no es uno de los de {@link #listarRespaldos()}. */
+    Path respaldo(String nombre) throws IOException {
+        if (nombre == null) return null;
+        for (Respaldo r : listarRespaldos())
+            if (r.nombre().equals(nombre)) return archivo.toAbsolutePath().getParent().resolve(r.nombre());
+        return null;
+    }
+
+    /**
+     * Reemplaza el inventario por el de {@code respaldo}. Antes revisa que el respaldo esté sano y guarda una copia
+     * del inventario actual (cuyo nombre devuelve). Si algo falla, la base queda como estaba.
+     */
+    String restaurarDesde(Path respaldo) throws SQLException {
+        revisarRespaldo(respaldo);
+        Path antes = nombreLibre("antes-de-restaurar-");
+        copiarA(antes);
+        restaurarArchivo(respaldo);
+        try {
+            preparar();
+        } catch (SQLException e) {
+            restaurarArchivo(antes);
+            throw e;
+        }
+        respaldadoEl = null;
+        return antes.getFileName().toString();
+    }
+
+    private void restaurarArchivo(Path origen) throws SQLException {
+        String ruta = origen.toAbsolutePath().toString();
+        if (ruta.contains("'")) throw new SQLException("la ruta del respaldo no puede llevar comillas");
+        try (Connection cx = conectar(); Statement st = cx.createStatement()) {
+            st.executeUpdate("restore from '" + ruta + "'");
+        }
+    }
+
+    private static void revisarRespaldo(Path respaldo) throws SQLException {
+        if (!Files.isRegularFile(respaldo)) throw new SQLException("el respaldo ya no existe");
+        SQLiteConfig config = new SQLiteConfig();
+        config.setReadOnly(true);
+        try (Connection cx = DriverManager.getConnection("jdbc:sqlite:" + respaldo.toAbsolutePath(), config.toProperties());
+             Statement st = cx.createStatement()) {
+            try (ResultSet rs = st.executeQuery("PRAGMA quick_check")) {
+                String r = rs.next() ? rs.getString(1) : "sin respuesta";
+                if (!"ok".equalsIgnoreCase(r)) throw new SQLException("el respaldo está dañado (" + r + ")");
+            }
+            try (ResultSet rs = st.executeQuery("PRAGMA user_version")) {
+                int v = rs.next() ? rs.getInt(1) : 0;
+                if (v > VERSION) throw new SQLException("el respaldo es de una versión más nueva de JARVIS");
+            }
+            try (ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='producto'")) {
+                if (!rs.next() || rs.getInt(1) == 0) throw new SQLException("el archivo no es un inventario de JARVIS");
+            }
         }
     }
 
