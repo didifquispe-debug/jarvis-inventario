@@ -18,7 +18,16 @@ public enum TipoComprobante {
         this.hablado = hablado;
     }
 
-    public String codigo(int correlativo) {
+    /**
+     * Serie de este tipo en la tienda {@code tienda}. Con el mismo RUC dos locales no pueden repetir números, así que
+     * cada tienda tiene la suya: la 1 usa B001/NV01, la 2 B002/NV02, y así.
+     */
+    public String serie(int tienda) {
+        if (tienda <= 1) return serie;
+        return this == BOLETA ? "B" + String.format("%03d", tienda) : "NV" + String.format("%02d", tienda);
+    }
+
+    public static String codigo(String serie, int correlativo) {
         return serie + "-" + String.format("%08d", correlativo);
     }
 

@@ -107,6 +107,45 @@ class ComprobantesTest {
         assertTrue(nuevo().salida(BigDecimal.ONE, "foco", false).contains("Boleta número 3"), "siguen al reiniciar");
     }
 
+    @Test void cadaTiendaTieneSuSerie() {
+        assertEquals("B001", TipoComprobante.BOLETA.serie(1));
+        assertEquals("NV01", TipoComprobante.NOTA_VENTA.serie(1));
+        assertEquals("B002", TipoComprobante.BOLETA.serie(2));
+        assertEquals("NV02", TipoComprobante.NOTA_VENTA.serie(2));
+        assertEquals("B012", TipoComprobante.BOLETA.serie(12));
+        assertEquals("NV50", TipoComprobante.NOTA_VENTA.serie(Tiendas.MAXIMO));
+    }
+
+    @Test void dosTiendasNoRepitenNumerosDeComprobante() {
+        String archivo = dir.resolve("inv.json").toString();
+        InventoryService principal = Ejemplos.sembrar(nuevo());
+        InventoryService otra = Ejemplos.sembrar(new InventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2));
+        principal.salida(BigDecimal.ONE, "foco", false);
+        assertEquals("B001-00000001", principal.tomarComprobanteNuevo().codigo);
+        otra.salida(BigDecimal.ONE, "foco", false);
+        InventoryService.Comprobante c = otra.tomarComprobanteNuevo();
+        assertEquals("B002-00000001", c.codigo);
+        assertEquals("B002", c.serie);
+        otra.salida(BigDecimal.ONE, "foco", false, opciones(TipoComprobante.NOTA_VENTA, null));
+        assertEquals("NV02-00000001", otra.tomarComprobanteNuevo().codigo);
+        InventoryService reabierta = new InventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2);
+        assertTrue(reabierta.salida(BigDecimal.ONE, "foco", false).contains("Boleta número 2"), "sigue al reiniciar");
+        assertEquals("B002-00000002", reabierta.tomarComprobanteNuevo().codigo);
+    }
+
+    @Test void lasVentasDeAntesConservanLaSerieConQueSeEmitieron() {
+        String base = Tiendas.archivoDe(dir.resolve("inv.json").toString(), 2);
+        // Así numeraba la tienda 2 antes de tener serie propia: B001 desde 1.
+        InventoryService antes = Ejemplos.sembrar(new InventoryService(base, "boleta", "incluido", 1));
+        antes.salida(BigDecimal.ONE, "foco", false);
+        antes.salida(BigDecimal.ONE, "foco", false);
+        InventoryService ahora = new InventoryService(base, "boleta", "incluido", 2);
+        assertEquals("B001-00000001", ahora.comprobantePorNumero(1).codigo, "lo ya impreso no cambia de número");
+        assertEquals("B001-00000002", ahora.comprobantePorNumero(2).codigo);
+        ahora.salida(BigDecimal.ONE, "foco", false);
+        assertEquals("B002-00000001", ahora.tomarComprobanteNuevo().codigo, "la serie nueva empieza en 1");
+    }
+
     @Test void losNumerosNoSeRepitenNiConUnInventarioNuevo() {
         InventoryService inv = Ejemplos.sembrar(nuevo());
         inv.salida(BigDecimal.ONE, "foco", false);

@@ -9,11 +9,11 @@ ferretería…) que corre en tu laptop. Funciona **100% offline, sin claves de A
 ## Cómo funciona
 
 ```
- Celular / Tablet / PC  ──(Wi-Fi, navegador)──►  Laptop: servidor Spring Boot (puerto 8080)
+ Celular / Tablet / PC  ──(Wi-Fi, navegador)──►  Laptop: servidor Spring Boot (puerto 7060)
    - micrófono y voz                                 ├─ JarvisService  (decide quién responde)
    - se instala como app                             ├─ Skills         (hora, web, apps, notas, cálculo…)
                                                      ├─ LaptopActions  (abre programas/navegador en la laptop)
-                                                     └─ AiBrain        (entiende órdenes, modelo local)
+                                                     └─ DYSA           (el cerebro: entiende órdenes, modelo local)
 ```
 
 El cerebro vive en la laptop. Los demás dispositivos solo hablan con él por la API
@@ -30,10 +30,11 @@ Si le dices desde el celular "abre YouTube", **se abre en la laptop**.
 1. Descomprime el ZIP.
 2. *File → Open…* y elige la carpeta `jarvis` (la que tiene `pom.xml`). Ábrelo como proyecto Maven.
 3. Espera a que descargue las dependencias (barra de abajo).
-4. Abre `src/main/resources/application.properties` y **cambia `jarvis.token`** por una clave tuya.
+4. La clave de acceso se genera sola la primera vez y queda guardada en `~/.jarvis-clave`.
+   Si prefieres una tuya, ponla en `jarvis.token` de `src/main/resources/application.properties`.
 5. Abre `JarvisApplication.java` y pulsa ▶ junto a `main`.
 
-En tu laptop entra a **http://localhost:8080** — te pedirá la clave una sola vez.
+En tu laptop entra a **http://localhost:7060** — te pedirá la clave una sola vez.
 
 ## La pantalla
 
@@ -96,7 +97,7 @@ Ollama solo. La IA es opcional al instalar. Si Ollama ya está abierto en esa PC
 2. Averigua la IP de la laptop:
    - Windows: `ipconfig` → "Dirección IPv4" (ej. `192.168.1.35`)
    - macOS/Linux: `ip a` o `ifconfig`
-3. En el celular abre `http://192.168.1.35:8080`.
+3. En el celular abre `http://192.168.1.35:7060`.
 4. Si Windows pregunta por el Firewall al arrancar, permite **redes privadas**.
 5. Para tenerlo como app: en Chrome ⋮ → *Agregar a la pantalla principal*.
 
@@ -105,14 +106,14 @@ Los navegadores solo dejan usar el micrófono en `localhost` o con **HTTPS**.
 Desde el celular por `http://192.168…` podrás **escribir** pero no hablar. Soluciones:
 
 - **Rápida (Chrome Android):** abre `chrome://flags/#unsafely-treat-insecure-origin-as-secure`,
-  agrega `http://192.168.1.35:8080`, actívalo y reinicia Chrome.
+  agrega `http://192.168.1.35:7060`, actívalo y reinicia Chrome.
 - **Desde cualquier lugar (incluso fuera de casa):** instala [Tailscale](https://tailscale.com) en laptop y
-  celular, o usa un túnel HTTPS como `ngrok http 8080` / Cloudflare Tunnel.
+  celular, o usa un túnel HTTPS como `ngrok http 7060` / Cloudflare Tunnel.
   Si lo expones a Internet, usa una clave larga en `jarvis.token`.
 
 ## 4. Comandos incluidos
 
-**Manual completo de voz:** botón **📖 MANUAL** en la pantalla (o `http://localhost:8081/manual.html`); se puede imprimir.
+**Manual completo de voz:** botón **📖 MANUAL** en la pantalla (o `http://localhost:7060/manual.html`); se puede imprimir.
 
 Di o escribe **"ayuda"**. Algunos ejemplos:
 
@@ -207,6 +208,7 @@ instalar nada.
 ### Comprobantes: boleta y nota de venta, con IGV
 Cada venta emite un comprobante con su **serie y correlativo**: boleta `B001-00000001` o nota de venta
 `NV01-00000001`. Cada serie lleva su propia numeración, que nunca se repite (ni al empezar un inventario nuevo).
+Con varias tiendas, cada una tiene su serie: la tienda 2 emite `B002` y `NV02`, la 3 `B003` y `NV03`, y así.
 - **Por defecto, boleta.** Se cambia en `application.properties` (`jarvis.comprobante.tipo=nota de venta`) o al vender:
   *"vendí 2 poleras M **con nota de venta**"*, *"nueva venta **con boleta**"*.
 - **IGV 18%** (`jarvis.igv`): `incluido` (los precios ya lo tienen: el total no cambia y el comprobante muestra

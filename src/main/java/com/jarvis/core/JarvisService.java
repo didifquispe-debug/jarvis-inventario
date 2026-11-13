@@ -4,7 +4,7 @@
  */
 package com.jarvis.core;
 
-import com.jarvis.ai.AiBrain;
+import com.jarvis.ai.DYSA;
 import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
 import com.jarvis.ia.AsistenteIA;
@@ -33,7 +33,7 @@ public class JarvisService {
     public static final String NO_ENTENDI = "No entendí la orden. Diga 'ayuda' para ver lo que puedo hacer.";
 
     private final List<Skill> skills;
-    private final AiBrain brain;
+    private final DYSA brain;
     private final InventorySkill inventario;
     private final Diccionario diccionario;
     private final DiccionarioSkill ensenar;
@@ -46,7 +46,7 @@ public class JarvisService {
     private final CompraPorVozSkill compraVoz;
     private final boolean confirmarVoz;
 
-    public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
+    public JarvisService(List<Skill> skills, DYSA brain, InventorySkill inventario,
                          Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
                          AsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar, ConsultasSkill consultas,
                          GestionSkill gestion, CompraPorVozSkill compraVoz, @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {

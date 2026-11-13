@@ -24,7 +24,7 @@ La primera vez que hagas `git push`, Windows abrirá una ventana para iniciar se
 ## 2. Correr JARVIS
 
 - Abre `src/main/java/com/jarvis/JarvisApplication.java` y pulsa ▶ junto a `main`.
-- Entra a **http://localhost:8081**. La clave es la de `jarvis.token` en `src/main/resources/application.properties`.
+- Entra a **http://localhost:7060**. La clave se genera sola la primera vez y queda guardada en `~/.jarvis-clave` (o la que pongas en `jarvis.token` de `src/main/resources/application.properties`).
 - Pruebas: en IntelliJ, clic derecho en `src/test/java` → *Run 'All Tests'*
   (o `mvn test` si tienes Maven en la consola). **Antes de subir, las pruebas deben pasar.**
 
@@ -99,11 +99,39 @@ git merge main
 IntelliJ marca los archivos en conflicto (*Git → Resolve Conflicts*). Elige qué versión queda, guarda,
 haz `git commit` y `git push`.
 
+### Nunca reescribas `main`
+
+No uses `git push --force` en `main`, ni `rebase` o `reset` sobre commits que ya están en GitHub. Eso cambia los
+identificadores de los commits: a los demás les aparece que su `main` "tiene N commits que GitHub no tiene"
+aunque sea el mismo trabajo, y lo que alguien tenía sin subir puede perderse o duplicarse al hacer `pull`.
+
+En tu propia rama sí puedes usar `git push --force-with-lease` (nunca `--force` a secas), siempre que nadie más trabaje en ella.
+
+### Si tu `main` y la de GitHub "se separaron"
+
+`git status` dice algo como *"have diverged, and have 18 and 30 different commits"*. No hagas `pull` ni `push`
+todavía:
+
+1. Mira si tienes algo propio que no esté en GitHub: `git log origin/main..main`. Compara contenido, no solo
+   mensajes: `git diff main <commit de GitHub con el mismo mensaje>`. Si no sale nada, es el mismo trabajo.
+2. Si tienes cambios propios, ponlos a salvo en otra rama: `git branch rescate-mis-cambios`.
+3. Deja tu `main` igual a la de GitHub: `git fetch` y luego `git reset --hard origin/main`.
+4. Si hiciste el paso 2, lleva esos cambios a una rama nueva con `git cherry-pick` y abre un *pull request*.
+
+### Protección de `main` en GitHub
+
+El dueño del repositorio puede activarla en *Settings → Branches → Add branch protection rule* (patrón `main`):
+marcar *Require a pull request before merging* y dejar desmarcado *Allow force pushes*. Así GitHub impide
+los dos problemas de arriba.
+
 ## 4. Reglas del proyecto
 
 - Escribe en español: nombres de clases, métodos, mensajes y commits, como el código que ya existe.
 - Los archivos usan finales de línea **LF**. Si Git avisa de `CRLF`, configura una vez:
   `git config --global core.autocrlf input`
+- Archivos grandes: la pantalla está repartida en `static/index.html` (solo HTML), `static/css/jarvis.css` y
+  `static/js/*.js` (uno por sección; `arranque.js` va siempre al final). Pon el código nuevo en el archivo de su
+  sección en vez de agrandar uno solo. Igual en Java: si una clase pasa de ~1 000 líneas, separa una parte.
 - No subas archivos generados ni datos personales: `target/`, `dist/`, `*.log`, `.idea/`, bases de datos,
   claves. El `.gitignore` ya ignora la mayoría. Revisa con `git status` antes de `git add .`.
 - Si cambias cómo funciona algo, actualiza el `README.md` y el manual (`src/main/resources/static/manual.html`).

@@ -5,7 +5,10 @@
 ; La voz (Vosk y Piper) va siempre; la IA avanzada (Ollama + modelo) es un componente opcional
 ; y solo aparece si packaging\preparar-componentes.bat la dejó en dist\JARVIS\ia.
 
-#define AppVersion "0.1.0"
+; crear-exe.bat pasa la version del pom.xml con /DAppVersion=...; esta es solo por si se compila a mano.
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #define Origen "..\dist\JARVIS"
 #define ConIA DirExists(AddBackslash(SourcePath) + Origen + "\ia\ollama")
 

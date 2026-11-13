@@ -61,7 +61,7 @@ public class Tiendas {
 
     public InventoryService de(int id) {
         if (id == ClientSession.TIENDA_PRINCIPAL || !existe(id)) return principal;
-        return abiertas.computeIfAbsent(id, k -> new InventoryService(archivoDe(archivo, k), tipo, igv));
+        return abiertas.computeIfAbsent(id, k -> new InventoryService(archivoDe(archivo, k), tipo, igv, k));
     }
 
     public List<Tienda> listar() { return lista; }

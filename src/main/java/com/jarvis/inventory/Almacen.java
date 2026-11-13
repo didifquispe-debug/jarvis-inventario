@@ -80,7 +80,7 @@ final class Almacen {
             }
             Map<Integer, InventoryService.Cabecera> cabeceras = new HashMap<>();
             try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("""
-                    SELECT id, numero, tipo, correlativo, cliente_id, cliente_doc, cliente_nombre, modo_igv FROM comprobante""")) {
+                    SELECT id, numero, tipo, serie, correlativo, cliente_id, cliente_doc, cliente_nombre, modo_igv FROM comprobante""")) {
                 while (rs.next()) {
                     int numero = rs.getInt("numero");
                     if (rs.wasNull()) continue;
@@ -88,7 +88,7 @@ final class Almacen {
                     long cliente = rs.getLong("cliente_id");
                     Long clienteId = rs.wasNull() ? null : cliente;
                     TipoComprobante tipo = TipoComprobante.valueOf(rs.getString("tipo"));
-                    cabeceras.put(numero, new InventoryService.Cabecera(tipo, rs.getInt("correlativo"), clienteId,
+                    cabeceras.put(numero, new InventoryService.Cabecera(tipo, rs.getString("serie"), rs.getInt("correlativo"), clienteId,
                             rs.getString("cliente_doc"), rs.getString("cliente_nombre"), Igv.Modo.valueOf(rs.getString("modo_igv"))));
                 }
             }
@@ -243,7 +243,7 @@ final class Almacen {
                             INSERT INTO comprobante (numero, fecha, hora, tipo, serie, correlativo, cliente_id, cliente_doc,
                                                      cliente_nombre, modo_igv) VALUES (?,?,?,?,?,?,?,?,?,?)""",
                             v.numero > 0 ? v.numero : null, v.fecha == null ? "" : v.fecha, v.hora == null ? "" : v.hora,
-                            cab.tipo().name(), cab.tipo().serie, cab.correlativo() > 0 ? cab.correlativo() : null,
+                            cab.tipo().name(), cab.serie(), cab.correlativo() > 0 ? cab.correlativo() : null,
                             cab.clienteId(), nz(cab.clienteDoc()), nz(cab.clienteNombre()), cab.modo().name());
                     if (v.numero > 0) numerosNuevos.put(v.numero, cid);
                 }
@@ -320,7 +320,8 @@ final class Almacen {
 
     static InventoryService.Cabecera cabecera(Map<Integer, InventoryService.Cabecera> cabeceras, int numero) {
         InventoryService.Cabecera c = numero > 0 ? cabeceras.get(numero) : null;
-        return c != null ? c : new InventoryService.Cabecera(TipoComprobante.NOTA_VENTA, numero, null, "", "", Igv.Modo.EXONERADO);
+        return c != null ? c : new InventoryService.Cabecera(TipoComprobante.NOTA_VENTA, TipoComprobante.NOTA_VENTA.serie, numero,
+                null, "", "", Igv.Modo.EXONERADO);
     }
 
     private static String nz(String s) { return s == null ? "" : s; }

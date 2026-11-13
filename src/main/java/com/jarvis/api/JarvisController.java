@@ -33,7 +33,7 @@ public class JarvisController {
     private final Actualizaciones actualizaciones;
 
     public JarvisController(JarvisService jarvis, SystemMonitor monitor, InventoryService inv, GreetingSkill saludo,
-                            @Value("${server.port:8081}") int port, DatosNegocio negocio, Impresion impresion,
+                            @Value("${server.port:7060}") int port, DatosNegocio negocio, Impresion impresion,
                             Actualizaciones actualizaciones) {
         this.impresion = impresion;
         this.actualizaciones = actualizaciones;

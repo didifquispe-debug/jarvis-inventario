@@ -30,7 +30,7 @@ public class DesktopShell {
 
     public DesktopShell(ConfigurableApplicationContext context,
                         @Value("${jarvis.desktop.enabled:true}") boolean enabled,
-                        @Value("${server.port:8081}") int port,
+                        @Value("${server.port:7060}") int port,
                         AccessToken token,
                         @Value("${jarvis.browser:chrome}") String browser,
                         Impresion impresion) {

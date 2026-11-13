@@ -23,14 +23,14 @@ class IntentClassifierModelTest {
     static final String DIR = System.getProperty("jarvis.intent.model-dir",
             Paths.get(System.getProperty("user.home"), "jarvis-models", "intent").toString());
     static IntentClassifier clf;
-    static AiBrain brain;
+    static DYSA brain;
 
     static boolean hayModelo() { return Files.exists(Path.of(DIR, "model.onnx")); }
 
     @BeforeAll static void cargar() {
         clf = new IntentClassifier(true, DIR, "intents-es.json", true, 0.62, 0.04);
         clf.init();
-        brain = new AiBrain(clf);
+        brain = new DYSA(clf);
         assertTrue(clf.listo(), "el modelo debería cargar");
     }
 

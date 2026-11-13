@@ -22,7 +22,7 @@ import java.util.Properties;
 @SpringBootApplication
 public class JarvisApplication {
 
-    public static final int PUERTO_POR_DEFECTO = 8081;
+    public static final int PUERTO_POR_DEFECTO = 7060;
 
     public static void main(String[] args) {
         Properties cfg = loadConfig();

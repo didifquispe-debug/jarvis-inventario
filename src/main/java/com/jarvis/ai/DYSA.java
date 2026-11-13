@@ -7,12 +7,13 @@ package com.jarvis.ai;
 import com.jarvis.inventory.Palabras;
 import org.springframework.stereotype.Component;
 
+/** El cerebro de JARVIS: entiende la orden y saca sus datos. Lleva el nombre del equipo: Didier, Yoel, Sumi y Apaza. */
 @Component
-public class AiBrain {
+public class DYSA {
 
     private final IntentClassifier classifier;
 
-    public AiBrain(IntentClassifier classifier) {
+    public DYSA(IntentClassifier classifier) {
         this.classifier = classifier;
     }
 

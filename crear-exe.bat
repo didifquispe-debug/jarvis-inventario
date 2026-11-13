@@ -2,14 +2,12 @@
 setlocal
 cd /d "%~dp0"
 
-if not exist "target\jarvis-0.1.0.jar" (
-  echo.
-  echo [!] No encuentro target\jarvis-0.1.0.jar
-  echo     Primero compila en IntelliJ: panel Maven ^(derecha^) ^> jarvis ^> Lifecycle ^> package
-  echo.
-  pause
-  exit /b 1
-)
+rem La version sale del pom.xml: Maven la deja en este archivo al compilar.
+set "VER="
+if exist "target\maven-archiver\pom.properties" for /f "tokens=2 delims==" %%v in ('findstr /b "version=" "target\maven-archiver\pom.properties"') do set "VER=%%v"
+if not defined VER goto sinjar
+if not exist "target\jarvis-%VER%.jar" goto sinjar
+echo Version: %VER%
 
 set "JP="
 if defined JAVA_HOME if exist "%JAVA_HOME%\bin\jpackage.exe" set "JP=%JAVA_HOME%\bin\jpackage.exe"
@@ -25,14 +23,14 @@ echo Usando: %JP%
 if exist "target\dist" rmdir /s /q "target\dist"
 if exist "dist\JARVIS" rmdir /s /q "dist\JARVIS"
 mkdir "target\dist"
-copy /y "target\jarvis-0.1.0.jar" "target\dist\" >nul
+copy /y "target\jarvis-%VER%.jar" "target\dist\" >nul
 
 "%JP%" --type app-image ^
   --name JARVIS ^
-  --app-version 0.1.0 ^
+  --app-version %VER% ^
   --vendor "JARVIS" ^
   --input "target\dist" ^
-  --main-jar jarvis-0.1.0.jar ^
+  --main-jar jarvis-%VER%.jar ^
   --icon "packaging\jarvis.ico" ^
   --java-options "-Dfile.encoding=UTF-8" ^
   --dest dist
@@ -66,7 +64,7 @@ if not defined ISCC (
 )
 
 echo Creando instalador con: %ISCC%
-"%ISCC%" /Q "packaging\jarvis.iss"
+"%ISCC%" /Q "/DAppVersion=%VER%" "packaging\jarvis.iss"
 if errorlevel 1 (
   echo [!] Inno Setup fallo. Revisa el mensaje de arriba.
   pause
@@ -75,8 +73,17 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  Listo:  dist\instalador\JARVIS-Setup-0.1.0.exe
+echo  Listo:  dist\instalador\JARVIS-Setup-%VER%.exe
 echo  Si incluye la IA, reparte tambien los archivos .bin de esa carpeta.
 echo ============================================================
 explorer "dist\instalador"
 pause
+exit /b 0
+
+:sinjar
+echo.
+echo [!] No encuentro el jar compilado en target\
+echo     Primero compila en IntelliJ: panel Maven ^(derecha^) ^> jarvis ^> Lifecycle ^> package
+echo.
+pause
+exit /b 1
