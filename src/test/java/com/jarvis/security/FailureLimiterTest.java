@@ -36,11 +36,11 @@ class FailureLimiterTest {
     }
 
     @Test void comparacionDeClaves() {
-        assertTrue(AccessToken.constantTimeEquals("abc", "abc"));
-        assertFalse(AccessToken.constantTimeEquals("abc", "abd"));
-        assertFalse(AccessToken.constantTimeEquals("abc", "abcd"));
-        assertFalse(AccessToken.constantTimeEquals("abc", null));
+        assertTrue(ApazaAccessToken.constantTimeEquals("abc", "abc"));
+        assertFalse(ApazaAccessToken.constantTimeEquals("abc", "abd"));
+        assertFalse(ApazaAccessToken.constantTimeEquals("abc", "abcd"));
+        assertFalse(ApazaAccessToken.constantTimeEquals("abc", null));
         String archivo = System.getProperty("java.io.tmpdir") + "/jarvis-test-clave-" + java.util.UUID.randomUUID();
-        assertFalse(new AccessToken("", archivo).matches(""), "una clave vacía nunca da acceso");
+        assertFalse(new ApazaAccessToken("", archivo).matches(""), "una clave vacía nunca da acceso");
     }
 }

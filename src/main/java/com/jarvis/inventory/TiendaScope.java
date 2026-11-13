@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Alcance "tienda": quien usa el InventoryService (controladores, voz, asistente) recibe el de la tienda del
+ * Alcance "tienda": quien usa el DYSAInventoryService (controladores, voz, asistente) recibe el de la tienda del
  * pedido en curso (ClientSession.tienda()). Así cada tienda trabaja con su propia base sin cambiar a nadie más.
  */
 public class TiendaScope implements Scope {

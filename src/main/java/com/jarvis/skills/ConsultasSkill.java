@@ -5,7 +5,7 @@
 package com.jarvis.skills;
 
 import com.jarvis.inventory.Compras;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Num;
 import com.jarvis.security.ClientSession;
@@ -54,9 +54,9 @@ public class ConsultasSkill implements Skill {
             "\\b(hoy|ayer|(?:la )?semana pasada|esta semana|la semana|semana|semanal|(?:el )?mes pasado|este mes|el mes|mes|mensual"
             + "|este ano|el ano)\\b");
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
 
-    public ConsultasSkill(InventoryService inv) { this.inv = inv; }
+    public ConsultasSkill(DYSAInventoryService inv) { this.inv = inv; }
 
     @Override public String name() { return "Consultas del negocio"; }
     @Override public String example() {
@@ -103,7 +103,7 @@ public class ConsultasSkill implements Skill {
     private String ganancia(Periodo p) {
         String no = ClientSession.sinPermiso(Permiso.REPORTES);
         if (no != null) return no;
-        InventoryService.Periodo v = inv.ventasDe(p.desde(), p.hasta());
+        DYSAInventoryService.Periodo v = inv.ventasDe(p.desde(), p.hasta());
         if (v.ventas() == 0) return "No hubo ventas " + p.nombre() + ", así que no hay ganancia que reportar, señor.";
         String r = String.format("Ganancia de %s: %s, con %s por %s (%s sin IGV, costo %s).", p.nombre(), soles(v.ganancia()),
                 ventasTxt(v.ventas()), soles(v.total()), soles(v.base()), soles(v.costo()));
@@ -122,7 +122,7 @@ public class ConsultasSkill implements Skill {
         if (de.find()) {
             String producto = inv.nombreDe(PERIODO.matcher(de.group(1)).replaceAll("").replaceAll("\\b(esta|este|el|la|del|de)\\s*$", "").trim());
             if (producto != null) {
-                Optional<InventoryService.MasVendido> x = inv.masVendidos(p.desde(), p.hasta(), 100_000).stream()
+                Optional<DYSAInventoryService.MasVendido> x = inv.masVendidos(p.desde(), p.hasta(), 100_000).stream()
                         .filter(m -> m.producto().equalsIgnoreCase(producto)).findFirst();
                 return x.map(m -> String.format("De %s se vendieron %s %s %s, por %s.", m.producto(), Num.txt(m.cantidad()), m.unidad(),
                                 p.nombre(), soles(m.total())))
@@ -130,7 +130,7 @@ public class ConsultasSkill implements Skill {
             }
         }
         if (soloHoy) return inv.cierre();
-        InventoryService.Periodo v = inv.ventasDe(p.desde(), p.hasta());
+        DYSAInventoryService.Periodo v = inv.ventasDe(p.desde(), p.hasta());
         if (v.ventas() == 0) return "No hubo ventas " + p.nombre() + ", señor." + anuladas(v);
         return String.format("Ventas de %s: %s por %s.", p.nombre(), ventasTxt(v.ventas()), soles(v.total())) + anuladas(v);
     }
@@ -138,11 +138,11 @@ public class ConsultasSkill implements Skill {
     private String masVendido(Periodo p) {
         if (!ClientSession.puede(Permiso.REPORTES) && !ClientSession.puede(Permiso.VENDER))
             return ClientSession.sinPermiso(Permiso.REPORTES);
-        List<InventoryService.MasVendido> top = inv.masVendidos(p.desde(), p.hasta(), 3);
+        List<DYSAInventoryService.MasVendido> top = inv.masVendidos(p.desde(), p.hasta(), 3);
         if (top.isEmpty()) return "No hubo ventas " + p.nombre() + ", señor.";
         StringBuilder sb = new StringBuilder("Lo más vendido " + p.nombre() + ": ");
         for (int i = 0; i < top.size(); i++) {
-            InventoryService.MasVendido m = top.get(i);
+            DYSAInventoryService.MasVendido m = top.get(i);
             if (i > 0) sb.append(i == top.size() - 1 ? " y " : ", ");
             sb.append(m.producto()).append(" (").append(Num.txt(m.cantidad())).append(' ').append(m.unidad())
                     .append(", ").append(soles(m.total())).append(')');
@@ -151,9 +151,9 @@ public class ConsultasSkill implements Skill {
     }
 
     private String acabando() {
-        List<InventoryService.Alerta> a = inv.panel(7).alertas();
+        List<DYSAInventoryService.Alerta> a = inv.panel(7).alertas();
         if (a.isEmpty()) return "Ningún producto está por debajo de su stock mínimo, señor.";
-        List<String> sin = a.stream().filter(x -> x.estado().equals("SIN_STOCK")).map(InventoryService.Alerta::producto).toList();
+        List<String> sin = a.stream().filter(x -> x.estado().equals("SIN_STOCK")).map(DYSAInventoryService.Alerta::producto).toList();
         List<String> bajo = a.stream().filter(x -> x.estado().equals("BAJO"))
                 .map(x -> x.producto() + " (quedan " + Num.txt(x.stock()) + ")").toList();
         StringBuilder sb = new StringBuilder();
@@ -165,10 +165,10 @@ public class ConsultasSkill implements Skill {
     private String quietos() {
         if (!ClientSession.puede(Permiso.INVENTARIO) && !ClientSession.puede(Permiso.REPORTES))
             return ClientSession.sinPermiso(Permiso.INVENTARIO);
-        InventoryService.Panel p = inv.panel(7);
-        List<InventoryService.SinMovimiento> q = p.sinMovimiento();
+        DYSAInventoryService.Panel p = inv.panel(7);
+        List<DYSAInventoryService.SinMovimiento> q = p.sinMovimiento();
         if (q.isEmpty()) return "Todo lo que tiene stock se vendió en los últimos " + p.diasSinMovimiento() + " días, señor.";
-        BigDecimal valor = q.stream().map(InventoryService.SinMovimiento::valorVenta).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal valor = q.stream().map(DYSAInventoryService.SinMovimiento::valorVenta).reduce(BigDecimal.ZERO, BigDecimal::add);
         return String.format("Sin ventas en %d días: %s. Son %s a precio de venta.", p.diasSinMovimiento(),
                 lista(q.stream().map(s -> s.producto() + " (" + Num.txt(s.stock()) + " " + s.unidad() + ")").toList(), 6), soles(valor));
     }
@@ -196,7 +196,7 @@ public class ConsultasSkill implements Skill {
     }
 
     private String valor() {
-        InventoryService.Valorizado v = inv.valorizado();
+        DYSAInventoryService.Valorizado v = inv.valorizado();
         if (v.productos() == 0) return "El inventario está vacío, señor.";
         String r = String.format("Su inventario vale %s a precio de venta", soles(v.valorVenta()));
         if (ClientSession.puede(Permiso.VER_COSTOS) && v.valorCosto().signum() > 0)
@@ -205,7 +205,7 @@ public class ConsultasSkill implements Skill {
         return r + ".";
     }
 
-    private static String anuladas(InventoryService.Periodo v) {
+    private static String anuladas(DYSAInventoryService.Periodo v) {
         return v.anuladas() == 0 ? "" : " Anuladas: " + v.anuladas() + ".";
     }
 

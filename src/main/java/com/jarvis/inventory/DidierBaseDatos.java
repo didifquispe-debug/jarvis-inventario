@@ -28,9 +28,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-final class BaseDatos {
+final class DidierBaseDatos {
 
-    private static final Logger log = LoggerFactory.getLogger(BaseDatos.class);
+    private static final Logger log = LoggerFactory.getLogger(DidierBaseDatos.class);
 
     static final int RESPALDOS = 7;
     static final int RESPALDOS_MANUALES = 10;
@@ -53,7 +53,7 @@ final class BaseDatos {
     private LocalDate respaldadoEl;
     private volatile Path carpetaExtra;
 
-    BaseDatos(Path archivo) {
+    DidierBaseDatos(Path archivo) {
         this.archivo = archivo;
         abrirOReparar();
     }

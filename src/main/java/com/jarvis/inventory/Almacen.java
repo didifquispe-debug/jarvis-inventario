@@ -21,8 +21,8 @@ final class Almacen {
     static final Map<String, Integer> SIGNO = Map.of("ENTRADA", 1, "VENTA", -1, "ANULACION", 1, "COMPRA", 1,
             "ANULACION_COMPRA", -1, "AJUSTE", 1, "ELIMINAR", -1, "CORRECCION_VENTA", 0);
 
-    record Estado(List<Producto> productos, List<InventoryService.Venta> ventas,
-                  Map<Integer, InventoryService.Cabecera> cabeceras, Map<String, Integer> contadores) {}
+    record Estado(List<Producto> productos, List<DYSAInventoryService.Venta> ventas,
+                  Map<Integer, DYSAInventoryService.Cabecera> cabeceras, Map<String, Integer> contadores) {}
 
     private record FilaProducto(String nombre, String alias, long stock, long stockMin, long precio, String unidad,
                                 String categoria, String codigo, String codigoBarras, Long costo) {}
@@ -32,20 +32,20 @@ final class Almacen {
 
     static final String ULTIMO_COMPROBANTE = "ultimo_comprobante";
 
-    private final BaseDatos db;
+    private final DidierBaseDatos db;
     private final ObjectMapper json = new ObjectMapper();
     private final Map<Producto, FilaProducto> fotosProductos = new IdentityHashMap<>();
-    private final Map<InventoryService.Venta, FilaVenta> fotosVentas = new IdentityHashMap<>();
+    private final Map<DYSAInventoryService.Venta, FilaVenta> fotosVentas = new IdentityHashMap<>();
     private final Map<Integer, Long> comprobantePorNumero = new HashMap<>();
     private final Map<String, Integer> contadoresGuardados = new HashMap<>();
 
     Almacen(Path archivo) {
-        this.db = new BaseDatos(archivo);
+        this.db = new DidierBaseDatos(archivo);
     }
 
     Path archivo() { return db.archivo(); }
 
-    BaseDatos baseDatos() { return db; }
+    DidierBaseDatos baseDatos() { return db; }
 
     boolean vacio() { return db.vacia(); }
 
@@ -78,7 +78,7 @@ final class Almacen {
                     fotosProductos.put(p, fila(p, p.id));
                 }
             }
-            Map<Integer, InventoryService.Cabecera> cabeceras = new HashMap<>();
+            Map<Integer, DYSAInventoryService.Cabecera> cabeceras = new HashMap<>();
             try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("""
                     SELECT id, numero, tipo, serie, correlativo, cliente_id, cliente_doc, cliente_nombre, modo_igv FROM comprobante""")) {
                 while (rs.next()) {
@@ -88,16 +88,16 @@ final class Almacen {
                     long cliente = rs.getLong("cliente_id");
                     Long clienteId = rs.wasNull() ? null : cliente;
                     TipoComprobante tipo = TipoComprobante.valueOf(rs.getString("tipo"));
-                    cabeceras.put(numero, new InventoryService.Cabecera(tipo, rs.getString("serie"), rs.getInt("correlativo"), clienteId,
+                    cabeceras.put(numero, new DYSAInventoryService.Cabecera(tipo, rs.getString("serie"), rs.getInt("correlativo"), clienteId,
                             rs.getString("cliente_doc"), rs.getString("cliente_nombre"), Igv.Modo.valueOf(rs.getString("modo_igv"))));
                 }
             }
-            List<InventoryService.Venta> ventas = new ArrayList<>();
+            List<DYSAInventoryService.Venta> ventas = new ArrayList<>();
             try (Statement st = cx.createStatement(); ResultSet rs = st.executeQuery("""
                     SELECT d.*, c.numero, c.fecha, c.hora FROM venta_detalle d
                     JOIN comprobante c ON c.id = d.comprobante_id ORDER BY c.id, d.item""")) {
                 while (rs.next()) {
-                    InventoryService.Venta v = new InventoryService.Venta();
+                    DYSAInventoryService.Venta v = new DYSAInventoryService.Venta();
                     v.id = rs.getLong("id");
                     v.comprobanteId = rs.getLong("comprobante_id");
                     v.numero = rs.getInt("numero");
@@ -184,18 +184,18 @@ final class Almacen {
         return escala == Num.MIL ? Num.cantidad(d) : d;
     }
 
-    void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
+    void guardar(List<Producto> productos, List<DYSAInventoryService.Venta> ventas, Map<Integer, DYSAInventoryService.Cabecera> cabeceras,
                  Map<String, Integer> contadores, List<Pendiente> movimientos) throws SQLException {
         guardar(productos, ventas, cabeceras, contadores, movimientos, null);
     }
 
-    void guardar(List<Producto> productos, List<InventoryService.Venta> ventas, Map<Integer, InventoryService.Cabecera> cabeceras,
-                 Map<String, Integer> contadores, List<Pendiente> movimientos, BaseDatos.Trabajo<?> extra) throws SQLException {
+    void guardar(List<Producto> productos, List<DYSAInventoryService.Venta> ventas, Map<Integer, DYSAInventoryService.Cabecera> cabeceras,
+                 Map<String, Integer> contadores, List<Pendiente> movimientos, DidierBaseDatos.Trabajo<?> extra) throws SQLException {
         Map<Producto, Long> idsNuevos = new IdentityHashMap<>();
         Map<Producto, FilaProducto> fotosP = new IdentityHashMap<>();
-        Map<InventoryService.Venta, Long> idsVentas = new IdentityHashMap<>();
-        Map<InventoryService.Venta, Long> comprobanteDe = new IdentityHashMap<>();
-        Map<InventoryService.Venta, FilaVenta> fotosV = new IdentityHashMap<>();
+        Map<DYSAInventoryService.Venta, Long> idsVentas = new IdentityHashMap<>();
+        Map<DYSAInventoryService.Venta, Long> comprobanteDe = new IdentityHashMap<>();
+        Map<DYSAInventoryService.Venta, FilaVenta> fotosV = new IdentityHashMap<>();
         Map<Integer, Long> numerosNuevos = new HashMap<>();
         Set<Integer> numerosBorrados = new HashSet<>();
 
@@ -226,19 +226,19 @@ final class Almacen {
                 }
             }
 
-            Set<InventoryService.Venta> vivas = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<DYSAInventoryService.Venta> vivas = Collections.newSetFromMap(new IdentityHashMap<>());
             vivas.addAll(ventas);
             Set<Long> sucios = new LinkedHashSet<>();
-            for (Map.Entry<InventoryService.Venta, FilaVenta> e : fotosVentas.entrySet()) {
+            for (Map.Entry<DYSAInventoryService.Venta, FilaVenta> e : fotosVentas.entrySet()) {
                 if (vivas.contains(e.getKey())) continue;
                 ejecutar(cx, "DELETE FROM venta_detalle WHERE id = ?", e.getKey().id);
                 sucios.add(e.getValue().comprobanteId());
             }
-            for (InventoryService.Venta v : ventas) {
+            for (DYSAInventoryService.Venta v : ventas) {
                 if (v.comprobanteId != null) { comprobanteDe.put(v, v.comprobanteId); continue; }
                 Long cid = v.numero > 0 ? numerosNuevos.getOrDefault(v.numero, comprobantePorNumero.get(v.numero)) : null;
                 if (cid == null) {
-                    InventoryService.Cabecera cab = cabecera(cabeceras, v.numero);
+                    DYSAInventoryService.Cabecera cab = cabecera(cabeceras, v.numero);
                     cid = insertar(cx, """
                             INSERT INTO comprobante (numero, fecha, hora, tipo, serie, correlativo, cliente_id, cliente_doc,
                                                      cliente_nombre, modo_igv) VALUES (?,?,?,?,?,?,?,?,?,?)""",
@@ -252,7 +252,7 @@ final class Almacen {
             Map<String, Long> idPorNombre = new HashMap<>();
             for (Producto p : productos) idPorNombre.putIfAbsent(p.nombre, p.id != null ? p.id : idsNuevos.get(p));
             Map<Long, Integer> items = new HashMap<>();
-            for (InventoryService.Venta v : ventas) {
+            for (DYSAInventoryService.Venta v : ventas) {
                 long cid = comprobanteDe.get(v);
                 int item = items.merge(cid, 1, Integer::sum);
                 FilaVenta actual = filaVenta(v, cid, item, idPorNombre.get(v.producto));
@@ -274,7 +274,7 @@ final class Almacen {
                 fotosV.put(v, actual);
             }
             for (long cid : sucios) {
-                List<InventoryService.Venta> lineas = ventas.stream().filter(v -> comprobanteDe.get(v) == cid).toList();
+                List<DYSAInventoryService.Venta> lineas = ventas.stream().filter(v -> comprobanteDe.get(v) == cid).toList();
                 if (lineas.isEmpty()) {
                     ejecutar(cx, "DELETE FROM comprobante WHERE id = ?", cid);
                     comprobantePorNumero.forEach((n, id) -> { if (id == cid) numerosBorrados.add(n); });
@@ -318,9 +318,9 @@ final class Almacen {
         contadoresGuardados.putAll(contadores);
     }
 
-    static InventoryService.Cabecera cabecera(Map<Integer, InventoryService.Cabecera> cabeceras, int numero) {
-        InventoryService.Cabecera c = numero > 0 ? cabeceras.get(numero) : null;
-        return c != null ? c : new InventoryService.Cabecera(TipoComprobante.NOTA_VENTA, TipoComprobante.NOTA_VENTA.serie, numero,
+    static DYSAInventoryService.Cabecera cabecera(Map<Integer, DYSAInventoryService.Cabecera> cabeceras, int numero) {
+        DYSAInventoryService.Cabecera c = numero > 0 ? cabeceras.get(numero) : null;
+        return c != null ? c : new DYSAInventoryService.Cabecera(TipoComprobante.NOTA_VENTA, TipoComprobante.NOTA_VENTA.serie, numero,
                 null, "", "", Igv.Modo.EXONERADO);
     }
 
@@ -337,7 +337,7 @@ final class Almacen {
                 f.codigo(), f.codigoBarras(), f.costo());
     }
 
-    private static FilaVenta filaVenta(InventoryService.Venta v, long comprobanteId, int item, Long productoId) {
+    private static FilaVenta filaVenta(DYSAInventoryService.Venta v, long comprobanteId, int item, Long productoId) {
         return new FilaVenta(comprobanteId, item, productoId, v.producto, Num.aEntero(v.cantidad, Num.MIL),
                 v.unidad == null ? "" : v.unidad, Num.aEntero(v.precioUnitario, Num.CENT), Num.aEntero(v.monto, Num.CENT),
                 Num.aEntero(v.costoUnitario, Num.DM), v.anulada);

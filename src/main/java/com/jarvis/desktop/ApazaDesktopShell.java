@@ -4,8 +4,8 @@
  */
 package com.jarvis.desktop;
 
-import com.jarvis.core.Impresion;
-import com.jarvis.security.AccessToken;
+import com.jarvis.core.DidierImpresion;
+import com.jarvis.security.ApazaAccessToken;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -19,21 +19,21 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @Component
-public class DesktopShell {
+public class ApazaDesktopShell {
 
     private final ConfigurableApplicationContext context;
     private final boolean enabled;
     private final String url;
-    private final AccessToken token;
-    private final Impresion impresion;
+    private final ApazaAccessToken token;
+    private final DidierImpresion impresion;
     private TrayIcon trayIcon;
 
-    public DesktopShell(ConfigurableApplicationContext context,
+    public ApazaDesktopShell(ConfigurableApplicationContext context,
                         @Value("${jarvis.desktop.enabled:true}") boolean enabled,
                         @Value("${server.port:7060}") int port,
-                        AccessToken token,
+                        ApazaAccessToken token,
                         @Value("${jarvis.browser:chrome}") String browser,
-                        Impresion impresion) {
+                        DidierImpresion impresion) {
         this.impresion = impresion;
         this.context = context;
         this.enabled = enabled;

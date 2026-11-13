@@ -34,13 +34,13 @@ public class Usuarios {
     private static final long SESION_MS = 12 * 60 * 60 * 1000L;
     private static final SecureRandom RND = new SecureRandom();
 
-    private final BaseDatos db;
+    private final DidierBaseDatos db;
     private final FailureLimiter fallos = new FailureLimiter(5, 5 * 60_000);
     private final Map<String, Sesion> sesiones = new ConcurrentHashMap<>();
     private final Map<String, Long> vencen = new ConcurrentHashMap<>();
     private volatile Boolean hay;
 
-    Usuarios(BaseDatos db) { this.db = db; }
+    Usuarios(DidierBaseDatos db) { this.db = db; }
 
     public boolean hayUsuarios() {
         Boolean h = hay;
@@ -64,21 +64,21 @@ public class Usuarios {
         return listar().stream().filter(Usuario::activo).map(Usuario::nombre).toList();
     }
 
-    public synchronized InventoryService.Resultado crear(String nombre, String rolTexto, String pin) {
+    public synchronized DYSAInventoryService.Resultado crear(String nombre, String rolTexto, String pin) {
         return crear(nombre, rolTexto, pin, 1);
     }
 
-    public synchronized InventoryService.Resultado crear(String nombre, String rolTexto, String pin, int tienda) {
+    public synchronized DYSAInventoryService.Resultado crear(String nombre, String rolTexto, String pin, int tienda) {
         String n = limpio(nombre);
-        if (!tiendaExiste(tienda)) return InventoryService.Resultado.error("Esa tienda no existe.");
+        if (!tiendaExiste(tienda)) return DYSAInventoryService.Resultado.error("Esa tienda no existe.");
         Rol rol = Rol.de(rolTexto);
         String error = errorNombre(n);
         if (error == null && rol == null) error = "El rol es administrador, cajero o almacén.";
         if (error == null) error = errorPin(pin);
-        if (error != null) return InventoryService.Resultado.error(error);
-        if (buscar(n).isPresent()) return InventoryService.Resultado.error("Ya existe el usuario " + n + ".");
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
+        if (buscar(n).isPresent()) return DYSAInventoryService.Resultado.error("Ya existe el usuario " + n + ".");
         if (!hayUsuarios() && rol != Rol.ADMIN)
-            return InventoryService.Resultado.error("El primer usuario debe ser administrador, para que alguien pueda manejar a los demás.");
+            return DYSAInventoryService.Resultado.error("El primer usuario debe ser administrador, para que alguien pueda manejar a los demás.");
         try {
             db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("INSERT INTO usuario (nombre, rol, pin_hash, activo, creado, tienda) VALUES (?,?,?,1,?,?)")) {
@@ -92,31 +92,31 @@ public class Usuarios {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el usuario: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el usuario: " + e.getMessage());
         }
         hay = true;
-        return InventoryService.Resultado.ok("Usuario creado: " + n + " (" + rol.descripcion.toLowerCase() + ").");
+        return DYSAInventoryService.Resultado.ok("Usuario creado: " + n + " (" + rol.descripcion.toLowerCase() + ").");
     }
 
     /** Cambia lo que no sea null. Siempre debe quedar al menos un administrador activo. */
-    public synchronized InventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo) {
+    public synchronized DYSAInventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo) {
         return editar(id, rolTexto, pin, activo, null);
     }
 
-    public synchronized InventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo, Integer tienda) {
-        if (tienda != null && !tiendaExiste(tienda)) return InventoryService.Resultado.error("Esa tienda no existe.");
+    public synchronized DYSAInventoryService.Resultado editar(long id, String rolTexto, String pin, Boolean activo, Integer tienda) {
+        if (tienda != null && !tiendaExiste(tienda)) return DYSAInventoryService.Resultado.error("Esa tienda no existe.");
         Optional<Usuario> actual = listar().stream().filter(u -> u.id() == id).findFirst();
-        if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No existe ese usuario.");
+        if (actual.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No existe ese usuario.");
         Usuario u = actual.get();
         Rol rol = rolTexto == null || rolTexto.isBlank() ? u.rol() : Rol.de(rolTexto);
-        if (rol == null) return InventoryService.Resultado.error("El rol es administrador, cajero o almacén.");
+        if (rol == null) return DYSAInventoryService.Resultado.error("El rol es administrador, cajero o almacén.");
         if (pin != null && !pin.isBlank()) {
             String error = errorPin(pin);
-            if (error != null) return InventoryService.Resultado.error(error);
+            if (error != null) return DYSAInventoryService.Resultado.error(error);
         }
         boolean queda = activo == null ? u.activo() : activo;
         if (u.rol() == Rol.ADMIN && u.activo() && (rol != Rol.ADMIN || !queda) && adminsActivos() <= 1 && quedanOtrosActivos(id))
-            return InventoryService.Resultado.error("Debe quedar al menos un administrador activo.");
+            return DYSAInventoryService.Resultado.error("Debe quedar al menos un administrador activo.");
         try {
             db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("UPDATE usuario SET rol=?, activo=?, pin_hash=COALESCE(?, pin_hash), tienda=COALESCE(?, tienda) WHERE id=?")) {
@@ -130,19 +130,19 @@ public class Usuarios {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el usuario: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el usuario: " + e.getMessage());
         }
         cerrarSesionesDe(id);
         hay = null;
-        return InventoryService.Resultado.ok("Usuario " + u.nombre() + " actualizado" + (queda ? "" : " (desactivado)") + ".");
+        return DYSAInventoryService.Resultado.ok("Usuario " + u.nombre() + " actualizado" + (queda ? "" : " (desactivado)") + ".");
     }
 
-    public synchronized InventoryService.Resultado eliminar(long id) {
+    public synchronized DYSAInventoryService.Resultado eliminar(long id) {
         Optional<Usuario> actual = listar().stream().filter(u -> u.id() == id).findFirst();
-        if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No existe ese usuario.");
+        if (actual.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No existe ese usuario.");
         Usuario u = actual.get();
         if (u.rol() == Rol.ADMIN && u.activo() && adminsActivos() <= 1 && quedanOtrosActivos(id))
-            return InventoryService.Resultado.error("No puede eliminar al único administrador mientras haya otros usuarios.");
+            return DYSAInventoryService.Resultado.error("No puede eliminar al único administrador mientras haya otros usuarios.");
         try {
             db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("DELETE FROM usuario WHERE id=?")) {
@@ -152,11 +152,11 @@ public class Usuarios {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude eliminar el usuario: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude eliminar el usuario: " + e.getMessage());
         }
         cerrarSesionesDe(id);
         hay = null;
-        return InventoryService.Resultado.ok("Usuario " + u.nombre() + " eliminado.");
+        return DYSAInventoryService.Resultado.ok("Usuario " + u.nombre() + " eliminado.");
     }
 
     public Intento iniciar(String nombre, String pin, String ip) {

@@ -4,14 +4,14 @@
  */
 package com.jarvis.inventory;
 
-import com.jarvis.inventory.InventoryService.*;
+import com.jarvis.inventory.DYSAInventoryService.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
 
-import static com.jarvis.inventory.InventoryService.DIAS_SIN_MOVIMIENTO;
+import static com.jarvis.inventory.DYSAInventoryService.DIAS_SIN_MOVIMIENTO;
 
 /** Cálculos del panel y de los reportes (ventas, ganancia, más vendidos, valorizado). Solo lee: no guarda nada. */
 final class Estadisticas {

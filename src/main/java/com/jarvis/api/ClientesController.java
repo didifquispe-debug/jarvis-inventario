@@ -5,7 +5,7 @@
 package com.jarvis.api;
 
 import com.jarvis.inventory.Clientes;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +20,7 @@ public class ClientesController {
 
     private final Clientes clientes;
 
-    public ClientesController(InventoryService inv) {
+    public ClientesController(DYSAInventoryService inv) {
         this.clientes = inv.clientes();
     }
 

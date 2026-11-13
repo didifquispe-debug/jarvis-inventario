@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.skills.InventorySkill;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,8 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class ConfirmacionPorVozTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
     @Autowired InventorySkill reglas;
     @Autowired MockMvc mvc;
 

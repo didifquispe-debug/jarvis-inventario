@@ -5,9 +5,9 @@
 package com.jarvis.ia;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.core.OrdenesPorConfirmar;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.skills.InventorySkill;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
@@ -39,12 +39,12 @@ class AsistenteIATest {
     private final List<String> peticiones = new CopyOnWriteArrayList<>();
     private final List<String> ordenes = new CopyOnWriteArrayList<>();
     private final Function<String, String> reglas = o -> { ordenes.add(o); return "reglas: " + o; };
-    private InventoryService inv;
+    private DYSAInventoryService inv;
     private final OrdenesPorConfirmar confirmar = new OrdenesPorConfirmar("señor");
 
     @BeforeEach
     void preparar() throws Exception {
-        inv = new InventoryService(dir.resolve("inv.json").toString());
+        inv = new DYSAInventoryService(dir.resolve("inv.json").toString());
         assertTrue(inv.crearProducto("Polera roja M", new BigDecimal("25"), new BigDecimal("10"), "unidades", null, null).ok());
         servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         servidor.createContext("/v1/models", x -> responder(x, "{\"object\":\"list\",\"data\":[{\"id\":\"llama3.2:3b\"}]}"));
@@ -68,11 +68,11 @@ class AsistenteIATest {
     @AfterEach
     void cerrar() { servidor.stop(0); }
 
-    private AsistenteIA asistente(String baseUrl) {
-        return new AsistenteIA(inv, new InventorySkill(inv), confirmar, true, baseUrl, "llama3.2:3b", 5, "señor", "Mi Tienda");
+    private YoelAsistenteIA asistente(String baseUrl) {
+        return new YoelAsistenteIA(inv, new InventorySkill(inv), confirmar, true, baseUrl, "llama3.2:3b", 5, "señor", "Mi Tienda");
     }
 
-    private AsistenteIA asistente() {
+    private YoelAsistenteIA asistente() {
         return asistente("http://127.0.0.1:" + servidor.getAddress().getPort() + "/v1");
     }
 
@@ -100,7 +100,7 @@ class AsistenteIATest {
     }
 
     @Test void unaVentaPideElSiAntesDeHacerse() {
-        AsistenteIA a = asistente();
+        YoelAsistenteIA a = asistente();
         contestar = "{\"orden\": \"vendí 2 polera roja M\"}";
         String r = a.responder("despacha dos poleras rojas", reglas).orElseThrow();
         assertTrue(r.contains("vendí 2 polera roja M") && r.endsWith("¿Lo hago, señor?"), r);
@@ -112,7 +112,7 @@ class AsistenteIATest {
     }
 
     @Test void conUnNoNoSeHaceNada() {
-        AsistenteIA a = asistente();
+        YoelAsistenteIA a = asistente();
         contestar = "{\"orden\": \"nuevo inventario\"}";
         a.responder("borra todo y empecemos", reglas);
         assertEquals(Optional.of("Bien, señor, no hice nada."), confirmar.resolver("no", reglas));
@@ -120,7 +120,7 @@ class AsistenteIATest {
     }
 
     @Test void otraFraseDescartaLaOrdenPendiente() {
-        AsistenteIA a = asistente();
+        YoelAsistenteIA a = asistente();
         contestar = "{\"orden\": \"vendí 2 polera roja M\"}";
         a.responder("despacha dos poleras", reglas);
         assertEquals(Optional.empty(), confirmar.resolver("qué hora es", reglas));
@@ -129,11 +129,11 @@ class AsistenteIATest {
     }
 
     @Test void nuncaDiceQueHizoAlgoQueNoHizo() {
-        AsistenteIA a = asistente();
+        YoelAsistenteIA a = asistente();
         contestar = "{\"respuesta\": \"Se han enviado dos poleras rojas talla M al cliente.\"}";
-        assertEquals(Optional.of(AsistenteIA.NO_PUDE), a.responder("despacha dos poleras rojas", reglas));
+        assertEquals(Optional.of(YoelAsistenteIA.NO_PUDE), a.responder("despacha dos poleras rojas", reglas));
         contestar = "Listo, señor: vendí 2 poleras.";
-        assertEquals(Optional.of(AsistenteIA.NO_PUDE), a.responder("despacha dos poleras", reglas));
+        assertEquals(Optional.of(YoelAsistenteIA.NO_PUDE), a.responder("despacha dos poleras", reglas));
         assertTrue(ordenes.isEmpty());
 
         contestar = "{\"respuesta\": \"Hola\"}";
@@ -153,21 +153,21 @@ class AsistenteIATest {
 
     @Test void unaConsultaQueLasReglasNoEntiendenNoDevuelveElNoEntendi() {
         contestar = "{\"orden\": \"cuántas tengo de cosa rara\"}";
-        AsistenteIA a = asistente();
-        assertEquals(Optional.of(AsistenteIA.NO_PUDE), a.responder("y las cosas raras", o -> JarvisService.NO_ENTENDI));
+        YoelAsistenteIA a = asistente();
+        assertEquals(Optional.of(YoelAsistenteIA.NO_PUDE), a.responder("y las cosas raras", o -> DYSAJarvisService.NO_ENTENDI));
     }
 
     @Test void sinServidorSeApagaYUsaLasReglas() throws Exception {
         int libre;
         try (ServerSocket s = new ServerSocket(0)) { libre = s.getLocalPort(); }
-        AsistenteIA a = asistente("http://127.0.0.1:" + libre + "/v1");
+        YoelAsistenteIA a = asistente("http://127.0.0.1:" + libre + "/v1");
         assertEquals(Optional.empty(), a.responder("qué me conviene reponer", reglas));
         assertFalse(a.disponible(), "tras el fallo espera un minuto antes de reintentar");
         assertTrue(ordenes.isEmpty());
     }
 
     @Test void apagadoNoLlamaAlServidor() {
-        AsistenteIA a = new AsistenteIA(inv, new InventorySkill(inv), confirmar, false,
+        YoelAsistenteIA a = new YoelAsistenteIA(inv, new InventorySkill(inv), confirmar, false,
                 "http://127.0.0.1:" + servidor.getAddress().getPort() + "/v1", "llama3.2:3b", 5, "señor", "");
         assertFalse(a.disponible());
         assertEquals(Optional.empty(), a.responder("hola", reglas));
@@ -175,7 +175,7 @@ class AsistenteIATest {
     }
 
     @Test void seNiegaAUsarUnServidorDeInternet() {
-        AsistenteIA a = asistente("https://api.example.com/v1");
+        YoelAsistenteIA a = asistente("https://api.example.com/v1");
         assertFalse(a.disponible());
         assertEquals(Optional.empty(), a.responder("hola", reglas));
     }

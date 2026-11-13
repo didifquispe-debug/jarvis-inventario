@@ -22,17 +22,17 @@ class ComprobantesTest {
 
     @TempDir Path dir;
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
-    private InventoryService nuevo(String tipo, String igv) {
-        return new InventoryService(dir.resolve("inv.json").toString(), tipo, igv);
+    private DYSAInventoryService nuevo(String tipo, String igv) {
+        return new DYSAInventoryService(dir.resolve("inv.json").toString(), tipo, igv);
     }
 
-    private static InventoryService.Opciones opciones(TipoComprobante tipo, String dni) {
-        return new InventoryService.Opciones(tipo, dni, null);
+    private static DYSAInventoryService.Opciones opciones(TipoComprobante tipo, String dni) {
+        return new DYSAInventoryService.Opciones(tipo, dni, null);
     }
 
-    private static BigDecimal stock(InventoryService inv, String prefijo) {
+    private static BigDecimal stock(DYSAInventoryService inv, String prefijo) {
         return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow().stock;
     }
 
@@ -84,9 +84,9 @@ class ComprobantesTest {
     }
 
     @Test void porDefectoBoletaConIgvIncluido() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         assertTrue(inv.salida(new BigDecimal("2"), "cemento", false).contains("Boleta número 1"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals("B001-00000001", c.codigo);
         assertEquals("Boleta de venta electrónica", c.tipoDescripcion);
         assertEquals(new BigDecimal("56.00"), c.total, "el precio ya incluye IGV: el total no cambia");
@@ -97,8 +97,8 @@ class ComprobantesTest {
     }
 
     @Test void cadaSerieLlevaSuPropioCorrelativo() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
-        InventoryService.Opciones nota = opciones(TipoComprobante.NOTA_VENTA, null);
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService.Opciones nota = opciones(TipoComprobante.NOTA_VENTA, null);
         inv.salida(BigDecimal.ONE, "foco", false);
         inv.salida(BigDecimal.ONE, "foco", false, nota);
         inv.salida(BigDecimal.ONE, "foco", false);
@@ -118,17 +118,17 @@ class ComprobantesTest {
 
     @Test void dosTiendasNoRepitenNumerosDeComprobante() {
         String archivo = dir.resolve("inv.json").toString();
-        InventoryService principal = Ejemplos.sembrar(nuevo());
-        InventoryService otra = Ejemplos.sembrar(new InventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2));
+        DYSAInventoryService principal = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService otra = Ejemplos.sembrar(new DYSAInventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2));
         principal.salida(BigDecimal.ONE, "foco", false);
         assertEquals("B001-00000001", principal.tomarComprobanteNuevo().codigo);
         otra.salida(BigDecimal.ONE, "foco", false);
-        InventoryService.Comprobante c = otra.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = otra.tomarComprobanteNuevo();
         assertEquals("B002-00000001", c.codigo);
         assertEquals("B002", c.serie);
         otra.salida(BigDecimal.ONE, "foco", false, opciones(TipoComprobante.NOTA_VENTA, null));
         assertEquals("NV02-00000001", otra.tomarComprobanteNuevo().codigo);
-        InventoryService reabierta = new InventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2);
+        DYSAInventoryService reabierta = new DYSAInventoryService(Tiendas.archivoDe(archivo, 2), "boleta", "incluido", 2);
         assertTrue(reabierta.salida(BigDecimal.ONE, "foco", false).contains("Boleta número 2"), "sigue al reiniciar");
         assertEquals("B002-00000002", reabierta.tomarComprobanteNuevo().codigo);
     }
@@ -136,10 +136,10 @@ class ComprobantesTest {
     @Test void lasVentasDeAntesConservanLaSerieConQueSeEmitieron() {
         String base = Tiendas.archivoDe(dir.resolve("inv.json").toString(), 2);
         // Así numeraba la tienda 2 antes de tener serie propia: B001 desde 1.
-        InventoryService antes = Ejemplos.sembrar(new InventoryService(base, "boleta", "incluido", 1));
+        DYSAInventoryService antes = Ejemplos.sembrar(new DYSAInventoryService(base, "boleta", "incluido", 1));
         antes.salida(BigDecimal.ONE, "foco", false);
         antes.salida(BigDecimal.ONE, "foco", false);
-        InventoryService ahora = new InventoryService(base, "boleta", "incluido", 2);
+        DYSAInventoryService ahora = new DYSAInventoryService(base, "boleta", "incluido", 2);
         assertEquals("B001-00000001", ahora.comprobantePorNumero(1).codigo, "lo ya impreso no cambia de número");
         assertEquals("B001-00000002", ahora.comprobantePorNumero(2).codigo);
         ahora.salida(BigDecimal.ONE, "foco", false);
@@ -147,7 +147,7 @@ class ComprobantesTest {
     }
 
     @Test void losNumerosNoSeRepitenNiConUnInventarioNuevo() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.salida(BigDecimal.ONE, "foco", false);
         assertTrue(inv.empezarDeCero().ok());
         Ejemplos.sembrar(inv);
@@ -156,20 +156,20 @@ class ComprobantesTest {
     }
 
     @Test void tipoEIgvConfigurables() {
-        InventoryService inv = Ejemplos.sembrar(nuevo("nota de venta", "agregado"));
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo("nota de venta", "agregado"));
         assertTrue(inv.salida(new BigDecimal("2"), "cemento", false).contains("Total: 66.08 soles. Nota de venta número 1"),
                 "56 + 18% de IGV");
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(new BigDecimal("56.00"), c.base);
         assertEquals(new BigDecimal("10.08"), c.igv);
         assertTrue(inv.cierre().contains("por un total de 66.08 soles"), "el cierre de caja suma el total con IGV");
     }
 
     @Test void anularYCorregirMantienenSerieEIgv() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.venderVarios(List.of(new BigDecimal("2"), BigDecimal.ONE), List.of("cemento", "foco"));
         assertTrue(inv.corregirUltimaVenta("foco", new BigDecimal("2"), false).mensaje().startsWith("Corregí la boleta número 1"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(new BigDecimal("71.00"), c.total);
         assertEquals(new BigDecimal("60.17"), c.base, "71 / 1.18");
         assertTrue(inv.anularUltimaVenta().mensaje().startsWith("Venta anulada: boleta número 1"));
@@ -202,11 +202,11 @@ class ComprobantesTest {
     }
 
     @Test void ventaConClienteYLuegoNoSeBorra() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.clientes().crear(cliente("12345678", "María Quispe Rojas"));
         String r = inv.salida(BigDecimal.ONE, "foco", false, opciones(null, "12345678"));
         assertTrue(r.contains("Cliente: María Quispe Rojas."), r);
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals("12345678", c.cliente.documento());
         assertEquals("DNI", c.cliente.tipoDocumento());
 
@@ -217,21 +217,21 @@ class ComprobantesTest {
     }
 
     @Test void clienteNoRegistradoNoVende() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         String r = inv.salida(BigDecimal.ONE, "foco", false, opciones(null, "87654321"));
         assertTrue(r.startsWith("No tengo registrado al cliente con DNI 87654321"), r);
         assertEquals(new BigDecimal("30"), stock(inv, "Foco"), "no se descontó nada");
     }
 
     @Test void boletaGrandeSinDniAvisa() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         assertTrue(inv.salida(new BigDecimal("25"), "cemento", false).contains("se debe identificar al cliente"), "700 soles");
         assertFalse(inv.salida(new BigDecimal("25"), "cemento", false, opciones(TipoComprobante.NOTA_VENTA, null))
                 .contains("identificar"), "la nota de venta no lo exige");
     }
 
     @Test void ventaEnCursoConTipoYCliente() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.clientes().crear(cliente("12345678", "María Quispe Rojas"));
         assertTrue(inv.abrirVenta(opciones(TipoComprobante.NOTA_VENTA, "12345678")).endsWith("La venta será nota de venta para María Quispe Rojas."));
         inv.agregarAlCarrito(new BigDecimal("2"), "foco");
@@ -243,25 +243,25 @@ class ComprobantesTest {
     }
 
     @Test void ventaPorApiConNombresExactos() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
-        assertEquals(InventoryService.Estado.NO_ENCONTRADO,
-                inv.vender(List.of(new InventoryService.Pedido("foco", BigDecimal.ONE)), null).estado(), "no busca parecidos");
-        assertFalse(inv.vender(List.of(new InventoryService.Pedido("Foco LED 9W", new BigDecimal("99"))), null).ok(), "sin stock");
-        assertTrue(inv.vender(List.of(new InventoryService.Pedido("Foco LED 9W", new BigDecimal("2")),
-                new InventoryService.Pedido("Cemento Yura 42.5kg", BigDecimal.ONE)), null).ok());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
+        assertEquals(DYSAInventoryService.Estado.NO_ENCONTRADO,
+                inv.vender(List.of(new DYSAInventoryService.Pedido("foco", BigDecimal.ONE)), null).estado(), "no busca parecidos");
+        assertFalse(inv.vender(List.of(new DYSAInventoryService.Pedido("Foco LED 9W", new BigDecimal("99"))), null).ok(), "sin stock");
+        assertTrue(inv.vender(List.of(new DYSAInventoryService.Pedido("Foco LED 9W", new BigDecimal("2")),
+                new DYSAInventoryService.Pedido("Cemento Yura 42.5kg", BigDecimal.ONE)), null).ok());
         assertEquals(2, inv.tomarComprobanteNuevo().items.size());
     }
 
     @Test void generaElPdf() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.clientes().crear(cliente("12345678", "María Quispe Rojas"));
         inv.salida(new BigDecimal("2.5"), "cable", false, opciones(null, "12345678"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
-        byte[] pdf = ComprobantePdf.generar(c, new ComprobantePdf.Emisor("Ferretería El Clavo", "20601234567", "Av. Lima 123", "", ""));
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        byte[] pdf = DidierComprobantePdf.generar(c, new DidierComprobantePdf.Emisor("Ferretería El Clavo", "20601234567", "Av. Lima 123", "", ""));
         assertTrue(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1).startsWith("%PDF-"), "es un PDF");
         assertTrue(pdf.length > 1500, "con contenido: " + pdf.length + " bytes");
         inv.anularUltimaVenta();
-        assertTrue(ComprobantePdf.generar(inv.comprobantePorNumero(c.numero), new ComprobantePdf.Emisor("", "", "", "", "")).length > 1500,
+        assertTrue(DidierComprobantePdf.generar(inv.comprobantePorNumero(c.numero), new DidierComprobantePdf.Emisor("", "", "", "", "")).length > 1500,
                 "también anulado y sin datos del negocio");
     }
 
@@ -288,8 +288,8 @@ class ComprobantesTest {
             st.execute("INSERT INTO contador VALUES ('ultimo_comprobante', 5)");
             st.execute("PRAGMA user_version = 1");
         }
-        InventoryService inv = nuevo();
-        InventoryService.Comprobante antigua = inv.comprobantePorNumero(5);
+        DYSAInventoryService inv = nuevo();
+        DYSAInventoryService.Comprobante antigua = inv.comprobantePorNumero(5);
         assertEquals("NV01-00000005", antigua.codigo);
         assertEquals("EXONERADO", antigua.modoIgv, "no se inventa IGV para lo que ya se vendió");
         assertEquals(new BigDecimal("4.00"), antigua.total);

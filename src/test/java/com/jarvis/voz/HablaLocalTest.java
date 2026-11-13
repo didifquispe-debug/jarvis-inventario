@@ -22,22 +22,22 @@ class HablaLocalTest {
 
     @TempDir Path dir;
 
-    private HablaLocal.Modo esperadoSinPiper() {
-        return HablaLocal.esWindows() ? HablaLocal.Modo.WINDOWS : HablaLocal.Modo.NAVEGADOR;
+    private SumiHablaLocal.Modo esperadoSinPiper() {
+        return SumiHablaLocal.esWindows() ? SumiHablaLocal.Modo.WINDOWS : SumiHablaLocal.Modo.NAVEGADOR;
     }
 
     @Test void conPiperYSuVozUsaPiper() throws Exception {
         Path exe = Files.createFile(dir.resolve("piper.exe"));
         Path voz = Files.createFile(dir.resolve("voz.onnx"));
         Files.createFile(dir.resolve("voz.onnx.json"));
-        HablaLocal h = new HablaLocal(exe.toString(), voz.toString(), "piper");
-        assertEquals(HablaLocal.Modo.PIPER, h.modo());
+        SumiHablaLocal h = new SumiHablaLocal(exe.toString(), voz.toString(), "piper");
+        assertEquals(SumiHablaLocal.Modo.PIPER, h.modo());
         assertEquals("", h.motivo());
         assertTrue(h.hablaAqui());
     }
 
     @Test void sinPiperUsaLasVocesDeWindowsYDiceElMotivo() {
-        HablaLocal h = new HablaLocal(dir.resolve("no-esta.exe").toString(), dir.resolve("voz.onnx").toString(), "piper");
+        SumiHablaLocal h = new SumiHablaLocal(dir.resolve("no-esta.exe").toString(), dir.resolve("voz.onnx").toString(), "piper");
         assertEquals(esperadoSinPiper(), h.modo());
         assertTrue(h.motivo().startsWith("No encuentro Piper"), h.motivo());
     }
@@ -45,42 +45,42 @@ class HablaLocalTest {
     @Test void sinElJsonDeLaVozTampocoUsaPiper() throws Exception {
         Path exe = Files.createFile(dir.resolve("piper.exe"));
         Path voz = Files.createFile(dir.resolve("voz.onnx"));
-        HablaLocal h = new HablaLocal(exe.toString(), voz.toString(), "piper");
+        SumiHablaLocal h = new SumiHablaLocal(exe.toString(), voz.toString(), "piper");
         assertEquals(esperadoSinPiper(), h.modo());
         assertTrue(h.motivo().contains(".onnx.json"), h.motivo());
     }
 
     @Test void navegadorNoHablaAqui() throws Exception {
-        HablaLocal h = new HablaLocal("x", "y", "navegador");
-        assertEquals(HablaLocal.Modo.NAVEGADOR, h.modo());
+        SumiHablaLocal h = new SumiHablaLocal("x", "y", "navegador");
+        assertEquals(SumiHablaLocal.Modo.NAVEGADOR, h.modo());
         assertFalse(h.hablaAqui());
         assertTrue(h.hablar("hola"), "no hace nada y no falla");
     }
 
     @Test void modoDesdeLaConfiguracion() {
-        assertEquals(HablaLocal.Modo.WINDOWS, HablaLocal.leerModo(" Windows "));
-        assertEquals(HablaLocal.Modo.PIPER, HablaLocal.leerModo("cualquiera"));
+        assertEquals(SumiHablaLocal.Modo.WINDOWS, SumiHablaLocal.leerModo(" Windows "));
+        assertEquals(SumiHablaLocal.Modo.PIPER, SumiHablaLocal.leerModo("cualquiera"));
     }
 
     @Test void loQueSeLeeVaEnUnaLinea() {
-        assertEquals("Puedo hacer esto: Vender. Consultar", HablaLocal.paraLeer("Puedo hacer esto:\n• Vender\n• Consultar"));
-        assertEquals("Stock bajo. Polera. Gorra", HablaLocal.paraLeer("Stock bajo\n• Polera\n• Gorra"));
-        assertEquals("Hola, señor.", HablaLocal.paraLeer("  Hola,\r\n señor.  "));
-        assertEquals("", HablaLocal.paraLeer(null));
+        assertEquals("Puedo hacer esto: Vender. Consultar", SumiHablaLocal.paraLeer("Puedo hacer esto:\n• Vender\n• Consultar"));
+        assertEquals("Stock bajo. Polera. Gorra", SumiHablaLocal.paraLeer("Stock bajo\n• Polera\n• Gorra"));
+        assertEquals("Hola, señor.", SumiHablaLocal.paraLeer("  Hola,\r\n señor.  "));
+        assertEquals("", SumiHablaLocal.paraLeer(null));
     }
 
     @Test void piperGeneraUnWavQueJavaPuedeReproducir() throws Exception {
         assumeTrue(Files.isRegularFile(PIPER) && Files.isRegularFile(VOZ), "Piper no instalado en " + PIPER);
-        HablaLocal h = new HablaLocal(PIPER.toString(), VOZ.toString(), "piper");
-        assertEquals(HablaLocal.Modo.PIPER, h.modo());
+        SumiHablaLocal h = new SumiHablaLocal(PIPER.toString(), VOZ.toString(), "piper");
+        assertEquals(SumiHablaLocal.Modo.PIPER, h.modo());
         Path wav = dir.resolve("piper.wav");
         h.generar("Venta registrada: dos bolsas de cemento. ¿Lo hago, señor?", wav);
         assertWav(wav);
     }
 
     @Test void lasVocesDeWindowsGeneranUnWav() throws Exception {
-        assumeTrue(HablaLocal.esWindows(), "solo en Windows");
-        HablaLocal h = new HablaLocal("x", "y", "windows");
+        assumeTrue(SumiHablaLocal.esWindows(), "solo en Windows");
+        SumiHablaLocal h = new SumiHablaLocal("x", "y", "windows");
         Path wav = dir.resolve("windows.wav");
         h.generar("Hola, señor.", wav);
         assertWav(wav);

@@ -32,7 +32,7 @@ final class Historial {
 
     List<Movimiento> movimientos() { return leer("movimientos", Movimiento.class); }
 
-    List<InventoryService.Venta> ventasArchivadas() { return leer("ventas", InventoryService.Venta.class); }
+    List<DYSAInventoryService.Venta> ventasArchivadas() { return leer("ventas", DYSAInventoryService.Venta.class); }
 
     private <T> List<T> leer(String prefijo, Class<T> tipo) {
         List<T> out = new ArrayList<>();

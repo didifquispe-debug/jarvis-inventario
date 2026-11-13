@@ -5,7 +5,7 @@
 package com.jarvis.api;
 
 import com.jarvis.inventory.Compras;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,10 +18,10 @@ import java.util.Map;
 @CrossOrigin
 public class ComprasController {
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final Compras compras;
 
-    public ComprasController(InventoryService inv) {
+    public ComprasController(DYSAInventoryService inv) {
         this.inv = inv;
         this.compras = inv.compras();
     }
@@ -69,7 +69,7 @@ public class ComprasController {
 
     @PostMapping("/api/compras")
     public ResponseEntity<Map<String, Object>> registrar(@RequestBody Compras.NuevaCompra req) {
-        InventoryService.Resultado r = inv.registrarCompra(req);
+        DYSAInventoryService.Resultado r = inv.registrarCompra(req);
         ResponseEntity<Map<String, Object>> res = InventoryController.responder(r);
         if (!r.ok()) return res;
         Map<String, Object> body = new LinkedHashMap<>(res.getBody());

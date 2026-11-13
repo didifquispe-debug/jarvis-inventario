@@ -6,9 +6,9 @@ package com.jarvis;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Tiendas;
-import com.jarvis.security.ApiAuthFilter;
+import com.jarvis.security.ApazaApiAuthFilter;
 import com.jarvis.security.ClientSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,14 +35,14 @@ class TiendasApiTest {
     private static final String LAPTOP = "127.0.0.1", CELULAR = "192.168.1.41";
 
     @Autowired MockMvc mvc;
-    @Autowired JarvisService jarvis;
+    @Autowired DYSAJarvisService jarvis;
     @Autowired Tiendas tiendas;
     private final ObjectMapper json = new ObjectMapper();
 
     private MockHttpServletRequestBuilder desde(MockHttpServletRequestBuilder b, String ip, String usuario, Integer tienda) {
         b.header("X-Jarvis-Token", "clave-de-prueba-123").with(r -> { r.setRemoteAddr(ip); return r; });
-        if (usuario != null) b.header(ApiAuthFilter.CABECERA_USUARIO, usuario);
-        if (tienda != null) b.header(ApiAuthFilter.CABECERA_TIENDA, String.valueOf(tienda));
+        if (usuario != null) b.header(ApazaApiAuthFilter.CABECERA_USUARIO, usuario);
+        if (tienda != null) b.header(ApazaApiAuthFilter.CABECERA_TIENDA, String.valueOf(tienda));
         return b.contentType(MediaType.APPLICATION_JSON);
     }
 

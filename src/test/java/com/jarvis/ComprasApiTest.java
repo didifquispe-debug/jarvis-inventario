@@ -5,7 +5,7 @@
 package com.jarvis;
 
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +32,7 @@ class ComprasApiTest {
     private static final String CLAVE = "clave-compras";
 
     @Autowired MockMvc mvc;
-    @Autowired InventoryService inv;
+    @Autowired DYSAInventoryService inv;
 
     @BeforeEach void preparar() { Ejemplos.sembrar(inv); }
 

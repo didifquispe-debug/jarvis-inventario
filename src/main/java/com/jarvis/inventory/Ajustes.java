@@ -14,9 +14,9 @@ import java.util.Map;
 /** Ajustes que se cambian desde la pantalla (datos del negocio, moneda) y viajan con la base de datos. */
 public class Ajustes {
 
-    private final BaseDatos db;
+    private final DidierBaseDatos db;
 
-    Ajustes(BaseDatos db) { this.db = db; }
+    Ajustes(DidierBaseDatos db) { this.db = db; }
 
     public synchronized Map<String, String> leer() {
         return db.leer(cx -> {

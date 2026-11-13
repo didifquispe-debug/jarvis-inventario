@@ -9,7 +9,7 @@ import java.util.*;
 /**
  * Encuentra el producto que el usuario quiso decir aunque lo diga incompleto o con errores
  * ("polo rojo m", "arros"). Distingue tallas y colores para no confundir "polo M" con "polo L".
- * No es seguro para hilos: InventoryService lo usa siempre dentro de sus métodos synchronized.
+ * No es seguro para hilos: DYSAInventoryService lo usa siempre dentro de sus métodos synchronized.
  */
 final class BuscadorProductos {
 

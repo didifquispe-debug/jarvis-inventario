@@ -4,7 +4,7 @@
  */
 package com.jarvis.inventory;
 
-import com.jarvis.ai.EntityExtractor;
+import com.jarvis.ai.YoelEntityExtractor;
 import com.jarvis.skills.InventorySkill;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,9 +51,9 @@ class MultiplicadoresTest {
     }
 
     @Test void elMultiplicadorNoEntraEnElProducto() {
-        assertEquals("panes", EntityExtractor.extraer("llegaron media docena de panes").producto());
-        assertEquals("zapatillas", EntityExtractor.extraer("vendi un par de zapatillas").producto());
-        assertEquals("medias", EntityExtractor.extraer("vendi tres docenas de medias").producto());
+        assertEquals("panes", YoelEntityExtractor.extraer("llegaron media docena de panes").producto());
+        assertEquals("zapatillas", YoelEntityExtractor.extraer("vendi un par de zapatillas").producto());
+        assertEquals("medias", YoelEntityExtractor.extraer("vendi tres docenas de medias").producto());
     }
 
     @Test void elPluralSueltoNoEsCantidad() {
@@ -61,7 +61,7 @@ class MultiplicadoresTest {
     }
 
     @Test void productoContadoEnParesNoSeDuplica() {
-        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString());
+        DYSAInventoryService inv = new DYSAInventoryService(dir.resolve("inv.json").toString());
         InventorySkill voz = new InventorySkill(inv);
         assertTrue(inv.crearProducto("Zapatilla Nike Air 40", new BigDecimal("250"), new BigDecimal("6"), "pares", null, null).ok());
         assertTrue(inv.crearProducto("Medias blancas", new BigDecimal("5"), new BigDecimal("50"), "unidades", null, null).ok());
@@ -80,14 +80,14 @@ class MultiplicadoresTest {
     }
 
     @Test void productoNuevoEnParesTomaLosParesDichos() {
-        InventoryService inv = new InventoryService(dir.resolve("inv.json").toString());
+        DYSAInventoryService inv = new DYSAInventoryService(dir.resolve("inv.json").toString());
         String r = new InventorySkill(inv).handle(Palabras.norm("llegaron 3 pares de zapatillas puma 41"), "").orElseThrow();
         assertTrue(r.startsWith("Producto nuevo registrado"), r);
         assertEquals(new BigDecimal("3"), inv.productos().get(0).stock);
         assertEquals("pares", inv.productos().get(0).unidad);
     }
 
-    private static BigDecimal stock(InventoryService inv, String nombre) {
+    private static BigDecimal stock(DYSAInventoryService inv, String nombre) {
         return inv.productos().stream().filter(p -> p.nombre.equals(nombre)).findFirst().orElseThrow().stock;
     }
 }

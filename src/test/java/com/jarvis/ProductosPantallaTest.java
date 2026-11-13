@@ -4,7 +4,7 @@
  */
 package com.jarvis;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -32,7 +32,7 @@ class ProductosPantallaTest {
     private static final String CLAVE = "clave-pantalla";
 
     @Autowired MockMvc mvc;
-    @Autowired InventoryService inv;
+    @Autowired DYSAInventoryService inv;
 
     private ResultActions crear(String json) throws Exception {
         return mvc.perform(post("/api/inventory/productos").header("X-Jarvis-Token", CLAVE)

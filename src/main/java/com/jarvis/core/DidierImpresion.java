@@ -4,7 +4,7 @@
  */
 package com.jarvis.core;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol;
 import org.slf4j.Logger;
@@ -21,17 +21,17 @@ import java.util.Map;
  * Se guarda con la base de datos, así que viaja con las copias de seguridad.
  */
 @Component
-public class Impresion {
+public class DidierImpresion {
 
-    private static final Logger log = LoggerFactory.getLogger(Impresion.class);
+    private static final Logger log = LoggerFactory.getLogger(DidierImpresion.class);
 
     public record Config(int ancho, boolean alCobrar, boolean directa) {}
 
     static final Config POR_DEFECTO = new Config(80, false, false);
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
 
-    public Impresion(InventoryService inv) { this.inv = inv; }
+    public DidierImpresion(DYSAInventoryService inv) { this.inv = inv; }
 
     public Config config() {
         Map<String, String> g;
@@ -45,11 +45,11 @@ public class Impresion {
         return new Config(ancho, "1".equals(g.get("ticket.al-cobrar")), "1".equals(g.get("ticket.directa")));
     }
 
-    public InventoryService.Resultado guardar(Config c) {
+    public DYSAInventoryService.Resultado guardar(Config c) {
         String no = ClientSession.sinPermiso(Rol.Permiso.ADMINISTRAR);
-        if (no != null) return InventoryService.Resultado.prohibido(no);
-        if (c == null) return InventoryService.Resultado.error("Faltan los datos del ticket.");
-        if (c.ancho() != 58 && c.ancho() != 80) return InventoryService.Resultado.error("El papel del ticket es de 58 u 80 mm.");
+        if (no != null) return DYSAInventoryService.Resultado.prohibido(no);
+        if (c == null) return DYSAInventoryService.Resultado.error("Faltan los datos del ticket.");
+        if (c.ancho() != 58 && c.ancho() != 80) return DYSAInventoryService.Resultado.error("El papel del ticket es de 58 u 80 mm.");
         boolean cambiaDirecta = c.directa() != config().directa();
         Map<String, String> m = new LinkedHashMap<>();
         m.put("ticket.ancho", String.valueOf(c.ancho()));
@@ -58,9 +58,9 @@ public class Impresion {
         try {
             inv.ajustes().guardar(m);
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar la configuración del ticket: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar la configuración del ticket: " + e.getMessage());
         }
-        return InventoryService.Resultado.ok("Ticket de " + c.ancho() + " mm guardado."
+        return DYSAInventoryService.Resultado.ok("Ticket de " + c.ancho() + " mm guardado."
                 + (cambiaDirecta ? " La impresión directa se aplica al cerrar y volver a abrir JARVIS en la laptop." : ""));
     }
 }

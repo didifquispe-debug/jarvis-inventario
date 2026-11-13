@@ -24,9 +24,9 @@ import java.util.Optional;
 import java.util.Set;
 
 @Component
-public class ApiAuthFilter extends OncePerRequestFilter {
+public class ApazaApiAuthFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(ApiAuthFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(ApazaApiAuthFilter.class);
 
     public static final String CABECERA_USUARIO = "X-Jarvis-Usuario";
     /** El administrador elige con qué tienda trabaja; los demás usuarios siempre usan la suya. */
@@ -35,13 +35,13 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     private static final Set<String> LOCALES = Set.of("127.0.0.1", "0:0:0:0:0:0:0:1", "::1");
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private final AccessToken token;
+    private final ApazaAccessToken token;
     private final FailureLimiter limiter;
     private final Usuarios usuarios;
     private final boolean laptopAdmin;
     private final Tiendas tiendas;
 
-    public ApiAuthFilter(AccessToken token, Tiendas tiendas,
+    public ApazaApiAuthFilter(ApazaAccessToken token, Tiendas tiendas,
                          @Value("${jarvis.security.max-failures-per-minute:10}") int maxFallos,
                          @Value("${jarvis.usuarios.laptop-admin:true}") boolean laptopAdmin) {
         this.token = token;

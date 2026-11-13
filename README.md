@@ -10,10 +10,10 @@ ferretería…) que corre en tu laptop. Funciona **100% offline, sin claves de A
 
 ```
  Celular / Tablet / PC  ──(Wi-Fi, navegador)──►  Laptop: servidor Spring Boot (puerto 7060)
-   - micrófono y voz                                 ├─ JarvisService  (decide quién responde)
-   - se instala como app                             ├─ Skills         (hora, web, apps, notas, cálculo…)
-                                                     ├─ LaptopActions  (abre programas/navegador en la laptop)
-                                                     └─ DYSA           (el cerebro: entiende órdenes, modelo local)
+   - micrófono y voz                                 ├─ DYSAJarvisService (decide quién responde)
+   - se instala como app                             ├─ Skills            (hora, web, apps, notas, cálculo…)
+                                                     ├─ LaptopActions     (abre programas/navegador en la laptop)
+                                                     └─ DYSA              (el cerebro: entiende órdenes, modelo local)
 ```
 
 El cerebro vive en la laptop. Los demás dispositivos solo hablan con él por la API
@@ -172,7 +172,7 @@ jarvis/
    ├─ java/com/jarvis/
    │  ├─ JarvisApplication.java      ← arranque
    │  ├─ api/JarvisController.java   ← API REST para todos los dispositivos
-   │  ├─ core/JarvisService.java     ← núcleo que enruta los comandos
+   │  ├─ core/DYSAJarvisService.java ← núcleo que enruta los comandos
    │  ├─ skills/…                    ← cada habilidad en su clase
    │  ├─ system/LaptopActions.java   ← acciones sobre Windows/Mac/Linux
    │  ├─ api/InventoryController.java ← API del inventario (alta, edición, ajuste, borrado)

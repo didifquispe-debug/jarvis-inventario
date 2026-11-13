@@ -38,8 +38,8 @@ public class Tiendas {
     static final int MAXIMO = 50;
 
     private final String archivo, tipo, igv;
-    private final InventoryService principal;
-    private final Map<Integer, InventoryService> abiertas = new ConcurrentHashMap<>();
+    private final DYSAInventoryService principal;
+    private final Map<Integer, DYSAInventoryService> abiertas = new ConcurrentHashMap<>();
     private volatile List<Tienda> lista = List.of();
 
     public Tiendas(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
@@ -48,20 +48,20 @@ public class Tiendas {
         this.archivo = archivo;
         this.tipo = tipo;
         this.igv = igv;
-        this.principal = new InventoryService(archivo, tipo, igv);
+        this.principal = new DYSAInventoryService(archivo, tipo, igv);
         abiertas.put(ClientSession.TIENDA_PRINCIPAL, principal);
         asegurarPrincipal();
     }
 
     /** La tienda 1: su base guarda también los usuarios y la lista de tiendas. */
-    public InventoryService principal() { return principal; }
+    public DYSAInventoryService principal() { return principal; }
 
     /** El inventario de la tienda de este pedido (la principal si no hay otra elegida). */
-    public InventoryService actual() { return de(ClientSession.tienda()); }
+    public DYSAInventoryService actual() { return de(ClientSession.tienda()); }
 
-    public InventoryService de(int id) {
+    public DYSAInventoryService de(int id) {
         if (id == ClientSession.TIENDA_PRINCIPAL || !existe(id)) return principal;
-        return abiertas.computeIfAbsent(id, k -> new InventoryService(archivoDe(archivo, k), tipo, igv, k));
+        return abiertas.computeIfAbsent(id, k -> new DYSAInventoryService(archivoDe(archivo, k), tipo, igv, k));
     }
 
     public List<Tienda> listar() { return lista; }
@@ -72,13 +72,13 @@ public class Tiendas {
         return lista.stream().filter(t -> t.id() == id).map(Tienda::nombre).findFirst().orElse("Tienda " + id);
     }
 
-    public synchronized InventoryService.Resultado crear(String nombreDicho) {
+    public synchronized DYSAInventoryService.Resultado crear(String nombreDicho) {
         String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
-        if (no != null) return InventoryService.Resultado.prohibido(no);
+        if (no != null) return DYSAInventoryService.Resultado.prohibido(no);
         String nombre = limpio(nombreDicho);
         String error = errorNombre(nombre, 0);
-        if (error != null) return InventoryService.Resultado.error(error);
-        if (lista.size() >= MAXIMO) return InventoryService.Resultado.error("Ya hay " + MAXIMO + " tiendas, el máximo.");
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
+        if (lista.size() >= MAXIMO) return DYSAInventoryService.Resultado.error("Ya hay " + MAXIMO + " tiendas, el máximo.");
         int id;
         try {
             id = principal.baseDatos().transaccion(cx -> {
@@ -91,21 +91,21 @@ public class Tiendas {
                 }
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude crear la tienda: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude crear la tienda: " + e.getMessage());
         }
         leer();
         de(id);
         log.info("Tienda nueva {}: {} (base {}).", id, nombre, archivoDe(archivo, id));
-        return InventoryService.Resultado.ok("Tienda creada: " + nombre + ". Empieza vacía: agregue sus productos estando en esa tienda.");
+        return DYSAInventoryService.Resultado.ok("Tienda creada: " + nombre + ". Empieza vacía: agregue sus productos estando en esa tienda.");
     }
 
-    public synchronized InventoryService.Resultado renombrar(int id, String nombreDicho) {
+    public synchronized DYSAInventoryService.Resultado renombrar(int id, String nombreDicho) {
         String no = ClientSession.sinPermiso(Permiso.ADMINISTRAR);
-        if (no != null) return InventoryService.Resultado.prohibido(no);
-        if (!existe(id)) return InventoryService.Resultado.noEncontrado("No existe esa tienda.");
+        if (no != null) return DYSAInventoryService.Resultado.prohibido(no);
+        if (!existe(id)) return DYSAInventoryService.Resultado.noEncontrado("No existe esa tienda.");
         String nombre = limpio(nombreDicho);
         String error = errorNombre(nombre, id);
-        if (error != null) return InventoryService.Resultado.error(error);
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
         try {
             principal.baseDatos().transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("UPDATE tienda SET nombre = ? WHERE id = ?")) {
@@ -116,10 +116,10 @@ public class Tiendas {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude cambiar el nombre: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude cambiar el nombre: " + e.getMessage());
         }
         leer();
-        return InventoryService.Resultado.ok("Tienda renombrada: " + nombre + ".");
+        return DYSAInventoryService.Resultado.ok("Tienda renombrada: " + nombre + ".");
     }
 
     /** Vuelve a leer la lista (por ejemplo, después de restaurar una copia de la tienda principal). */

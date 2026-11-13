@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class IntentClassifier {
+public class YoelIntentClassifier {
 
-    private static final Logger log = LoggerFactory.getLogger(IntentClassifier.class);
+    private static final Logger log = LoggerFactory.getLogger(YoelIntentClassifier.class);
 
     public record Clasificacion(Intent intent, double confianza) {}
 
@@ -47,7 +47,7 @@ public class IntentClassifier {
     private final Map<Intent, List<float[]>> prototipos = new EnumMap<>(Intent.class);
     private volatile boolean listo;
 
-    public IntentClassifier(@Value("${jarvis.intent.enabled:true}") boolean habilitado,
+    public YoelIntentClassifier(@Value("${jarvis.intent.enabled:true}") boolean habilitado,
                             @Value("${jarvis.intent.model-dir:${user.home}/jarvis-models/intent}") String modelDir,
                             @Value("${jarvis.intent.examples:intents-es.json}") String ejemplosRecurso,
                             @Value("${jarvis.intent.include-token-types:true}") boolean includeTokenTypes,

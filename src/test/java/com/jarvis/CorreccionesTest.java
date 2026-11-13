@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,8 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class CorreccionesTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
     @Autowired MockMvc mvc;
 
     @BeforeEach void limpiar() { Ejemplos.sembrar(inv); inv.cancelarVenta(); inv.resolver(false); inv.tomarComprobanteNuevo(); }
@@ -69,7 +69,7 @@ class CorreccionesTest {
         assertTrue(r.startsWith("Corregí la boleta número"), r);
         assertTrue(r.contains("Nuevo total: 22.50 soles"), r);
         assertEquals(antes.subtract(new BigDecimal("3")), stock("Foco"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(new BigDecimal("22.50"), c.total, "la pantalla recibe el comprobante corregido");
         assertTrue(jarvis.process("corrige la última venta, fueron 1").contains("ahora es 1 unidades"));
         assertEquals(antes.subtract(BigDecimal.ONE), stock("Foco"));

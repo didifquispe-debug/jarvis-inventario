@@ -4,7 +4,7 @@
  */
 package com.jarvis;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Movimiento;
 import com.jarvis.inventory.Producto;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class CargaMasivaTest {
     private static final String CLAVE = "clave-lote";
 
     @Autowired MockMvc mvc;
-    @Autowired InventoryService inv;
+    @Autowired DYSAInventoryService inv;
 
     private ResultActions texto(String lista) throws Exception {
         return texto(lista.getBytes(StandardCharsets.UTF_8));
@@ -192,7 +192,7 @@ class CargaMasivaTest {
         assertTrue(movs.stream().anyMatch(m -> m.tipo().equals("NUEVO_PRODUCTO") && m.producto().equals("Plato lote H")));
         Movimiento entrada = movs.stream().filter(m -> m.tipo().equals("ENTRADA") && m.producto().equals("Taza lote H")).findFirst().orElseThrow();
         assertEquals(new BigDecimal("12"), entrada.cantidad());
-        InventoryService releido = new InventoryService(inv.archivoBaseDatos().toString());
+        DYSAInventoryService releido = new DYSAInventoryService(inv.archivoBaseDatos().toString());
         assertTrue(releido.productos().stream().anyMatch(p -> p.nombre.equals("Plato lote H")));
     }
 

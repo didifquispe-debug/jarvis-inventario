@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Compras;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol;
@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-consultas-${random.uuid}.json"})
 class ConsultasPorVozTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
 
     private static BigDecimal n(String s) { return new BigDecimal(s); }
 

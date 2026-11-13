@@ -4,10 +4,10 @@
  */
 package com.jarvis.api;
 
-import com.jarvis.inventory.ComprobantePdf;
+import com.jarvis.inventory.DidierComprobantePdf;
 import com.jarvis.inventory.Igv;
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.TipoComprobante;
 import com.jarvis.inventory.ListaProductos;
 import com.jarvis.inventory.Movimiento;
@@ -33,10 +33,10 @@ import java.util.Map;
 @CrossOrigin
 public class InventoryController {
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final DatosNegocio negocio;
 
-    public InventoryController(InventoryService inv, DatosNegocio negocio) {
+    public InventoryController(DYSAInventoryService inv, DatosNegocio negocio) {
         this.inv = inv;
         this.negocio = negocio;
     }
@@ -50,7 +50,7 @@ public class InventoryController {
                                   String unidad, List<String> alias, String categoria, String codigo, String codigoBarras,
                                   BigDecimal costo, Boolean quitarCosto) {}
     public record AjusteStock(String nombre, BigDecimal cantidad) {}
-    public record NuevaVenta(List<InventoryService.Pedido> items, String tipo, String cliente, String igv) {}
+    public record NuevaVenta(List<DYSAInventoryService.Pedido> items, String tipo, String cliente, String igv) {}
     public record OpcionesVenta(String tipo, String cliente) {}
 
     @GetMapping
@@ -59,7 +59,7 @@ public class InventoryController {
     }
 
     @GetMapping("/venta")
-    public InventoryService.Comprobante venta() {
+    public DYSAInventoryService.Comprobante venta() {
         return inv.carritoActual();
     }
 
@@ -85,7 +85,7 @@ public class InventoryController {
 
     @PatchMapping("/productos")
     public ResponseEntity<Map<String, Object>> editar(@RequestBody EdicionProducto req) {
-        return responder(inv.editarProducto(req.nombre(), true, new InventoryService.Cambios(
+        return responder(inv.editarProducto(req.nombre(), true, new DYSAInventoryService.Cambios(
                 req.nuevoNombre(), req.precio(), req.stock(), req.stockMin(), req.unidad(), req.alias(),
                 new Producto.Ficha(req.categoria(), req.codigo(), req.codigoBarras(), req.costo()),
                 Boolean.TRUE.equals(req.quitarCosto()))));
@@ -121,7 +121,7 @@ public class InventoryController {
         if (lectura.total() > ListaProductos.MAX_FILAS)
             return ResponseEntity.badRequest().body(Map.of("ok", false,
                     "reply", "La lista es muy larga: cargue como máximo " + ListaProductos.MAX_FILAS + " productos a la vez."));
-        InventoryService.ResultadoLote r = inv.crearProductos(lectura.filas(), lectura.errores());
+        DYSAInventoryService.ResultadoLote r = inv.crearProductos(lectura.filas(), lectura.errores());
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("ok", true);
         body.put("reply", r.mensaje());
@@ -146,10 +146,10 @@ public class InventoryController {
         TipoComprobante tipo = req.tipo() == null || req.tipo().isBlank() ? null : TipoComprobante.de(req.tipo());
         if (req.tipo() != null && !req.tipo().isBlank() && tipo == null)
             return ResponseEntity.badRequest().body(Map.of("ok", false, "reply", "El tipo de comprobante es boleta o nota de venta."));
-        InventoryService.Resultado r = inv.vender(req.items(), new InventoryService.Opciones(tipo, req.cliente(),
+        DYSAInventoryService.Resultado r = inv.vender(req.items(), new DYSAInventoryService.Opciones(tipo, req.cliente(),
                 req.igv() == null || req.igv().isBlank() ? null : Igv.Modo.de(req.igv())));
         ResponseEntity<Map<String, Object>> res = responder(r);
-        InventoryService.Comprobante c = r.ok() ? inv.tomarComprobanteNuevo() : null;
+        DYSAInventoryService.Comprobante c = r.ok() ? inv.tomarComprobanteNuevo() : null;
         if (c == null) return res;
         Map<String, Object> body = new LinkedHashMap<>(res.getBody());
         body.put("recibo", Map.of("comprobante", c, "negocio", negocio.paraRecibo()));
@@ -159,18 +159,18 @@ public class InventoryController {
     @PutMapping("/venta/opciones")
     public ResponseEntity<Map<String, Object>> opcionesVenta(@RequestBody OpcionesVenta req) {
         TipoComprobante tipo = req.tipo() == null || req.tipo().isBlank() ? null : TipoComprobante.de(req.tipo());
-        String msg = inv.opcionesVenta(new InventoryService.Opciones(tipo, req.cliente(), null));
+        String msg = inv.opcionesVenta(new DYSAInventoryService.Opciones(tipo, req.cliente(), null));
         boolean ok = !msg.startsWith("No tengo");
         return ResponseEntity.status(ok ? HttpStatus.OK : HttpStatus.BAD_REQUEST).body(Map.of("ok", ok, "reply", msg));
     }
 
     @GetMapping("/resumen")
-    public InventoryService.Resumen resumen() {
+    public DYSAInventoryService.Resumen resumen() {
         return inv.resumen();
     }
 
     @GetMapping("/comprobantes")
-    public List<InventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite,
+    public List<DYSAInventoryService.FilaComprobante> comprobantes(@RequestParam(defaultValue = "100") int limite,
                                                                @RequestParam(defaultValue = "") String desde,
                                                                @RequestParam(defaultValue = "") String hasta) {
         return inv.comprobantes(limite, desde, hasta);
@@ -178,20 +178,20 @@ public class InventoryController {
 
     @GetMapping("/comprobantes/{numero}")
     public ResponseEntity<?> comprobante(@PathVariable int numero) {
-        InventoryService.Comprobante c = inv.comprobantePorNumero(numero);
+        DYSAInventoryService.Comprobante c = inv.comprobantePorNumero(numero);
         return c != null ? ResponseEntity.ok(c)
                 : ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "reply", "No existe esa venta."));
     }
 
     @GetMapping("/comprobantes/{numero}/pdf")
     public ResponseEntity<?> pdf(@PathVariable int numero) {
-        InventoryService.Comprobante c = inv.comprobantePorNumero(numero);
+        DYSAInventoryService.Comprobante c = inv.comprobantePorNumero(numero);
         if (c == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("ok", false, "reply", "No existe esa venta."));
         String archivo = (c.codigo.isEmpty() ? "venta-" + numero : c.codigo) + ".pdf";
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header("Content-Disposition", "inline; filename=\"" + archivo + "\"")
-                .body(ComprobantePdf.generar(c, negocio.emisor()));
+                .body(DidierComprobantePdf.generar(c, negocio.emisor()));
     }
 
     @DeleteMapping("/productos")
@@ -205,7 +205,7 @@ public class InventoryController {
                 "reply", "Datos inválidos: revise que el precio y el stock sean números (use punto para decimales)."));
     }
 
-    static ResponseEntity<Map<String, Object>> responder(InventoryService.Resultado r) {
+    static ResponseEntity<Map<String, Object>> responder(DYSAInventoryService.Resultado r) {
         HttpStatus status = switch (r.estado()) {
             case OK -> HttpStatus.OK;
             case ERROR -> HttpStatus.BAD_REQUEST;

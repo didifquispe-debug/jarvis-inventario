@@ -5,7 +5,7 @@
 package com.jarvis;
 
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class ReportesApiTest {
     private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @Autowired MockMvc mvc;
-    @Autowired InventoryService inv;
+    @Autowired DYSAInventoryService inv;
 
     @BeforeEach void preparar() {
         Ejemplos.sembrar(inv);

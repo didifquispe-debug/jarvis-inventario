@@ -4,10 +4,10 @@
  */
 package com.jarvis.api;
 
-import com.jarvis.voz.EscuchaLocal;
-import com.jarvis.voz.HablaLocal;
+import com.jarvis.voz.SumiEscuchaLocal;
+import com.jarvis.voz.SumiHablaLocal;
 import com.jarvis.voz.VocabularioVoz;
-import com.jarvis.voz.VozLocal;
+import com.jarvis.voz.SumiVozLocal;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,13 +25,13 @@ import java.util.concurrent.Semaphore;
 @CrossOrigin
 public class VozController {
 
-    private final VozLocal voz;
+    private final SumiVozLocal voz;
     private final VocabularioVoz vocabulario;
-    private final EscuchaLocal escucha;
-    private final HablaLocal habla;
+    private final SumiEscuchaLocal escucha;
+    private final SumiHablaLocal habla;
     private final Semaphore turnos = new Semaphore(2);
 
-    public VozController(VozLocal voz, VocabularioVoz vocabulario, EscuchaLocal escucha, HablaLocal habla) {
+    public VozController(SumiVozLocal voz, VocabularioVoz vocabulario, SumiEscuchaLocal escucha, SumiHablaLocal habla) {
         this.voz = voz;
         this.vocabulario = vocabulario;
         this.escucha = escucha;
@@ -94,7 +94,7 @@ public class VozController {
     @GetMapping("/escucha/eventos")
     public ResponseEntity<?> eventos(@RequestParam(defaultValue = "0") long desde, HttpServletRequest req) throws InterruptedException {
         if (!estaPc(req)) return error(HttpStatus.FORBIDDEN, "El micrófono de la computadora solo se usa desde ella misma.");
-        List<EscuchaLocal.Evento> ev = escucha.eventos(desde, 25_000);
+        List<SumiEscuchaLocal.Evento> ev = escucha.eventos(desde, 25_000);
         return ResponseEntity.ok(ev);
     }
 
@@ -115,7 +115,7 @@ public class VozController {
     public ResponseEntity<Map<String, Object>> reconocer(@RequestBody(required = false) byte[] pcm) {
         if (!voz.listo()) return error(HttpStatus.SERVICE_UNAVAILABLE, "La voz sin Internet no está instalada en este equipo.");
         if (pcm == null || pcm.length == 0) return ResponseEntity.ok(Map.of("ok", true, "texto", ""));
-        if (pcm.length > VozLocal.MAX_BYTES) return error(HttpStatus.PAYLOAD_TOO_LARGE, "La frase es muy larga: máximo 30 segundos.");
+        if (pcm.length > SumiVozLocal.MAX_BYTES) return error(HttpStatus.PAYLOAD_TOO_LARGE, "La frase es muy larga: máximo 30 segundos.");
         if (!turnos.tryAcquire()) return error(HttpStatus.TOO_MANY_REQUESTS, "Estoy reconociendo otra frase, intente de nuevo.");
         try {
             return ResponseEntity.ok(Map.of("ok", true, "texto", voz.reconocer(pcm, vocabulario.palabras())));

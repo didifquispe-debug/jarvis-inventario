@@ -4,7 +4,7 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.skills.GreetingSkill;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(properties = {"jarvis.desktop.enabled=false", "jarvis.intent.enabled=false"})
 class SaludoEncodingTest {
-    @Autowired JarvisService jarvis;
+    @Autowired DYSAJarvisService jarvis;
     @Autowired GreetingSkill saludo;
 
     @Test void enieCorrecta() {

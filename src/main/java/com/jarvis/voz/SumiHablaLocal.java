@@ -25,9 +25,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class HablaLocal {
+public class SumiHablaLocal {
 
-    private static final Logger log = LoggerFactory.getLogger(HablaLocal.class);
+    private static final Logger log = LoggerFactory.getLogger(SumiHablaLocal.class);
     private static final long MAX_GENERAR_S = 60;
 
     public enum Modo { PIPER, WINDOWS, NAVEGADOR }
@@ -43,7 +43,7 @@ public class HablaLocal {
     private volatile Clip sonando;
     private volatile Process generando;
 
-    public HablaLocal(@Value("${jarvis.voz.piper-exe:${user.home}/jarvis-voz/piper/piper.exe}") String piperExe,
+    public SumiHablaLocal(@Value("${jarvis.voz.piper-exe:${user.home}/jarvis-voz/piper/piper.exe}") String piperExe,
                       @Value("${jarvis.voz.piper-voz:${user.home}/jarvis-voz/piper/voces/es_ES-davefx-medium.onnx}") String piperVoz,
                       @Value("${jarvis.voz.hablar:piper}") String hablar) {
         this.piperExe = Path.of(piperExe);

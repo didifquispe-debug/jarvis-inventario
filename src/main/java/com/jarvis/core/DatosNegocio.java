@@ -4,8 +4,8 @@
  */
 package com.jarvis.core;
 
-import com.jarvis.inventory.ComprobantePdf;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DidierComprobantePdf;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Tiendas;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,12 +30,12 @@ public class DatosNegocio {
     public record Datos(String nombre, String ruc, String direccion, String telefono, String email,
                         String monedaSimbolo, String monedaNombre, String monedaSingular) {}
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private Tiendas tiendas;
     private final Datos porDefecto;
     private volatile Datos actuales;
 
-    public DatosNegocio(InventoryService inv,
+    public DatosNegocio(DYSAInventoryService inv,
                         @Value("${jarvis.negocio:}") String negocio,
                         @Value("${jarvis.negocio.nombre:}") String nombre,
                         @Value("${jarvis.negocio.ruc:}") String ruc,
@@ -74,7 +74,7 @@ public class DatosNegocio {
     }
 
     /** Por ahora los datos del negocio son los mismos para todas las tiendas: viven en la base principal. */
-    private InventoryService principal() { return tiendas == null ? inv : tiendas.principal(); }
+    private DYSAInventoryService principal() { return tiendas == null ? inv : tiendas.principal(); }
 
     @Autowired(required = false)
     void usarTiendas(Tiendas tiendas) { this.tiendas = tiendas; }
@@ -84,9 +84,9 @@ public class DatosNegocio {
     /** Nombre para mostrar; vacío si no se configuró. */
     public String nombre() { return actuales.nombre(); }
 
-    public ComprobantePdf.Emisor emisor() {
+    public DidierComprobantePdf.Emisor emisor() {
         Datos d = actuales;
-        return new ComprobantePdf.Emisor(d.nombre(), d.ruc(), d.direccion(), d.telefono(), d.email());
+        return new DidierComprobantePdf.Emisor(d.nombre(), d.ruc(), d.direccion(), d.telefono(), d.email());
     }
 
     /** Lo que viaja con cada comprobante para imprimir el ticket. */
@@ -96,13 +96,13 @@ public class DatosNegocio {
                 "monedaSimbolo", d.monedaSimbolo());
     }
 
-    public synchronized InventoryService.Resultado guardar(Datos nuevos) {
-        if (nuevos == null) return InventoryService.Resultado.error("Faltan los datos del negocio.");
+    public synchronized DYSAInventoryService.Resultado guardar(Datos nuevos) {
+        if (nuevos == null) return DYSAInventoryService.Resultado.error("Faltan los datos del negocio.");
         Datos d = new Datos(limpio(nuevos.nombre()), limpio(nuevos.ruc()), limpio(nuevos.direccion()), limpio(nuevos.telefono()),
                 limpio(nuevos.email()), limpio(nuevos.monedaSimbolo()), limpio(nuevos.monedaNombre()).toLowerCase(),
                 limpio(nuevos.monedaSingular()).toLowerCase());
         String error = error(d);
-        if (error != null) return InventoryService.Resultado.error(error);
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
         Map<String, String> m = new LinkedHashMap<>();
         m.put("negocio.nombre", d.nombre());
         m.put("negocio.ruc", d.ruc());
@@ -115,10 +115,10 @@ public class DatosNegocio {
         try {
             principal().ajustes().guardar(m);
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar los datos del negocio: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar los datos del negocio: " + e.getMessage());
         }
         usar(d);
-        return InventoryService.Resultado.ok("Datos del negocio guardados" + (d.nombre().isEmpty() ? "." : ": " + d.nombre() + "."));
+        return DYSAInventoryService.Resultado.ok("Datos del negocio guardados" + (d.nombre().isEmpty() ? "." : ": " + d.nombre() + "."));
     }
 
     private void usar(Datos d) {

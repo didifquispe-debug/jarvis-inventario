@@ -15,7 +15,7 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
-public final class ComprobantePdf {
+public final class DidierComprobantePdf {
 
     public record Emisor(String nombre, String ruc, String direccion, String telefono, String email) {}
 
@@ -38,9 +38,9 @@ public final class ComprobantePdf {
     private static final Font F_CAJA_NUMERO = fuente(13, Font.BOLD, ACENTO);
     private static final Font F_TOTAL = fuente(11, Font.BOLD, Color.WHITE);
 
-    private ComprobantePdf() {}
+    private DidierComprobantePdf() {}
 
-    public static byte[] generar(InventoryService.Comprobante c, Emisor emisor) {
+    public static byte[] generar(DYSAInventoryService.Comprobante c, Emisor emisor) {
         ByteArrayOutputStream salida = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4, 40, 40, 40, 50);
         try {
@@ -66,7 +66,7 @@ public final class ComprobantePdf {
         return salida.toByteArray();
     }
 
-    private static PdfPTable cabecera(InventoryService.Comprobante c, Emisor e) {
+    private static PdfPTable cabecera(DYSAInventoryService.Comprobante c, Emisor e) {
         PdfPTable tabla = new PdfPTable(new float[]{62, 38});
         tabla.setWidthPercentage(100);
         PdfPCell datos = sinBorde();
@@ -92,10 +92,10 @@ public final class ComprobantePdf {
         return tabla;
     }
 
-    private static PdfPTable datosCliente(InventoryService.Comprobante c) {
+    private static PdfPTable datosCliente(DYSAInventoryService.Comprobante c) {
         PdfPTable tabla = new PdfPTable(new float[]{17, 43, 17, 23});
         tabla.setWidthPercentage(100);
-        InventoryService.ClienteResumen cl = c.cliente;
+        DYSAInventoryService.ClienteResumen cl = c.cliente;
         dato(tabla, "CLIENTE", cl == null ? "CLIENTES VARIOS" : cl.nombre().toUpperCase());
         dato(tabla, "FECHA DE EMISIÓN", fecha(c.fecha));
         dato(tabla, cl == null ? "DNI" : cl.tipoDocumento(), cl == null ? "—" : cl.documento());
@@ -112,7 +112,7 @@ public final class ComprobantePdf {
         return marco;
     }
 
-    private static PdfPTable tablaItems(InventoryService.Comprobante c) {
+    private static PdfPTable tablaItems(DYSAInventoryService.Comprobante c) {
         PdfPTable tabla = new PdfPTable(new float[]{7, 10, 12, 43, 13, 15});
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
@@ -130,7 +130,7 @@ public final class ComprobantePdf {
             tabla.addCell(t);
         }
         int fila = 0;
-        for (InventoryService.Venta v : c.items) {
+        for (DYSAInventoryService.Venta v : c.items) {
             Color fondo = fila++ % 2 == 0 ? Color.WHITE : FILA_ALTERNA;
             tabla.addCell(celdaItem(String.valueOf(fila), Element.ALIGN_CENTER, fondo, F_NORMAL));
             tabla.addCell(celdaItem(Num.txt(v.cantidad), Element.ALIGN_CENTER, fondo, F_NORMAL));
@@ -142,7 +142,7 @@ public final class ComprobantePdf {
         return tabla;
     }
 
-    private static PdfPTable totales(InventoryService.Comprobante c) {
+    private static PdfPTable totales(DYSAInventoryService.Comprobante c) {
         PdfPTable externo = new PdfPTable(new float[]{55, 45});
         externo.setWidthPercentage(100);
         PdfPCell nota = sinBorde();
@@ -164,7 +164,7 @@ public final class ComprobantePdf {
         return externo;
     }
 
-    private static PdfPTable importeEnLetras(InventoryService.Comprobante c) {
+    private static PdfPTable importeEnLetras(DYSAInventoryService.Comprobante c) {
         PdfPTable t = new PdfPTable(1);
         t.setWidthPercentage(100);
         Phrase frase = new Phrase();
@@ -255,9 +255,9 @@ public final class ComprobantePdf {
     private static String nz(String s) { return s == null ? "" : s; }
 
     private static final class PiePagina extends PdfPageEventHelper {
-        private final InventoryService.Comprobante c;
+        private final DYSAInventoryService.Comprobante c;
 
-        PiePagina(InventoryService.Comprobante c) { this.c = c; }
+        PiePagina(DYSAInventoryService.Comprobante c) { this.c = c; }
 
         @Override
         public void onEndPage(PdfWriter writer, Document document) {

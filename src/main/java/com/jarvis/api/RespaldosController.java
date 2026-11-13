@@ -5,7 +5,7 @@
 package com.jarvis.api;
 
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -20,15 +20,15 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Copias de seguridad del inventario: ver, hacer, descargar y restaurar. Solo el administrador (ver ApiAuthFilter). */
+/** Copias de seguridad del inventario: ver, hacer, descargar y restaurar. Solo el administrador (ver ApazaApiAuthFilter). */
 @RestController
 @RequestMapping("/api/respaldos")
 public class RespaldosController {
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final DatosNegocio negocio;
 
-    public RespaldosController(InventoryService inv, DatosNegocio negocio) {
+    public RespaldosController(DYSAInventoryService inv, DatosNegocio negocio) {
         this.inv = inv;
         this.negocio = negocio;
     }
@@ -58,7 +58,7 @@ public class RespaldosController {
 
     @PostMapping("/restaurar")
     public ResponseEntity<Map<String, Object>> restaurar(@RequestBody(required = false) Pedido req) {
-        InventoryService.Resultado r = inv.restaurar(req == null ? null : req.nombre());
+        DYSAInventoryService.Resultado r = inv.restaurar(req == null ? null : req.nombre());
         if (r.ok()) negocio.recargar();
         return InventoryController.responder(r);
     }

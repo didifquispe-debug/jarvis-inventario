@@ -37,9 +37,9 @@ import static com.jarvis.inventory.Estadisticas.enPeriodo;
 /** El inventario de una tienda. En la aplicación se usa el de la tienda del pedido en curso (ver TiendaScope y Tiendas). */
 @Service
 @Scope(value = TiendaScope.NOMBRE, proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class InventoryService {
+public class DYSAInventoryService {
 
-    private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
+    private static final Logger log = LoggerFactory.getLogger(DYSAInventoryService.class);
 
     public enum Tipo { ENTRADA, SALIDA, ANULAR, ELIMINAR, NUEVO_INVENTARIO }
 
@@ -167,19 +167,19 @@ public class InventoryService {
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
-    public InventoryService(String archivo) {
+    public DYSAInventoryService(String archivo) {
         this(archivo, TipoComprobante.BOLETA.name(), Igv.Modo.INCLUIDO.name());
     }
 
     @Autowired
-    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
+    public DYSAInventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
                             @Value("${jarvis.comprobante.tipo:boleta}") String tipo,
                             @Value("${jarvis.igv:incluido}") String igv) {
         this(archivo, tipo, igv, ClientSession.TIENDA_PRINCIPAL);
     }
 
     /** {@code tienda} decide la serie de sus comprobantes (ver TipoComprobante.serie). */
-    public InventoryService(String archivo, String tipo, String igv, int tienda) {
+    public DYSAInventoryService(String archivo, String tipo, String igv, int tienda) {
         this.tienda = tienda;
         this.tipoPorDefecto = Objects.requireNonNullElse(TipoComprobante.de(tipo), TipoComprobante.BOLETA);
         this.igvPorDefecto = Igv.Modo.de(igv);
@@ -323,7 +323,7 @@ public class InventoryService {
 
     public Ajustes ajustes() { return ajustes; }
 
-    BaseDatos baseDatos() { return almacen.baseDatos(); }
+    DidierBaseDatos baseDatos() { return almacen.baseDatos(); }
 
     public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
 
@@ -444,7 +444,7 @@ public class InventoryService {
     private static final String NO_GUARDADO =
             "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
 
-    private boolean guardarTodo(BaseDatos.Trabajo<?> extra) {
+    private boolean guardarTodo(DidierBaseDatos.Trabajo<?> extra) {
         almacen.respaldoDiario();
         try {
             almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar, extra);

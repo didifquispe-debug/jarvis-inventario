@@ -6,7 +6,7 @@ package com.jarvis.skills;
 
 import com.jarvis.core.OrdenesPorConfirmar;
 import com.jarvis.inventory.Compras;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Num;
 import com.jarvis.inventory.Palabras;
@@ -68,10 +68,10 @@ public class CompraPorVozSkill implements Skill {
         long usado = System.currentTimeMillis();
     }
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final Map<String, Borrador> borradores = new HashMap<>();
 
-    public CompraPorVozSkill(InventoryService inv) { this.inv = inv; }
+    public CompraPorVozSkill(DYSAInventoryService inv) { this.inv = inv; }
 
     @Override public String name() { return "Compras por voz"; }
 
@@ -226,7 +226,7 @@ public class CompraPorVozSkill implements Skill {
     private String registrar(Borrador b) {
         List<Compras.LineaCompra> items = new ArrayList<>();
         b.lineas.forEach((n, v) -> items.add(new Compras.LineaCompra(n, v[0], v[1])));
-        InventoryService.Resultado r = inv.registrarCompra(new Compras.NuevaCompra(b.ruc, b.razon, b.tipo, b.numero, null, b.igv,
+        DYSAInventoryService.Resultado r = inv.registrarCompra(new Compras.NuevaCompra(b.ruc, b.razon, b.tipo, b.numero, null, b.igv,
                 "Registrada por voz", items));
         if (r.ok()) borradores.remove(clave());
         return r.ok() ? r.mensaje() : "No la registré: " + r.mensaje() + " La compra sigue abierta para corregirla.";

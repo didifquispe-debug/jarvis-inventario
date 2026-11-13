@@ -11,9 +11,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class DYSA {
 
-    private final IntentClassifier classifier;
+    private final YoelIntentClassifier classifier;
 
-    public DYSA(IntentClassifier classifier) {
+    public DYSA(YoelIntentClassifier classifier) {
         this.classifier = classifier;
     }
 
@@ -21,9 +21,9 @@ public class DYSA {
 
     public IntentResult interpretar(String cmd) {
         String texto = Palabras.norm(cmd);
-        IntentClassifier.Clasificacion c = classifier.clasificar(texto);
+        YoelIntentClassifier.Clasificacion c = classifier.clasificar(texto);
         if (c.intent() == Intent.DESCONOCIDO) return new IntentResult(Intent.DESCONOCIDO, c.confianza(), null, "", null);
-        EntityExtractor.Entidades e = EntityExtractor.extraer(texto);
+        YoelEntityExtractor.Entidades e = YoelEntityExtractor.extraer(texto);
         return new IntentResult(c.intent(), c.confianza(), e.cantidad(), e.producto(), e.precio(), e.enPares());
     }
 }

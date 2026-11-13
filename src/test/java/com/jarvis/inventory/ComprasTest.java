@@ -20,9 +20,9 @@ class ComprasTest {
 
     private static final String RUC = "20100047218";
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
-    private static Producto producto(InventoryService inv, String prefijo) {
+    private static Producto producto(DYSAInventoryService inv, String prefijo) {
         return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow();
     }
 
@@ -35,8 +35,8 @@ class ComprasTest {
     }
 
     @Test void compraSumaStockYCalculaElCostoSinIgv() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
-        InventoryService.Resultado r = inv.registrarCompra(compra("F001-452", null, linea("Foco LED 9W", "20", "5.90")));
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService.Resultado r = inv.registrarCompra(compra("F001-452", null, linea("Foco LED 9W", "20", "5.90")));
         assertTrue(r.ok(), r.mensaje());
         assertTrue(r.mensaje().startsWith("Compra CP-00000001 registrada: factura F001-452 de Distribuidora Andina SAC por 118.00 soles"),
                 r.mensaje());
@@ -54,7 +54,7 @@ class ComprasTest {
     }
 
     @Test void costoPromedioPonderado() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Polera roja M", new BigDecimal("45"), new BigDecimal("10"), "unidades", null, null,
                 new Producto.Ficha(null, null, null, new BigDecimal("20"))).ok());
         assertTrue(inv.registrarCompra(compra("F001-1", "exonerado", linea("Polera roja M", "30", "24"))).ok());
@@ -64,8 +64,8 @@ class ComprasTest {
     }
 
     @Test void igvAgregadoYCantidadesConDecimales() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
-        InventoryService.Resultado r = inv.registrarCompra(compra("F002-9", "agregado", linea("Cable Vulcanizado", "12.5", "2")));
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService.Resultado r = inv.registrarCompra(compra("F002-9", "agregado", linea("Cable Vulcanizado", "12.5", "2")));
         assertTrue(r.ok(), r.mensaje());
         Compras.Compra c = inv.compras().obtener("1").orElseThrow();
         assertEquals(new BigDecimal("25.00"), c.base());
@@ -76,7 +76,7 @@ class ComprasTest {
     }
 
     @Test void validaAntesDeTocarNada() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         BigDecimal antes = producto(inv, "Foco").stock;
         assertFalse(inv.registrarCompra(new Compras.NuevaCompra("1234", "X", "factura", "F1", null, null, null,
                 List.of(linea("Foco LED 9W", "1", "5")))).ok(), "RUC inválido");
@@ -90,16 +90,16 @@ class ComprasTest {
         assertFalse(inv.registrarCompra(compra("F1", null)).ok(), "sin productos");
         assertFalse(inv.registrarCompra(compra("F1", null, linea("Foco LED 9W", "1", "0"))).ok(), "costo cero");
         assertFalse(inv.registrarCompra(compra("F1", null, linea("Foco LED 9W", "1.5", "5"))).ok(), "focos no se fraccionan");
-        assertEquals(InventoryService.Estado.NO_ENCONTRADO,
+        assertEquals(DYSAInventoryService.Estado.NO_ENCONTRADO,
                 inv.registrarCompra(compra("F1", null, linea("Foco LED 9W", "2", "5"), linea("Producto que no existe", "1", "5"))).estado());
         assertEquals(antes, producto(nuevo(), "Foco").stock, "ninguna compra inválida tocó el stock");
         assertTrue(inv.compras().listar("", "", "", 10).isEmpty());
     }
 
     @Test void noSeRegistraDosVecesElMismoDocumento() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         assertTrue(inv.registrarCompra(compra("F001-452", null, linea("Foco LED 9W", "1", "5"))).ok());
-        InventoryService.Resultado r = inv.registrarCompra(compra("f001-452", null, linea("Foco LED 9W", "1", "5")));
+        DYSAInventoryService.Resultado r = inv.registrarCompra(compra("f001-452", null, linea("Foco LED 9W", "1", "5")));
         assertFalse(r.ok(), "sin importar mayúsculas");
         assertTrue(r.mensaje().contains("Ya se registró la factura F001-452"), r.mensaje());
         assertTrue(inv.registrarCompra(new Compras.NuevaCompra(RUC, null, "guía", "F001-452", null, null, null,
@@ -107,10 +107,10 @@ class ComprasTest {
     }
 
     @Test void anularDevuelveElStockSoloSiNoSeVendio() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         assertTrue(inv.registrarCompra(compra("F001-1", null, linea("Disco de corte 4 1/2", "10", "3"))).ok());
         inv.salida(new BigDecimal("15"), "disco", false);
-        InventoryService.Resultado r = inv.anularCompra("CP-00000001");
+        DYSAInventoryService.Resultado r = inv.anularCompra("CP-00000001");
         assertFalse(r.ok());
         assertTrue(r.mensaje().contains("parte de la mercadería ya se vendió"), r.mensaje());
         assertEquals(new BigDecimal("3"), producto(inv, "Disco").stock, "no se tocó");
@@ -120,13 +120,13 @@ class ComprasTest {
         assertEquals(new BigDecimal("30"), producto(nuevo(), "Foco").stock);
         assertTrue(nuevo().compras().obtener("CP-00000002").orElseThrow().anulada(), "queda guardado");
         assertFalse(inv.anularCompra("CP-00000002").ok(), "ya estaba anulada");
-        assertEquals(InventoryService.Estado.NO_ENCONTRADO, inv.anularCompra("CP-99").estado());
+        assertEquals(DYSAInventoryService.Estado.NO_ENCONTRADO, inv.anularCompra("CP-99").estado());
         assertTrue(inv.registrarCompra(compra("F001-2", null, linea("Foco LED 9W", "5", "5"))).ok(),
                 "el documento de una compra anulada se puede volver a registrar");
     }
 
     @Test void listaFiltrosYTotales() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.registrarCompra(compra("F001-1", null, linea("Foco LED 9W", "10", "11.80")));
         inv.registrarCompra(new Compras.NuevaCompra("20601234567", "Ferretera Lima SAC", "boleta", "B001-77", null, "exonerado", null,
                 List.of(linea("Cemento Yura 42.5kg", "4", "25"))));
@@ -156,7 +156,7 @@ class ComprasTest {
     }
 
     @Test void proveedorConComprasNoSeElimina() {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.registrarCompra(compra("F001-1", null, linea("Foco LED 9W", "1", "5")));
         assertFalse(inv.compras().eliminarProveedor(RUC).ok());
     }

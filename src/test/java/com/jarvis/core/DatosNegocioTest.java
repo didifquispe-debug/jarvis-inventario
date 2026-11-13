@@ -4,7 +4,7 @@
  */
 package com.jarvis.core;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.NumeroALetras;
 import org.junit.jupiter.api.AfterEach;
@@ -20,9 +20,9 @@ class DatosNegocioTest {
 
     @TempDir Path dir;
 
-    private InventoryService inv() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService inv() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
-    private static DatosNegocio con(InventoryService inv, String nombre) {
+    private static DatosNegocio con(DYSAInventoryService inv, String nombre) {
         return new DatosNegocio(inv, nombre, "", "20601234567", "Av. Grau 123", "", "", "S/", "soles", "sol");
     }
 
@@ -37,7 +37,7 @@ class DatosNegocioTest {
     }
 
     @Test void guardaYSeConservaAlReiniciar() {
-        InventoryService inv = inv();
+        DYSAInventoryService inv = inv();
         DatosNegocio d = con(inv, "Ferretería El Clavo");
         assertTrue(d.guardar(new DatosNegocio.Datos("Bodega Doña Rosa", "", "Jr. Lima 45", "987 654 321", "rosa@correo.pe",
                 "US$", "Dólares", "dólar")).ok());
@@ -45,14 +45,14 @@ class DatosNegocioTest {
         assertEquals("US$", Moneda.simbolo());
         assertEquals("Jr. Lima 45", d.emisor().direccion());
         Moneda.usar("S/", "soles", "sol");
-        DatosNegocio otra = con(new InventoryService(dir.resolve("inv.json").toString()), "Ferretería El Clavo");
+        DatosNegocio otra = con(new DYSAInventoryService(dir.resolve("inv.json").toString()), "Ferretería El Clavo");
         assertEquals("Bodega Doña Rosa", otra.nombre(), "lo guardado manda sobre application.properties");
         assertEquals("dólares", Moneda.nombre());
         assertEquals("CIEN CON 00/100 DÓLARES", NumeroALetras.importe(new BigDecimal("100")));
     }
 
     @Test void losMensajesUsanLaMoneda() {
-        InventoryService inv = inv();
+        DYSAInventoryService inv = inv();
         con(inv, "").guardar(new DatosNegocio.Datos("", "", "", "", "", "$", "dólares", "dólar"));
         assertTrue(inv.crearProducto("Gorra", new BigDecimal("12.5"), BigDecimal.TEN, "unidades", null, null).ok());
         assertEquals("Gorra cuesta 12.50 dólares. Quedan 10 unidades.", inv.precio("gorra"));

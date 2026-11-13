@@ -5,8 +5,8 @@
 package com.jarvis;
 
 import com.jarvis.desktop.AppWindow;
-import com.jarvis.desktop.DesktopShell;
-import com.jarvis.security.AccessToken;
+import com.jarvis.desktop.ApazaDesktopShell;
+import com.jarvis.security.ApazaAccessToken;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 
@@ -27,14 +27,14 @@ public class JarvisApplication {
     public static void main(String[] args) {
         Properties cfg = loadConfig();
         int port = Integer.parseInt(cfg.getProperty("server.port", String.valueOf(PUERTO_POR_DEFECTO)).trim());
-        String archivoClave = cfg.getProperty("jarvis.token-file", AccessToken.ARCHIVO_POR_DEFECTO)
+        String archivoClave = cfg.getProperty("jarvis.token-file", ApazaAccessToken.ARCHIVO_POR_DEFECTO)
                 .replace("${user.home}", System.getProperty("user.home"));
-        String token = AccessToken.resolverSinGenerar(cfg.getProperty("jarvis.token", ""), archivoClave);
+        String token = ApazaAccessToken.resolverSinGenerar(cfg.getProperty("jarvis.token", ""), archivoClave);
 
         AppWindow.setPreferred(cfg.getProperty("jarvis.browser", "chrome"));
 
         if (alreadyRunning(port)) {
-            AppWindow.open(DesktopShell.localUrl(port, token));
+            AppWindow.open(ApazaDesktopShell.localUrl(port, token));
             System.exit(0);
         }
         ComponentesIncluidos.preparar(cfg);

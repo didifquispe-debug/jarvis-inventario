@@ -5,8 +5,8 @@
 package com.jarvis;
 
 import com.jarvis.core.Diccionario;
-import com.jarvis.core.JarvisService;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.core.DYSAJarvisService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "jarvis.diccionario.file=${java.io.tmpdir}/jarvis-test-voz-dic-${random.uuid}.txt"})
 class VozTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
     @Autowired Diccionario diccionario;
 
     @BeforeEach void tienda() {
@@ -68,7 +68,7 @@ class VozTest {
     @Test void eliminarSinProductoOInexistente() {
         assertEquals("¿Qué producto elimino del inventario, señor?", jarvis.process("elimina"));
         assertTrue(jarvis.process("elimina la casaca azul").startsWith("No encontré"));
-        assertEquals(JarvisService.NO_ENTENDI, jarvis.process("borra el cielo estrellado"));
+        assertEquals(DYSAJarvisService.NO_ENTENDI, jarvis.process("borra el cielo estrellado"));
     }
 
     @Test void duranteUnaVentaEliminarQuitaDelCarrito() {
