@@ -53,9 +53,9 @@ public class Compras {
     private static final int MAX_RAZON = 150, MAX_DIRECCION = 200;
     static final String PATRON_RUC = "(10|15|17|20)\\d{9}";
 
-    private final BaseDatos db;
+    private final DidierBaseDatos db;
 
-    Compras(BaseDatos db) { this.db = db; }
+    Compras(DidierBaseDatos db) { this.db = db; }
 
     static String codigo(int numero) { return "CP-" + String.format("%08d", numero); }
 
@@ -82,32 +82,32 @@ public class Compras {
         return proveedores(sql.toString(), v.toArray());
     }
 
-    public synchronized InventoryService.Resultado crearProveedor(DatosProveedor d) {
-        if (d == null) return InventoryService.Resultado.error("Faltan los datos del proveedor.");
+    public synchronized DYSAInventoryService.Resultado crearProveedor(DatosProveedor d) {
+        if (d == null) return DYSAInventoryService.Resultado.error("Faltan los datos del proveedor.");
         String ruc = limpio(d.ruc()), razon = limpio(d.razonSocial());
         String error = errorProveedor(ruc, razon, limpio(d.direccion()), limpio(d.telefono()));
-        if (error != null) return InventoryService.Resultado.error(error);
-        if (proveedor(ruc).isPresent()) return InventoryService.Resultado.error("Ya hay un proveedor con el RUC " + ruc + ".");
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
+        if (proveedor(ruc).isPresent()) return DYSAInventoryService.Resultado.error("Ya hay un proveedor con el RUC " + ruc + ".");
         try {
             db.transaccion(cx -> insertarProveedor(cx, ruc, razon, nz(limpio(d.direccion())), nz(limpio(d.telefono()))));
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el proveedor: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el proveedor: " + e.getMessage());
         }
-        return InventoryService.Resultado.ok("Proveedor registrado: " + razon + ", RUC " + ruc + ".");
+        return DYSAInventoryService.Resultado.ok("Proveedor registrado: " + razon + ", RUC " + ruc + ".");
     }
 
-    public synchronized InventoryService.Resultado editarProveedor(String ruc, DatosProveedor d) {
+    public synchronized DYSAInventoryService.Resultado editarProveedor(String ruc, DatosProveedor d) {
         Optional<Proveedor> actual = proveedor(ruc);
-        if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un proveedor con el RUC " + ruc + ".");
+        if (actual.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No encontré un proveedor con el RUC " + ruc + ".");
         Proveedor p = actual.get();
         String nuevoRuc = d.ruc() == null || d.ruc().isBlank() ? p.ruc() : limpio(d.ruc());
         String razon = d.razonSocial() == null || d.razonSocial().isBlank() ? p.razonSocial() : limpio(d.razonSocial());
         String direccion = d.direccion() == null ? p.direccion() : limpio(d.direccion());
         String telefono = d.telefono() == null ? p.telefono() : limpio(d.telefono());
         String error = errorProveedor(nuevoRuc, razon, direccion, telefono);
-        if (error != null) return InventoryService.Resultado.error(error);
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
         if (!nuevoRuc.equals(p.ruc()) && proveedor(nuevoRuc).isPresent())
-            return InventoryService.Resultado.error("Ya hay otro proveedor con el RUC " + nuevoRuc + ".");
+            return DYSAInventoryService.Resultado.error("Ya hay otro proveedor con el RUC " + nuevoRuc + ".");
         try {
             db.transaccion(cx -> {
                 ejecutar(cx, "UPDATE proveedor SET ruc=?, razon_social=?, busqueda=?, direccion=?, telefono=? WHERE id=?",
@@ -115,23 +115,23 @@ public class Compras {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el proveedor: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el proveedor: " + e.getMessage());
         }
-        return InventoryService.Resultado.ok("Guardé los datos de " + razon + ".");
+        return DYSAInventoryService.Resultado.ok("Guardé los datos de " + razon + ".");
     }
 
-    public synchronized InventoryService.Resultado eliminarProveedor(String ruc) {
+    public synchronized DYSAInventoryService.Resultado eliminarProveedor(String ruc) {
         Optional<Proveedor> p = proveedor(ruc);
-        if (p.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un proveedor con el RUC " + ruc + ".");
+        if (p.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No encontré un proveedor con el RUC " + ruc + ".");
         try {
             return db.transaccion(cx -> {
                 if (contar(cx, "SELECT COUNT(*) FROM compra WHERE proveedor_id = ?", p.get().id()) > 0)
-                    return InventoryService.Resultado.error("No se puede eliminar a " + p.get().razonSocial() + ": tiene compras registradas.");
+                    return DYSAInventoryService.Resultado.error("No se puede eliminar a " + p.get().razonSocial() + ": tiene compras registradas.");
                 ejecutar(cx, "DELETE FROM proveedor WHERE id = ?", p.get().id());
-                return InventoryService.Resultado.ok("Eliminé al proveedor " + p.get().razonSocial() + ".");
+                return DYSAInventoryService.Resultado.ok("Eliminé al proveedor " + p.get().razonSocial() + ".");
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude eliminar el proveedor: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude eliminar el proveedor: " + e.getMessage());
         }
     }
 

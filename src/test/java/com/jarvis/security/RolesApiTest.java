@@ -32,7 +32,7 @@ class RolesApiTest {
 
     private MockHttpServletRequestBuilder desde(MockHttpServletRequestBuilder b, String ip, String usuario) {
         b.header("X-Jarvis-Token", "clave-de-prueba-123").with(r -> { r.setRemoteAddr(ip); return r; });
-        if (usuario != null) b.header(ApiAuthFilter.CABECERA_USUARIO, usuario);
+        if (usuario != null) b.header(ApazaApiAuthFilter.CABECERA_USUARIO, usuario);
         return b.contentType(MediaType.APPLICATION_JSON);
     }
 
@@ -129,17 +129,17 @@ class RolesApiTest {
     }
 
     @Test void mapaDePermisos() {
-        assertEquals(Rol.Permiso.VENDER, ApiAuthFilter.permisoPara("POST", "/api/inventory/ventas"));
-        assertEquals(Rol.Permiso.VENDER, ApiAuthFilter.permisoPara("PUT", "/api/inventory/venta/opciones"));
-        assertNull(ApiAuthFilter.permisoPara("GET", "/api/inventory/venta"), "ver el carrito propio no pide permiso");
-        assertEquals(Rol.Permiso.ANULAR_VENTAS, ApiAuthFilter.permisoPara("PUT", "/api/inventory/ventas/ultima"));
-        assertEquals(Rol.Permiso.INVENTARIO, ApiAuthFilter.permisoPara("DELETE", "/api/inventory/productos"));
-        assertEquals(Rol.Permiso.VER_COSTOS, ApiAuthFilter.permisoPara("GET", "/api/reportes/kardex.xlsx"));
-        assertEquals(Rol.Permiso.COMPRAS, ApiAuthFilter.permisoPara("GET", "/api/reportes/compras.xlsx"));
-        assertEquals(Rol.Permiso.REPORTES, ApiAuthFilter.permisoPara("GET", "/api/reportes/ventas.xlsx"));
-        assertNull(ApiAuthFilter.permisoPara("POST", "/api/command"));
-        assertNull(ApiAuthFilter.permisoPara("GET", "/api/inventory"));
-        assertNull(ApiAuthFilter.permisoPara("GET", "/api/negocio"));
-        assertEquals(Rol.Permiso.ADMINISTRAR, ApiAuthFilter.permisoPara("PUT", "/api/negocio"));
+        assertEquals(Rol.Permiso.VENDER, ApazaApiAuthFilter.permisoPara("POST", "/api/inventory/ventas"));
+        assertEquals(Rol.Permiso.VENDER, ApazaApiAuthFilter.permisoPara("PUT", "/api/inventory/venta/opciones"));
+        assertNull(ApazaApiAuthFilter.permisoPara("GET", "/api/inventory/venta"), "ver el carrito propio no pide permiso");
+        assertEquals(Rol.Permiso.ANULAR_VENTAS, ApazaApiAuthFilter.permisoPara("PUT", "/api/inventory/ventas/ultima"));
+        assertEquals(Rol.Permiso.INVENTARIO, ApazaApiAuthFilter.permisoPara("DELETE", "/api/inventory/productos"));
+        assertEquals(Rol.Permiso.VER_COSTOS, ApazaApiAuthFilter.permisoPara("GET", "/api/reportes/kardex.xlsx"));
+        assertEquals(Rol.Permiso.COMPRAS, ApazaApiAuthFilter.permisoPara("GET", "/api/reportes/compras.xlsx"));
+        assertEquals(Rol.Permiso.REPORTES, ApazaApiAuthFilter.permisoPara("GET", "/api/reportes/ventas.xlsx"));
+        assertNull(ApazaApiAuthFilter.permisoPara("POST", "/api/command"));
+        assertNull(ApazaApiAuthFilter.permisoPara("GET", "/api/inventory"));
+        assertNull(ApazaApiAuthFilter.permisoPara("GET", "/api/negocio"));
+        assertEquals(Rol.Permiso.ADMINISTRAR, ApazaApiAuthFilter.permisoPara("PUT", "/api/negocio"));
     }
 }

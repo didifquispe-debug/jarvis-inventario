@@ -4,8 +4,8 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.core.DYSAJarvisService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-nuevo-${random.uuid}.json"})
 class NuevoInventarioTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
 
     @Test void preguntaYSoloVaciaConElSi() {
         assertTrue(inv.crearProducto("Polo nuevo inv", BigDecimal.TEN, BigDecimal.ONE, "unidades", null, null).ok());

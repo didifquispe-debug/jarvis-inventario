@@ -22,13 +22,13 @@ import java.util.*;
 import java.util.function.Function;
 
 @Component
-public class EscuchaLocal {
+public class SumiEscuchaLocal {
 
-    private static final Logger log = LoggerFactory.getLogger(EscuchaLocal.class);
+    private static final Logger log = LoggerFactory.getLogger(SumiEscuchaLocal.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    static final AudioFormat FORMATO = new AudioFormat(VozLocal.HZ, 16, 1, true, false);
-    private static final int BLOQUE = VozLocal.HZ * 2 / 10;
+    static final AudioFormat FORMATO = new AudioFormat(SumiVozLocal.HZ, 16, 1, true, false);
+    private static final int BLOQUE = SumiVozLocal.HZ * 2 / 10;
     static final long ESPERA_ORDEN_MS = 8_000;
     private static final long UNA_VEZ_MS = 10_000;
     private static final long PAUSA_MAX_MS = 30_000;
@@ -36,7 +36,7 @@ public class EscuchaLocal {
 
     public record Evento(long id, String tipo, String texto) {}
 
-    private final VozLocal voz;
+    private final SumiVozLocal voz;
     private final boolean habilitado;
     private final Function<byte[], String> preciso;
     private final Deque<Evento> eventos = new ArrayDeque<>();
@@ -53,11 +53,11 @@ public class EscuchaLocal {
     private volatile TargetDataLine linea;
 
     @Autowired
-    public EscuchaLocal(VozLocal voz, VocabularioVoz vocabulario, @Value("${jarvis.voz.escuchar:true}") boolean habilitado) {
+    public SumiEscuchaLocal(SumiVozLocal voz, VocabularioVoz vocabulario, @Value("${jarvis.voz.escuchar:true}") boolean habilitado) {
         this(voz, habilitado, pcm -> voz.reconocer(pcm, vocabulario.palabras()));
     }
 
-    EscuchaLocal(VozLocal voz, boolean habilitado, Function<byte[], String> preciso) {
+    SumiEscuchaLocal(SumiVozLocal voz, boolean habilitado, Function<byte[], String> preciso) {
         this.voz = voz;
         this.habilitado = habilitado;
         this.preciso = preciso;
@@ -150,7 +150,7 @@ public class EscuchaLocal {
         if (libre == null || libre.isBlank() || ruido(libre)) return;
         if (esperandoOrden()) {
             String t = preciso(pcm, libre);
-            t = VozLocal.trasJarvis(t).orElse(t);
+            t = SumiVozLocal.trasJarvis(t).orElse(t);
             unaVezHasta = 0;
             ordenHasta = 0;
             if (t.isBlank()) { escucharDeNuevoTrasJarvis(); return; }
@@ -158,10 +158,10 @@ public class EscuchaLocal {
             return;
         }
         if (!manosLibres) return;
-        Optional<String> tras = VozLocal.trasJarvis(libre);
+        Optional<String> tras = SumiVozLocal.trasJarvis(libre);
         if (tras.isEmpty()) return;
         String p = preciso(pcm, libre);
-        String orden = VozLocal.trasJarvis(p).orElse(tras.get());
+        String orden = SumiVozLocal.trasJarvis(p).orElse(tras.get());
         if (orden.length() <= 1) escucharDeNuevoTrasJarvis();
         else ordenLista(orden);
     }
@@ -235,7 +235,7 @@ public class EscuchaLocal {
                     frase.reset();
                 }
                 frase.write(buf, 0, n);
-                if (frase.size() > VozLocal.MAX_BYTES) {
+                if (frase.size() > SumiVozLocal.MAX_BYTES) {
                     r.reset();
                     frase.reset();
                     continue;
@@ -249,7 +249,7 @@ public class EscuchaLocal {
                     String parcial = JSON.readTree(r.getPartialResult()).path("partial").asText("").trim();
                     if (!parcial.equals(ultimoParcial)) {
                         ultimoParcial = parcial;
-                        if (!parcial.isEmpty() && (esperandoOrden() || VozLocal.trasJarvis(parcial).isPresent()))
+                        if (!parcial.isEmpty() && (esperandoOrden() || SumiVozLocal.trasJarvis(parcial).isPresent()))
                             emitir("parcial", parcial);
                     }
                 }

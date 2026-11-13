@@ -5,7 +5,7 @@
 package com.jarvis.voz;
 
 import com.jarvis.core.Diccionario;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -27,13 +27,13 @@ public class VocabularioVoz {
     private static final Pattern PALABRA = Pattern.compile("[a-záéíóúüñ]+");
     private static final long VIGENCIA_MS = 30_000;
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final Diccionario diccionario;
     private final Set<String> base;
     private volatile Set<String> cache = Set.of();
     private volatile long calculado;
 
-    public VocabularioVoz(InventoryService inv, Diccionario diccionario) {
+    public VocabularioVoz(DYSAInventoryService inv, Diccionario diccionario) {
         this.inv = inv;
         this.diccionario = diccionario;
         this.base = leerBase();

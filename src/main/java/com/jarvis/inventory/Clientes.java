@@ -22,9 +22,9 @@ public class Clientes {
 
     private static final int MAX_NOMBRE = 120, MAX_EMAIL = 120, MAX_DIRECCION = 200;
 
-    private final BaseDatos db;
+    private final DidierBaseDatos db;
 
-    Clientes(BaseDatos db) { this.db = db; }
+    Clientes(DidierBaseDatos db) { this.db = db; }
 
     public synchronized Optional<Cliente> porDocumento(String documento) {
         String d = documento == null ? "" : documento.trim();
@@ -63,15 +63,15 @@ public class Clientes {
         });
     }
 
-    public synchronized InventoryService.Resultado crear(Datos d) {
-        if (d == null) return InventoryService.Resultado.error("Faltan los datos del cliente.");
+    public synchronized DYSAInventoryService.Resultado crear(Datos d) {
+        if (d == null) return DYSAInventoryService.Resultado.error("Faltan los datos del cliente.");
         String doc = limpio(d.documento()), nombre = limpio(d.nombre());
         String error = errorDocumento(doc);
         if (error == null) error = errorNombre(nombre);
         if (error == null) error = errorContacto(limpio(d.email()), limpio(d.telefono()), limpio(d.direccion()));
-        if (error != null) return InventoryService.Resultado.error(error);
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
         if (porDocumento(doc).isPresent())
-            return InventoryService.Resultado.error("Ya hay un cliente registrado con el " + tipo(doc) + " " + doc + ".");
+            return DYSAInventoryService.Resultado.error("Ya hay un cliente registrado con el " + tipo(doc) + " " + doc + ".");
         try {
             db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("""
@@ -87,14 +87,14 @@ public class Clientes {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el cliente: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el cliente: " + e.getMessage());
         }
-        return InventoryService.Resultado.ok("Cliente registrado: " + nombre + ", " + tipo(doc) + " " + doc + ".");
+        return DYSAInventoryService.Resultado.ok("Cliente registrado: " + nombre + ", " + tipo(doc) + " " + doc + ".");
     }
 
-    public synchronized InventoryService.Resultado editar(String documento, Datos d) {
+    public synchronized DYSAInventoryService.Resultado editar(String documento, Datos d) {
         Optional<Cliente> actual = porDocumento(documento);
-        if (actual.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
+        if (actual.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
         Cliente c = actual.get();
         String doc = d.documento() == null || d.documento().isBlank() ? c.documento() : limpio(d.documento());
         String nombre = d.nombre() == null || d.nombre().isBlank() ? c.nombre() : limpio(d.nombre());
@@ -104,9 +104,9 @@ public class Clientes {
         String error = errorDocumento(doc);
         if (error == null) error = errorNombre(nombre);
         if (error == null) error = errorContacto(email, telefono, direccion);
-        if (error != null) return InventoryService.Resultado.error(error);
+        if (error != null) return DYSAInventoryService.Resultado.error(error);
         if (!doc.equals(c.documento()) && porDocumento(doc).isPresent())
-            return InventoryService.Resultado.error("Ya hay otro cliente con el " + tipo(doc) + " " + doc + ".");
+            return DYSAInventoryService.Resultado.error("Ya hay otro cliente con el " + tipo(doc) + " " + doc + ".");
         try {
             db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("""
@@ -123,21 +123,21 @@ public class Clientes {
                 return null;
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude guardar el cliente: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude guardar el cliente: " + e.getMessage());
         }
-        return InventoryService.Resultado.ok("Guardé los datos de " + nombre + ".");
+        return DYSAInventoryService.Resultado.ok("Guardé los datos de " + nombre + ".");
     }
 
-    public synchronized InventoryService.Resultado eliminar(String documento) {
+    public synchronized DYSAInventoryService.Resultado eliminar(String documento) {
         Optional<Cliente> c = porDocumento(documento);
-        if (c.isEmpty()) return InventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
+        if (c.isEmpty()) return DYSAInventoryService.Resultado.noEncontrado("No encontré un cliente con el documento " + documento + ".");
         try {
             return db.transaccion(cx -> {
                 try (PreparedStatement ps = cx.prepareStatement("SELECT COUNT(*) FROM comprobante WHERE cliente_id = ?")) {
                     ps.setLong(1, c.get().id());
                     try (ResultSet rs = ps.executeQuery()) {
                         if (rs.next() && rs.getInt(1) > 0)
-                            return InventoryService.Resultado.error("No se puede eliminar a " + c.get().nombre()
+                            return DYSAInventoryService.Resultado.error("No se puede eliminar a " + c.get().nombre()
                                     + ": tiene comprobantes registrados.");
                     }
                 }
@@ -145,10 +145,10 @@ public class Clientes {
                     ps.setLong(1, c.get().id());
                     ps.executeUpdate();
                 }
-                return InventoryService.Resultado.ok("Eliminé al cliente " + c.get().nombre() + ".");
+                return DYSAInventoryService.Resultado.ok("Eliminé al cliente " + c.get().nombre() + ".");
             });
         } catch (SQLException e) {
-            return InventoryService.Resultado.error("No pude eliminar el cliente: " + e.getMessage());
+            return DYSAInventoryService.Resultado.error("No pude eliminar el cliente: " + e.getMessage());
         }
     }
 

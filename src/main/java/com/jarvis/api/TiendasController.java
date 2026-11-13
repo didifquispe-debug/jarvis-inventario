@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Lista, crea y renombra tiendas. Crear y renombrar es solo del administrador (ver ApiAuthFilter). */
+/** Lista, crea y renombra tiendas. Crear y renombrar es solo del administrador (ver ApazaApiAuthFilter). */
 @RestController
 @RequestMapping("/api/tiendas")
 public class TiendasController {

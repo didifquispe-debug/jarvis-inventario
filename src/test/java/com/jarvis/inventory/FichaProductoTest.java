@@ -17,9 +17,9 @@ class FichaProductoTest {
 
     @TempDir Path dir;
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
-    private static Producto producto(InventoryService inv, String nombre) {
+    private static Producto producto(DYSAInventoryService inv, String nombre) {
         return inv.productos().stream().filter(p -> p.nombre.equals(nombre)).findFirst().orElse(null);
     }
 
@@ -27,12 +27,12 @@ class FichaProductoTest {
         return new Producto.Ficha(categoria, codigo, barras, costo == null ? null : new BigDecimal(costo));
     }
 
-    private static InventoryService.Cambios cambios(Producto.Ficha f, boolean quitarCosto) {
-        return new InventoryService.Cambios(null, null, null, null, null, null, f, quitarCosto);
+    private static DYSAInventoryService.Cambios cambios(Producto.Ficha f, boolean quitarCosto) {
+        return new DYSAInventoryService.Cambios(null, null, null, null, null, null, f, quitarCosto);
     }
 
-    private InventoryService conProductos() {
-        InventoryService inv = nuevo();
+    private DYSAInventoryService conProductos() {
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Zapatilla Nike 40", new BigDecimal("180"), new BigDecimal("5"), "pares", null, null,
                 ficha("  Calzado ", "ZAP-NK-40", "7750182000123", "110")).ok());
         assertTrue(inv.crearProducto("Polo blanco M", new BigDecimal("25"), new BigDecimal("10"), "unidades", null, null).ok());
@@ -65,8 +65,8 @@ class FichaProductoTest {
     }
 
     @Test void noDejaRepetirCodigos() {
-        InventoryService inv = conProductos();
-        InventoryService.Resultado r = inv.crearProducto("Zapatilla Nike 41", new BigDecimal("180"), null, "pares", null, null,
+        DYSAInventoryService inv = conProductos();
+        DYSAInventoryService.Resultado r = inv.crearProducto("Zapatilla Nike 41", new BigDecimal("180"), null, "pares", null, null,
                 ficha(null, "zap-nk-40", null, null));
         assertFalse(r.ok(), "sin importar mayúsculas");
         assertTrue(r.mensaje().contains("Zapatilla Nike 40"), r.mensaje());
@@ -76,7 +76,7 @@ class FichaProductoTest {
     }
 
     @Test void rechazaCostoNegativoYTextosLargos() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertFalse(inv.crearProducto("Gorra", BigDecimal.TEN, null, "unidades", null, null, ficha(null, null, null, "-1")).ok());
         assertFalse(inv.crearProducto("Gorra", BigDecimal.TEN, null, "unidades", null, null, ficha("x".repeat(41), null, null, null)).ok());
         assertFalse(inv.crearProducto("Gorra", BigDecimal.TEN, null, "unidades", null, null, ficha(null, "x".repeat(41), null, null)).ok());
@@ -84,16 +84,16 @@ class FichaProductoTest {
     }
 
     @Test void avisaCuandoElCostoSuperaAlPrecio() {
-        InventoryService inv = nuevo();
-        InventoryService.Resultado r = inv.crearProducto("Gorra", new BigDecimal("10"), null, "unidades", null, null,
+        DYSAInventoryService inv = nuevo();
+        DYSAInventoryService.Resultado r = inv.crearProducto("Gorra", new BigDecimal("10"), null, "unidades", null, null,
                 ficha(null, null, null, "12"));
         assertTrue(r.ok(), "se permite (liquidaciones), pero se avisa");
         assertTrue(r.mensaje().contains("Atención: el costo"), r.mensaje());
     }
 
     @Test void editaYBorraLaFicha() {
-        InventoryService inv = conProductos();
-        InventoryService.Resultado r = inv.editarProducto("Polo blanco M", true, cambios(ficha("Polos", "POL-B-M", "123", "14.5"), false));
+        DYSAInventoryService inv = conProductos();
+        DYSAInventoryService.Resultado r = inv.editarProducto("Polo blanco M", true, cambios(ficha("Polos", "POL-B-M", "123", "14.5"), false));
         assertTrue(r.ok(), r.mensaje());
         assertTrue(r.mensaje().contains("margen de 10.50 soles"), r.mensaje());
         Producto polo = producto(nuevo(), "Polo blanco M");
@@ -111,22 +111,22 @@ class FichaProductoTest {
     }
 
     @Test void alEditarNoPuedeTomarElCodigoDeOtroPeroSiConservarElSuyo() {
-        InventoryService inv = conProductos();
+        DYSAInventoryService inv = conProductos();
         assertFalse(inv.editarProducto("Polo blanco M", true, cambios(ficha(null, "ZAP-NK-40", null, null), false)).ok());
         assertTrue(inv.editarProducto("Zapatilla Nike 40", true, cambios(ficha(null, "ZAP-NK-40", null, null), false)).ok(),
                 "volver a guardar su propio código no es un duplicado");
     }
 
     @Test void encuentraElProductoPorSuCodigo() {
-        InventoryService inv = conProductos();
+        DYSAInventoryService inv = conProductos();
         assertTrue(inv.consulta("7750182000123").contains("Zapatilla Nike 40"), "código de barras (escáner)");
         assertTrue(inv.consulta("zap-nk-40").contains("Zapatilla Nike 40"), "código interno, sin importar mayúsculas");
     }
 
     @Test void laVentaGuardaElCostoDelMomento() {
-        InventoryService inv = conProductos();
+        DYSAInventoryService inv = conProductos();
         inv.salida(new BigDecimal("2"), "7750182000123", false);
-        InventoryService.Venta v = inv.tomarComprobanteNuevo().items.get(0);
+        DYSAInventoryService.Venta v = inv.tomarComprobanteNuevo().items.get(0);
         assertEquals("Zapatilla Nike 40", v.producto);
         assertEquals(new BigDecimal("110.00"), v.costoUnitario);
 

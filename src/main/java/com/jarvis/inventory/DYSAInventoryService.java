@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jarvis.inventory.BuscadorProductos.Match;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol.Permiso;
 import org.slf4j.Logger;
@@ -30,12 +31,15 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.jarvis.inventory.BuscadorProductos.cualDe;
+import static com.jarvis.inventory.Estadisticas.enPeriodo;
+
 /** El inventario de una tienda. En la aplicación se usa el de la tienda del pedido en curso (ver TiendaScope y Tiendas). */
 @Service
 @Scope(value = TiendaScope.NOMBRE, proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class InventoryService {
+public class DYSAInventoryService {
 
-    private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
+    private static final Logger log = LoggerFactory.getLogger(DYSAInventoryService.class);
 
     public enum Tipo { ENTRADA, SALIDA, ANULAR, ELIMINAR, NUEVO_INVENTARIO }
 
@@ -84,9 +88,9 @@ public class InventoryService {
         Comprobante(int numero, String fecha, String hora, List<Venta> items, Cabecera cab) {
             this.numero = numero; this.fecha = fecha; this.hora = hora; this.items = items;
             TipoComprobante t = cab.tipo();
-            this.tipo = t.name(); this.tipoDescripcion = t.descripcion; this.serie = t.serie;
+            this.tipo = t.name(); this.tipoDescripcion = t.descripcion; this.serie = cab.serie();
             this.correlativo = cab.correlativo();
-            this.codigo = cab.correlativo() > 0 ? t.codigo(cab.correlativo()) : "";
+            this.codigo = cab.correlativo() > 0 ? TipoComprobante.codigo(cab.serie(), cab.correlativo()) : "";
             this.cliente = cab.clienteDoc() == null || cab.clienteDoc().isBlank() ? null
                     : new ClienteResumen(cab.clienteDoc(), Clientes.tipo(cab.clienteDoc()), cab.clienteNombre());
             this.modoIgv = cab.modo().name(); this.leyendaIgv = cab.modo().leyenda;
@@ -101,7 +105,9 @@ public class InventoryService {
 
     public record ClienteResumen(String documento, String tipoDocumento, String nombre) {}
 
-    record Cabecera(TipoComprobante tipo, int correlativo, Long clienteId, String clienteDoc, String clienteNombre, Igv.Modo modo) {}
+    /** {@code serie} es la que se usó al emitir (la de la tienda en ese momento); no se recalcula. */
+    record Cabecera(TipoComprobante tipo, String serie, int correlativo, Long clienteId, String clienteDoc, String clienteNombre,
+                    Igv.Modo modo) {}
 
     public record Opciones(TipoComprobante tipo, String clienteDoc, Igv.Modo modo) {
         public static final Opciones POR_DEFECTO = new Opciones(null, null, null);
@@ -151,6 +157,7 @@ public class InventoryService {
     private int ultimoNumero;
     private Map<Integer, Cabecera> cabeceras = new HashMap<>();
     private final Map<TipoComprobante, Integer> correlativos = new EnumMap<>(TipoComprobante.class);
+    private final int tienda;
     private final TipoComprobante tipoPorDefecto;
     private final Igv.Modo igvPorDefecto;
     private final Clientes clientes;
@@ -160,14 +167,20 @@ public class InventoryService {
     private final Map<String, Sesion> sesiones = new HashMap<>();
     private final List<Almacen.Pendiente> porRegistrar = new ArrayList<>();
 
-    public InventoryService(String archivo) {
+    public DYSAInventoryService(String archivo) {
         this(archivo, TipoComprobante.BOLETA.name(), Igv.Modo.INCLUIDO.name());
     }
 
     @Autowired
-    public InventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
+    public DYSAInventoryService(@Value("${jarvis.inventory.file:${user.home}/jarvis-inventario.json}") String archivo,
                             @Value("${jarvis.comprobante.tipo:boleta}") String tipo,
                             @Value("${jarvis.igv:incluido}") String igv) {
+        this(archivo, tipo, igv, ClientSession.TIENDA_PRINCIPAL);
+    }
+
+    /** {@code tienda} decide la serie de sus comprobantes (ver TipoComprobante.serie). */
+    public DYSAInventoryService(String archivo, String tipo, String igv, int tienda) {
+        this.tienda = tienda;
         this.tipoPorDefecto = Objects.requireNonNullElse(TipoComprobante.de(tipo), TipoComprobante.BOLETA);
         this.igvPorDefecto = Igv.Modo.de(igv);
         Path ruta = Paths.get(archivo);
@@ -310,7 +323,7 @@ public class InventoryService {
 
     public Ajustes ajustes() { return ajustes; }
 
-    BaseDatos baseDatos() { return almacen.baseDatos(); }
+    DidierBaseDatos baseDatos() { return almacen.baseDatos(); }
 
     public TipoComprobante tipoPorDefecto() { return tipoPorDefecto; }
 
@@ -347,18 +360,19 @@ public class InventoryService {
         ultimoNumero = Math.max(guardados.getOrDefault(Almacen.ULTIMO_COMPROBANTE, 0),
                 ventas.stream().mapToInt(v -> v.numero).max().orElse(0));
         correlativos.clear();
-        for (TipoComprobante t : TipoComprobante.values()) correlativos.put(t, guardados.getOrDefault("serie:" + t.serie, 0));
+        for (TipoComprobante t : TipoComprobante.values()) correlativos.put(t, guardados.getOrDefault("serie:" + t.serie(tienda), 0));
         for (Venta v : ventas) {
             if (v.numero <= 0) continue;
             Cabecera c = Almacen.cabecera(cabeceras, v.numero);
-            correlativos.merge(c.tipo(), c.correlativo(), Math::max);
+            // Los emitidos con otra serie (antes de que cada tienda tuviera la suya) no cuentan para la serie actual.
+            if (c.serie().equals(c.tipo().serie(tienda))) correlativos.merge(c.tipo(), c.correlativo(), Math::max);
         }
     }
 
     private Map<String, Integer> contadores() {
         Map<String, Integer> m = new HashMap<>();
         m.put(Almacen.ULTIMO_COMPROBANTE, ultimoNumero);
-        correlativos.forEach((t, n) -> m.put("serie:" + t.serie, n));
+        correlativos.forEach((t, n) -> m.put("serie:" + t.serie(tienda), n));
         return m;
     }
 
@@ -430,7 +444,7 @@ public class InventoryService {
     private static final String NO_GUARDADO =
             "Atención: no pude guardar en la base de datos, así que no se registró nada, señor. Revise jarvis.log.";
 
-    private boolean guardarTodo(BaseDatos.Trabajo<?> extra) {
+    private boolean guardarTodo(DidierBaseDatos.Trabajo<?> extra) {
         almacen.respaldoDiario();
         try {
             almacen.guardar(productos, ventas, cabeceras, contadores(), porRegistrar, extra);
@@ -731,26 +745,7 @@ public class InventoryService {
                              BigDecimal valorCosto, BigDecimal valorVenta, BigDecimal margen) {}
 
     public synchronized Valorizado valorizado() {
-        List<FilaValorizada> filas = new ArrayList<>();
-        int sinCosto = 0, bajo = 0, sin = 0;
-        BigDecimal costoTotal = BigDecimal.ZERO, ventaTotal = BigDecimal.ZERO, ventaConCosto = BigDecimal.ZERO;
-        List<Producto> orden = new ArrayList<>(productos);
-        orden.sort(Comparator.comparing((Producto p) -> p.categoria.isEmpty() ? "\uffff" : Palabras.norm(p.categoria))
-                .thenComparing(p -> Palabras.norm(p.nombre)));
-        for (Producto p : orden) {
-            BigDecimal stock = p.stock.max(BigDecimal.ZERO);
-            String estado = p.stock.signum() <= 0 ? "SIN_STOCK" : p.stockBajo() ? "BAJO" : "OK";
-            if (estado.equals("SIN_STOCK")) sin++; else if (estado.equals("BAJO")) bajo++;
-            BigDecimal valorVenta = Num.dinero(p.precio.multiply(stock));
-            BigDecimal valorCosto = p.costo == null ? null : Num.dinero(p.costo.multiply(stock));
-            if (valorCosto == null) sinCosto++;
-            else { costoTotal = costoTotal.add(valorCosto); ventaConCosto = ventaConCosto.add(valorVenta); }
-            ventaTotal = ventaTotal.add(valorVenta);
-            filas.add(new FilaValorizada(p.nombre, p.categoria, p.codigo, p.unidad, p.stock, p.stockMin, estado, p.costo,
-                    valorCosto, p.precio, valorVenta));
-        }
-        return new Valorizado(filas, filas.size(), sinCosto, bajo, sin, Num.dinero(costoTotal), Num.dinero(ventaTotal),
-                Num.dinero(ventaConCosto.subtract(costoTotal)));
+        return Estadisticas.valorizado(productos);
     }
 
     public record Periodo(String desde, String hasta, int ventas, int anuladas, BigDecimal total, BigDecimal base, BigDecimal costo,
@@ -776,124 +771,23 @@ public class InventoryService {
     }
 
     synchronized Panel panel(LocalDate hoy, int dias) {
-        dias = Math.min(Math.max(dias, 7), 366);
-        LocalDate inicioRango = hoy.minusDays(dias - 1L);
-        List<Comprobante> todos = ventasPeriodo(null, null);
-        Map<String, String> ultimaVenta = new HashMap<>();
-        for (Comprobante c : todos) {
-            if (c.anulado) continue;
-            for (Venta v : c.items) ultimaVenta.merge(Palabras.norm(v.producto), c.fecha, (a, b) -> a.compareTo(b) >= 0 ? a : b);
-        }
-
-        Map<String, DiaPanel> porDia = new LinkedHashMap<>();
-        for (LocalDate d = inicioRango; !d.isAfter(hoy); d = d.plusDays(1))
-            porDia.put(d.toString(), new DiaPanel(d.toString(), 0, Num.dinero(BigDecimal.ZERO), Num.dinero(BigDecimal.ZERO)));
-        List<Comprobante> delRango = new ArrayList<>();
-        for (Comprobante c : todos) {
-            if (c.anulado || !enPeriodo(c.fecha, inicioRango.toString(), hoy.toString())) continue;
-            delRango.add(c);
-            BigDecimal[] g = ganancia(c);
-            porDia.computeIfPresent(c.fecha, (k, d) -> new DiaPanel(k, d.ventas() + 1, d.total().add(c.total), d.ganancia().add(g[1])));
-        }
-        List<MasVendido> top = masVendidos(delRango, 10);
-
-        List<Alerta> alertas = new ArrayList<>();
-        List<SinMovimiento> quietos = new ArrayList<>();
-        String limiteQuieto = hoy.minusDays(DIAS_SIN_MOVIMIENTO).toString();
-        for (Producto p : productos) {
-            if (p.stock.signum() <= 0) alertas.add(new Alerta(p.nombre, p.unidad, p.stock, p.stockMin, "SIN_STOCK"));
-            else if (p.stockBajo()) alertas.add(new Alerta(p.nombre, p.unidad, p.stock, p.stockMin, "BAJO"));
-            if (p.stock.signum() > 0) {
-                String ultima = ultimaVenta.get(Palabras.norm(p.nombre));
-                if (ultima == null || ultima.compareTo(limiteQuieto) < 0)
-                    quietos.add(new SinMovimiento(p.nombre, p.unidad, p.stock, Num.dinero(p.precio.multiply(p.stock)), ultima));
-            }
-        }
-        alertas.sort(Comparator.comparing((Alerta a) -> a.estado().equals("SIN_STOCK") ? 0 : 1)
-                .thenComparing(a -> a.stock().subtract(a.stockMin()))
-                .thenComparing(a -> Palabras.norm(a.producto())));
-        quietos.sort(Comparator.comparing(SinMovimiento::valorVenta).reversed().thenComparing(s -> Palabras.norm(s.producto())));
-
-        LocalDate lunes = hoy.minusDays(hoy.getDayOfWeek().getValue() - 1L);
-        return new Panel(hoy.toString(), periodo(todos, hoy, hoy), periodo(todos, lunes, hoy),
-                periodo(todos, hoy.withDayOfMonth(1), hoy), periodo(todos, inicioRango, hoy), new ArrayList<>(porDia.values()),
-                top, alertas, quietos.size() > 20 ? quietos.subList(0, 20) : quietos, DIAS_SIN_MOVIMIENTO);
+        return Estadisticas.panel(ventasPeriodo(null, null), productos, hoy, dias);
     }
 
     /** Ventas y ganancia entre dos fechas (inclusive). */
     public synchronized Periodo ventasDe(LocalDate desde, LocalDate hasta) {
-        return periodo(ventasPeriodo(desde.toString(), hasta.toString()), desde, hasta);
+        return Estadisticas.periodo(ventasPeriodo(desde.toString(), hasta.toString()), desde, hasta);
     }
 
     /** Lo más vendido entre dos fechas, de mayor a menor importe. */
     public synchronized List<MasVendido> masVendidos(LocalDate desde, LocalDate hasta, int limite) {
-        return masVendidos(ventasPeriodo(desde.toString(), hasta.toString()).stream().filter(c -> !c.anulado).toList(), limite);
-    }
-
-    private static List<MasVendido> masVendidos(List<Comprobante> validos, int limite) {
-        Map<String, BigDecimal[]> vendidos = new HashMap<>();
-        Map<String, String[]> nombres = new HashMap<>();
-        for (Comprobante c : validos) {
-            BigDecimal factor = factorBase(c);
-            for (Venta v : c.items) {
-                String clave = Palabras.norm(v.producto);
-                nombres.putIfAbsent(clave, new String[]{v.producto, v.unidad});
-                BigDecimal[] acc = vendidos.computeIfAbsent(clave, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, null});
-                acc[0] = acc[0].add(v.cantidad);
-                acc[1] = acc[1].add(v.monto);
-                if (v.costoUnitario != null)
-                    acc[2] = (acc[2] == null ? BigDecimal.ZERO : acc[2]).add(v.monto.multiply(factor).subtract(v.costoUnitario.multiply(v.cantidad)));
-            }
-        }
-        return vendidos.entrySet().stream()
-                .sorted(Comparator.comparing((Map.Entry<String, BigDecimal[]> e) -> e.getValue()[1]).reversed()
-                        .thenComparing(Map.Entry::getKey))
-                .limit(Math.max(limite, 1))
-                .map(e -> new MasVendido(nombres.get(e.getKey())[0], nombres.get(e.getKey())[1], Num.cantidad(e.getValue()[0]),
-                        Num.dinero(e.getValue()[1]), Num.dinero(e.getValue()[2])))
-                .toList();
+        return Estadisticas.masVendidos(ventasPeriodo(desde.toString(), hasta.toString()).stream().filter(c -> !c.anulado).toList(), limite);
     }
 
     /** Nombre exacto del producto que se entiende por {@code texto}, o null si no se reconoce. */
     public synchronized String nombreDe(String texto) {
         Match m = buscar(texto);
         return m == null || m.empate() ? null : m.producto.nombre;
-    }
-
-    private static Periodo periodo(List<Comprobante> todos, LocalDate desde, LocalDate hasta) {
-        String d = desde.toString(), h = hasta.toString();
-        int n = 0, anuladas = 0, sinCosto = 0;
-        BigDecimal total = BigDecimal.ZERO, base = BigDecimal.ZERO, costo = BigDecimal.ZERO, ganancia = BigDecimal.ZERO;
-        for (Comprobante c : todos) {
-            if (!enPeriodo(c.fecha, d, h)) continue;
-            if (c.anulado) { anuladas++; continue; }
-            n++;
-            total = total.add(c.total);
-            base = base.add(c.base);
-            BigDecimal[] g = ganancia(c);
-            costo = costo.add(g[0]);
-            ganancia = ganancia.add(g[1]);
-            sinCosto += c.items.stream().filter(v -> v.costoUnitario == null).count();
-        }
-        return new Periodo(d, h, n, anuladas, Num.dinero(total), Num.dinero(base), Num.dinero(costo), Num.dinero(ganancia), sinCosto);
-    }
-
-    /** Parte de cada importe que es venta sin IGV (el costo de compra también se guarda sin IGV). */
-    private static BigDecimal factorBase(Comprobante c) {
-        BigDecimal suma = c.items.stream().map(v -> v.monto).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return suma.signum() == 0 ? BigDecimal.ONE : c.base.divide(suma, 10, RoundingMode.HALF_UP);
-    }
-
-    /** [costo, ganancia] del comprobante, solo con las líneas que tienen costo registrado. */
-    private static BigDecimal[] ganancia(Comprobante c) {
-        BigDecimal factor = factorBase(c), costo = BigDecimal.ZERO, ganancia = BigDecimal.ZERO;
-        for (Venta v : c.items) {
-            if (v.costoUnitario == null) continue;
-            BigDecimal cl = v.costoUnitario.multiply(v.cantidad);
-            costo = costo.add(cl);
-            ganancia = ganancia.add(v.monto.multiply(factor).subtract(cl));
-        }
-        return new BigDecimal[]{Num.dinero(costo), Num.dinero(ganancia)};
     }
 
     public synchronized List<Comprobante> ventasPeriodo(String desde, String hasta) {
@@ -903,12 +797,6 @@ public class InventoryService {
         List<Comprobante> out = new ArrayList<>();
         porNumero.forEach((n, items) -> out.add(new Comprobante(n, items.get(0).fecha, items.get(0).hora, items, Almacen.cabecera(cabeceras, n))));
         return out;
-    }
-
-    private static boolean enPeriodo(String fecha, String desde, String hasta) {
-        String f = fecha == null ? "" : fecha;
-        return (desde == null || desde.isBlank() || f.compareTo(desde.trim()) >= 0)
-                && (hasta == null || hasta.isBlank() || f.compareTo(hasta.trim()) <= 0);
     }
 
     public synchronized Comprobante comprobantePorNumero(int numero) {
@@ -958,7 +846,7 @@ public class InventoryService {
         }
 
         int numero = ++ultimoNumero;
-        Cabecera cab = new Cabecera(tipo, correlativos.merge(tipo, 1, Integer::sum), cliente == null ? null : cliente.id(),
+        Cabecera cab = new Cabecera(tipo, tipo.serie(tienda), correlativos.merge(tipo, 1, Integer::sum), cliente == null ? null : cliente.id(),
                 cliente == null ? "" : cliente.documento(), cliente == null ? "" : cliente.nombre(), modo);
         cabeceras.put(numero, cab);
         String fecha = LocalDate.now().toString(), hora = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -967,7 +855,7 @@ public class InventoryService {
             Producto p = l.producto();
             p.stock = Num.cantidad(p.stock.subtract(l.cantidad()));
             items.add(new Venta(numero, fecha, hora, p, l.cantidad()));
-            registrar("VENTA", p, l.cantidad(), tipo.codigo(cab.correlativo()) + ", stock " + Num.txt(p.stock));
+            registrar("VENTA", p, l.cantidad(), TipoComprobante.codigo(cab.serie(), cab.correlativo()) + ", stock " + Num.txt(p.stock));
         }
         ventas.addAll(items);
         Comprobante c = new Comprobante(numero, fecha, hora, items, cab);
@@ -1095,8 +983,8 @@ public class InventoryService {
         List<Venta> items = s.carrito.stream().map(l -> new Venta(0, null, null, l.producto(), l.cantidad())).toList();
         String doc = s.opciones.clienteDoc() == null ? "" : s.opciones.clienteDoc().trim();
         String nombre = doc.isEmpty() ? "" : clientes.porDocumento(doc).map(Clientes.Cliente::nombre).orElse("");
-        return new Comprobante(0, null, null, new ArrayList<>(items), new Cabecera(
-                s.opciones.tipo() != null ? s.opciones.tipo() : tipoPorDefecto, 0, null, doc, nombre,
+        TipoComprobante tipo = s.opciones.tipo() != null ? s.opciones.tipo() : tipoPorDefecto;
+        return new Comprobante(0, null, null, new ArrayList<>(items), new Cabecera(tipo, tipo.serie(tienda), 0, null, doc, nombre,
                 s.opciones.modo() != null ? s.opciones.modo() : igvPorDefecto));
     }
 
@@ -1702,130 +1590,12 @@ public class InventoryService {
         return productos.stream().filter(p -> p.nombre.equalsIgnoreCase(n)).findFirst().orElse(null);
     }
 
-    private static class Match {
-        Producto producto; boolean ambiguo; List<Producto> empatados;
-        Match(Producto p, boolean a, List<Producto> e) { producto = p; ambiguo = a; empatados = e; }
-        boolean empate() { return empatados.size() > 1; }
-    }
+    private final BuscadorProductos buscador = new BuscadorProductos();
 
     private Match buscar(String texto) {
         Producto porCodigo = conCodigo(texto == null ? null : texto.trim(), null);
         if (porCodigo != null) return new Match(porCodigo, false, List.of(porCodigo));
-        String q = Palabras.norm(texto);
-        if (q.isBlank()) return null;
-        Producto mejor = null, segundo = null;
-        double sMejor = 0, sSegundo = 0;
-        Map<Producto, Double> puntajes = new LinkedHashMap<>();
-        for (Producto p : productos) {
-            double s = puntaje(q, p);
-            puntajes.put(p, s);
-            if (s > sMejor) { sSegundo = sMejor; segundo = mejor; sMejor = s; mejor = p; }
-            else if (s > sSegundo) { sSegundo = s; segundo = p; }
-        }
-        if (mejor == null || sMejor < 0.34) return null;
-        boolean ambiguo = segundo != null && sMejor < 1.0 && (sMejor - sSegundo) < 0.12 && sSegundo >= 0.34;
-        double tope = sMejor;
-        List<Producto> empatados = puntajes.entrySet().stream()
-                .filter(e -> tope - e.getValue() < 1e-9).map(Map.Entry::getKey).toList();
-        return new Match(mejor, ambiguo, empatados);
-    }
-
-    private static String cualDe(Match m) {
-        List<String> nombres = m.empatados.stream().map(p -> p.nombre).toList();
-        String lista = nombres.size() == 1 ? nombres.get(0)
-                : String.join(", ", nombres.subList(0, nombres.size() - 1)) + " y " + nombres.get(nombres.size() - 1);
-        return "Tengo varios parecidos: " + lista + ". ¿Cuál de ellos, señor? Dígame el nombre completo (con talla o color).";
-    }
-
-    private double puntaje(String q, Producto p) {
-        double best = sim(q, normalizado(p.nombre));
-        for (String a : p.alias) best = Math.max(best, sim(q, normalizado(a)));
-        return best;
-    }
-
-    private final Map<String, String> normalizados = new HashMap<>();
-
-    private String normalizado(String s) {
-        if (normalizados.size() > 100_000) normalizados.clear();
-        return normalizados.computeIfAbsent(s, Palabras::norm);
-    }
-
-    private final Map<String, Set<String>> palabras = new HashMap<>();
-
-    private Set<String> palabrasDe(String normalizado) {
-        if (palabras.size() > 100_000) palabras.clear();
-        return palabras.computeIfAbsent(normalizado, this::tokens);
-    }
-
-    private double sim(String q, String cand) {
-        if (cand.isBlank()) return 0;
-        if (q.equals(cand)) return 1.0;
-        Set<String> qt = tokens(q), ct = palabrasDe(cand);
-        if (distintos(qt, ct, InventoryService::esTalla)) return 0;
-        if (distintos(qt, ct, InventoryService::esColor)) return 0;
-        String qb = " " + q + " ", cb = " " + cand + " ";
-        if (cb.contains(qb) || qb.contains(cb)) return 0.95;
-        if (qt.isEmpty() || ct.isEmpty()) return 0;
-        int inter = 0;
-        for (String a : qt) for (String b : ct) if (tokenEq(a, b)) { inter++; break; }
-        return (double) inter / qt.size();
-    }
-
-    private static final Set<String> TALLAS_LETRA = Set.of("xxs", "xs", "s", "m", "l", "xl", "xxl", "xxxl");
-
-    private static final Set<String> COLORES = Set.of("rojo", "roja", "rojos", "rojas", "azul", "azules", "verde", "verdes",
-            "negro", "negra", "negros", "negras", "blanco", "blanca", "blancos", "blancas", "amarillo", "amarilla",
-            "gris", "plomo", "plomos", "rosado", "rosada", "rosa", "morado", "morada", "lila", "celeste", "celestes",
-            "beige", "marron", "cafe", "naranja", "crema", "dorado", "dorada", "plateado", "plateada", "turquesa", "vino", "guinda");
-
-    private static boolean esTalla(String t) { return Palabras.esNumero(t) || TALLAS_LETRA.contains(t); }
-
-    private static boolean esColor(String t) { return COLORES.contains(t); }
-
-    private static String raizColor(String t) {
-        if (t.endsWith("es") && t.length() > 4 && "lnr".indexOf(t.charAt(t.length() - 3)) >= 0) t = t.substring(0, t.length() - 2);
-        else if (t.endsWith("s")) t = t.substring(0, t.length() - 1);
-        return t.replaceFirst("[oa]$", "");
-    }
-
-    private static boolean distintos(Set<String> qt, Set<String> ct, java.util.function.Predicate<String> tipo) {
-        Set<String> tq = new HashSet<>(), tc = new HashSet<>();
-        for (String t : qt) if (tipo.test(t)) tq.add(clave(t));
-        for (String t : ct) if (tipo.test(t)) tc.add(clave(t));
-        if (tq.isEmpty() || tc.isEmpty()) return false;
-        tq.retainAll(tc);
-        return tq.isEmpty();
-    }
-
-    private static String clave(String t) { return esColor(t) ? raizColor(t) : t; }
-
-    private static final Set<String> STOP = Set.of("de", "del", "la", "el", "los", "las", "un", "una", "unos", "unas", "a");
-
-    private Set<String> tokens(String s) {
-        Set<String> out = new LinkedHashSet<>();
-        for (String t : s.split(" ")) if (!t.isBlank() && !STOP.contains(t)) out.add(t);
-        return out;
-    }
-
-    private boolean tokenEq(String a, String b) {
-        if (a.equals(b)) return true;
-        if (a.length() <= 2 || b.length() <= 2) return false;
-        if (a.length() >= 4 && b.length() >= 4 && (a.startsWith(b.substring(0, 4)) || b.startsWith(a.substring(0, 4)))) return true;
-        return levenshtein(a, b) <= (Math.max(a.length(), b.length()) > 5 ? 2 : 1);
-    }
-
-    private int levenshtein(String a, String b) {
-        int[] d = new int[b.length() + 1];
-        for (int j = 0; j <= b.length(); j++) d[j] = j;
-        for (int i = 1; i <= a.length(); i++) {
-            int prev = d[0]; d[0] = i;
-            for (int j = 1; j <= b.length(); j++) {
-                int tmp = d[j];
-                d[j] = Math.min(Math.min(d[j] + 1, d[j - 1] + 1), prev + (a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1));
-                prev = tmp;
-            }
-        }
-        return d[b.length()];
+        return buscador.buscar(texto, productos);
     }
 
     private Pendiente pend(Tipo t, Producto p, BigDecimal c, BigDecimal precio, String pregunta) {

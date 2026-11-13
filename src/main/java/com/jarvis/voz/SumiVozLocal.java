@@ -27,9 +27,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Component
-public class VozLocal {
+public class SumiVozLocal {
 
-    private static final Logger log = LoggerFactory.getLogger(VozLocal.class);
+    private static final Logger log = LoggerFactory.getLogger(SumiVozLocal.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
     static {
@@ -47,7 +47,7 @@ public class VozLocal {
     private volatile Model modelo;
     private volatile boolean cargando;
 
-    public VozLocal(@Value("${jarvis.voz.local.enabled:true}") boolean habilitado,
+    public SumiVozLocal(@Value("${jarvis.voz.local.enabled:true}") boolean habilitado,
                     @Value("${jarvis.voz.vosk-model:${jarvis.voz.modelo-dir:${user.home}/jarvis-voz/vosk/vosk-model-small-es-0.42}}") String dir,
                     @Value("${jarvis.voz.motor:auto}") String motor) {
         this.habilitado = habilitado;

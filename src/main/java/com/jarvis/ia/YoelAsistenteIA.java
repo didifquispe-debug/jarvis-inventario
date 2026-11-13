@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jarvis.ComponentesIncluidos;
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import com.jarvis.inventory.Palabras;
 import com.jarvis.inventory.Producto;
@@ -30,9 +30,9 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 @Component
-public class AsistenteIA {
+public class YoelAsistenteIA {
 
-    private static final Logger log = LoggerFactory.getLogger(AsistenteIA.class);
+    private static final Logger log = LoggerFactory.getLogger(YoelAsistenteIA.class);
 
     private static final int MAX_HISTORIAL = 8;
     private static final int MAX_PRODUCTOS = 40;
@@ -62,7 +62,7 @@ public class AsistenteIA {
         long usada;
     }
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final Predicate<String> soloConsulta;
     private final ClienteLLM cliente;
     private final String owner;
@@ -73,7 +73,7 @@ public class AsistenteIA {
     private volatile long sinServidorHasta;
 
     @Autowired
-    public AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar,
+    public YoelAsistenteIA(DYSAInventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar,
                        @Value("${jarvis.ia.enabled:true}") boolean enabled,
                        @Value("${jarvis.ia.base-url:http://localhost:11434/v1}") String baseUrl,
                        @Value("${jarvis.ia.model:llama3.2:3b}") String modelo,
@@ -83,13 +83,13 @@ public class AsistenteIA {
         this(inv, reglasInventario, porConfirmar, enabled, baseUrl, modelo, timeoutSegundos, owner, (Supplier<String>) datos::nombre);
     }
 
-    public AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
+    public YoelAsistenteIA(DYSAInventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
                        String baseUrl, String modelo, int timeoutSegundos, String owner, String negocio) {
         this(inv, reglasInventario, porConfirmar, enabled, baseUrl, modelo, timeoutSegundos, owner,
                 (Supplier<String>) () -> negocio == null ? "" : negocio.trim());
     }
 
-    private AsistenteIA(InventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
+    private YoelAsistenteIA(DYSAInventoryService inv, InventorySkill reglasInventario, OrdenesPorConfirmar porConfirmar, boolean enabled,
                         String baseUrl, String modelo, int timeoutSegundos, String owner, Supplier<String> negocio) {
         this.inv = inv;
         this.soloConsulta = reglasInventario::soloConsulta;
@@ -185,7 +185,7 @@ public class AsistenteIA {
         if (orden != null) {
             if (soloConsulta.test(orden)) {
                 String res = reglas.apply(orden);
-                return com.jarvis.core.JarvisService.NO_ENTENDI.equals(res) ? NO_PUDE : res;
+                return com.jarvis.core.DYSAJarvisService.NO_ENTENDI.equals(res) ? NO_PUDE : res;
             }
             return porConfirmar.proponer(orden);
         }

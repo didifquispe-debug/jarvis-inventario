@@ -25,11 +25,11 @@ class PersistenciaTest {
 
     private Path base() { return dir.resolve("inv.db"); }
 
-    private InventoryService nuevo() { return new InventoryService(json().toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(json().toString()); }
 
-    private InventoryService conEjemplos() { return Ejemplos.sembrar(nuevo()); }
+    private DYSAInventoryService conEjemplos() { return Ejemplos.sembrar(nuevo()); }
 
-    private static BigDecimal stock(InventoryService inv, String prefijo) {
+    private static BigDecimal stock(DYSAInventoryService inv, String prefijo) {
         return inv.productos().stream().filter(p -> p.nombre.startsWith(prefijo)).findFirst().orElseThrow().stock;
     }
 
@@ -42,7 +42,7 @@ class PersistenciaTest {
     }
 
     @Test void inventarioNuevoEmpiezaVacio() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertEquals(0, inv.productos().size(), "sin productos de ejemplo");
         assertTrue(Files.exists(base()), "se crea la base de datos");
         assertFalse(Files.exists(json()), "ya no se usa el archivo JSON");
@@ -51,12 +51,12 @@ class PersistenciaTest {
     }
 
     @Test void loGuardadoSeVuelveALeerIgual() {
-        InventoryService inv = conEjemplos();
+        DYSAInventoryService inv = conEjemplos();
         inv.salida(new BigDecimal("2"), "cemento", false);
         inv.salida(new BigDecimal("2.5"), "cable", false);
         inv.cambiarPrecio("foco", new BigDecimal("8.10"));
 
-        InventoryService releido = nuevo();
+        DYSAInventoryService releido = nuevo();
         assertEquals(new BigDecimal("48"), stock(releido, "Cemento"));
         assertEquals(new BigDecimal("47.5"), stock(releido, "Cable"), "las cantidades con decimales no pierden nada");
         Producto foco = releido.productos().stream().filter(p -> p.nombre.startsWith("Foco")).findFirst().orElseThrow();
@@ -68,12 +68,12 @@ class PersistenciaTest {
     }
 
     @Test void anularYCorregirSeGuardan() {
-        InventoryService inv = conEjemplos();
+        DYSAInventoryService inv = conEjemplos();
         inv.venderVarios(List.of(new BigDecimal("2"), new BigDecimal("3")), List.of("cemento", "foco"));
         assertTrue(inv.corregirUltimaVenta("foco", BigDecimal.ONE, false).ok());
         assertTrue(inv.anularUltimaVenta().ok());
 
-        InventoryService releido = nuevo();
+        DYSAInventoryService releido = nuevo();
         assertEquals(new BigDecimal("50"), stock(releido, "Cemento"), "la anulación devolvió el stock");
         assertEquals(new BigDecimal("30"), stock(releido, "Foco"));
         assertTrue(releido.ultimoComprobante().contains("ANULADA"));
@@ -86,13 +86,13 @@ class PersistenciaTest {
                 {"productos":[{"nombre":"Cemento","alias":["cemento"],"stock":10,"stockMin":2,"precio":28.0,"unidad":"bolsas"}],
                  "ventas":[{"numero":7,"fecha":"%s","hora":"10:00","producto":"Cemento","cantidad":1,"unidad":"bolsas",
                             "precioUnitario":28.0,"monto":28.0}]}""".formatted(ayer));
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         Producto p = inv.productos().get(0);
         assertEquals(new BigDecimal("10"), p.stock);
         assertEquals(new BigDecimal("28.00"), p.precio);
         assertFalse(Files.exists(json()), "el JSON queda renombrado para no volver a importarlo");
         assertTrue(Files.exists(dir.resolve("inv.json.migrado")), "pero no se borra");
-        InventoryService.Opciones nota = new InventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null);
+        DYSAInventoryService.Opciones nota = new DYSAInventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null);
         assertTrue(inv.salida(BigDecimal.ONE, "cemento", false, nota).contains("Nota de venta número 8"),
                 "las ventas antiguas eran notas de venta: su numeración sigue");
         assertTrue(inv.salida(BigDecimal.ONE, "cemento", false).contains("Boleta número 1"), "las boletas empiezan en 1");
@@ -122,9 +122,9 @@ class PersistenciaTest {
                 "{\"fecha\":\"" + viejo + "T09:00:00\",\"tipo\":\"VENTA\",\"producto\":\"Foco\",\"cantidad\":1,"
                         + "\"detalle\":\"comprobante 41\",\"usuario\":\"local\"}\n{\"fecha\":\"a medias");
 
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertEquals("comprobante 41", inv.movimientos(10).get(0).detalle(), "el historial antiguo pasó a la base");
-        assertTrue(inv.salida(BigDecimal.ONE, "foco", false, new InventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null))
+        assertTrue(inv.salida(BigDecimal.ONE, "foco", false, new DYSAInventoryService.Opciones(TipoComprobante.NOTA_VENTA, null, null))
                 .contains("Nota de venta número 43"));
         assertTrue(Files.exists(historial.resolve("ventas-" + viejo.substring(0, 7) + ".jsonl")), "los archivos se conservan");
     }
@@ -136,7 +136,7 @@ class PersistenciaTest {
         assertEquals(1, archivos("inv\\.db\\.respaldo-\\d{8}").size());
 
         Files.writeString(base(), "esto ya no es una base de datos");
-        InventoryService recuperado = nuevo();
+        DYSAInventoryService recuperado = nuevo();
         assertEquals(new BigDecimal("45"), stock(recuperado, "Cemento"), "vuelve al último respaldo");
         Path danado = archivos("inv\\.db\\.danado-.*").get(0);
         assertEquals("esto ya no es una base de datos", Files.readString(danado), "el dañado se conserva para revisarlo");
@@ -154,13 +154,13 @@ class PersistenciaTest {
         for (int i = 1; i <= 9; i++) Files.writeString(dir.resolve("inv.db.respaldo-2020010" + i), "viejo");
         nuevo();
         List<Path> quedan = archivos("inv\\.db\\.respaldo-\\d{8}");
-        assertEquals(BaseDatos.RESPALDOS, quedan.size());
+        assertEquals(DidierBaseDatos.RESPALDOS, quedan.size());
         assertTrue(quedan.get(quedan.size() - 1).getFileName().toString().endsWith(LocalDate.now().toString().replace("-", "")),
                 "el de hoy siempre queda");
     }
 
     @Test void historialDeMovimientos() {
-        InventoryService inv = conEjemplos();
+        DYSAInventoryService inv = conEjemplos();
         inv.entrada(new BigDecimal("5"), "cemento", null, null, false);
         inv.salida(new BigDecimal("2"), "foco", false);
         inv.cambiarPrecio("foco", new BigDecimal("8"));
@@ -174,18 +174,18 @@ class PersistenciaTest {
     }
 
     @Test void productoEliminadoYRenombradoNoRompenLasVentas() {
-        InventoryService inv = conEjemplos();
+        DYSAInventoryService inv = conEjemplos();
         inv.salida(BigDecimal.ONE, "disco", false);
-        assertTrue(inv.editarProducto("Foco LED 9W", true, new InventoryService.Cambios("Foco LED 10W", null, null, null, null, null)).ok());
+        assertTrue(inv.editarProducto("Foco LED 9W", true, new DYSAInventoryService.Cambios("Foco LED 10W", null, null, null, null, null)).ok());
         assertTrue(inv.eliminarProducto("Disco de corte 4 1/2", true).ok());
-        InventoryService releido = nuevo();
+        DYSAInventoryService releido = nuevo();
         assertTrue(releido.productos().stream().noneMatch(p -> p.nombre.startsWith("Disco")));
         assertTrue(releido.productos().stream().anyMatch(p -> p.nombre.equals("Foco LED 10W")));
         assertTrue(releido.ultimoComprobante().contains("número 1"), "la venta del producto eliminado se conserva");
     }
 
     @Test void muchosProductosYVentasSiguenSiendoRapidos() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         List<ListaProductos.Fila> filas = new ArrayList<>();
         for (int i = 1; i <= 3000; i++)
             filas.add(new ListaProductos.Fila(i, "Producto de prueba " + i, new BigDecimal("2.50"), new BigDecimal("100"),

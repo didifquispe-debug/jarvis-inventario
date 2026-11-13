@@ -4,7 +4,7 @@
  */
 package com.jarvis;
 
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,8 +31,8 @@ class FichaPantallaTest {
     private static final String CLAVE = "clave-ficha";
 
     @Autowired MockMvc mvc;
-    @Autowired InventoryService inv;
-    @Autowired com.jarvis.core.JarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
+    @Autowired com.jarvis.core.DYSAJarvisService jarvis;
 
     private ResultActions json(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req, String cuerpo) throws Exception {
         return mvc.perform(req.header("X-Jarvis-Token", CLAVE).contentType(MediaType.APPLICATION_JSON).content(cuerpo));

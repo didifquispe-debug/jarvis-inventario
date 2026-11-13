@@ -16,48 +16,48 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 class IntentPipelineTest {
 
     @Test void extraeCantidadProductoYPrecio() {
-        EntityExtractor.Entidades e = EntityExtractor.extraer("llegaron 20 bolsas de cemento a 28 soles");
+        YoelEntityExtractor.Entidades e = YoelEntityExtractor.extraer("llegaron 20 bolsas de cemento a 28 soles");
         assertEquals(new BigDecimal("20"), e.cantidad());
         assertEquals("cemento", e.producto());
         assertEquals(new BigDecimal("28.00"), e.precio());
     }
 
     @Test void cantidadEnPalabras() {
-        EntityExtractor.Entidades e = EntityExtractor.extraer("vendi veinticinco metros de cable");
+        YoelEntityExtractor.Entidades e = YoelEntityExtractor.extraer("vendi veinticinco metros de cable");
         assertEquals(new BigDecimal("25"), e.cantidad());
         assertEquals("cable", e.producto());
         assertNull(e.precio());
     }
 
     @Test void articuloNoEsCantidad() {
-        assertEquals(new BigDecimal("10"), EntityExtractor.extraer("registra una entrada de 10 focos").cantidad());
-        assertEquals(BigDecimal.ONE, EntityExtractor.extraer("vendi una bolsa de cemento").cantidad());
+        assertEquals(new BigDecimal("10"), YoelEntityExtractor.extraer("registra una entrada de 10 focos").cantidad());
+        assertEquals(BigDecimal.ONE, YoelEntityExtractor.extraer("vendi una bolsa de cemento").cantidad());
     }
 
     @Test void fraseConversadaNoEnsuciaElNombre() {
-        EntityExtractor.Entidades e = EntityExtractor.extraer("oye hoy me llegaron 5 cajas de leche y cada una me costo 40 soles");
+        YoelEntityExtractor.Entidades e = YoelEntityExtractor.extraer("oye hoy me llegaron 5 cajas de leche y cada una me costo 40 soles");
         assertEquals(new BigDecimal("5"), e.cantidad());
         assertEquals("leche", e.producto());
         assertNull(e.precio(), "el costo no es el precio de venta");
-        assertEquals("leche", EntityExtractor.extraer("llegaron 3 cajas de leche me costo 40").producto());
+        assertEquals("leche", YoelEntityExtractor.extraer("llegaron 3 cajas de leche me costo 40").producto());
     }
 
     @Test void sinCantidad() {
-        EntityExtractor.Entidades e = EntityExtractor.extraer("cuantos focos quedan");
+        YoelEntityExtractor.Entidades e = YoelEntityExtractor.extraer("cuantos focos quedan");
         assertNull(e.cantidad());
         assertEquals("focos", e.producto());
     }
 
     @Test void decideLaMejorIntencion() {
-        assertEquals(Intent.REGISTRAR_SALIDA, IntentClassifier.decidir(puntajes(0.85, 0.60, 0.40), 0.62, 0.04).intent());
+        assertEquals(Intent.REGISTRAR_SALIDA, YoelIntentClassifier.decidir(puntajes(0.85, 0.60, 0.40), 0.62, 0.04).intent());
     }
 
     @Test void confianzaBajaEsDesconocido() {
-        assertEquals(Intent.DESCONOCIDO, IntentClassifier.decidir(puntajes(0.55, 0.30, 0.20), 0.62, 0.04).intent());
+        assertEquals(Intent.DESCONOCIDO, YoelIntentClassifier.decidir(puntajes(0.55, 0.30, 0.20), 0.62, 0.04).intent());
     }
 
     @Test void empateEsDesconocido() {
-        assertEquals(Intent.DESCONOCIDO, IntentClassifier.decidir(puntajes(0.80, 0.79, 0.20), 0.62, 0.04).intent());
+        assertEquals(Intent.DESCONOCIDO, YoelIntentClassifier.decidir(puntajes(0.80, 0.79, 0.20), 0.62, 0.04).intent());
     }
 
     private Map<Intent, Double> puntajes(double salida, double entrada, double desconocido) {

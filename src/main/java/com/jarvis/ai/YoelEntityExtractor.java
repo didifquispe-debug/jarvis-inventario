@@ -16,9 +16,9 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class EntityExtractor {
+public final class YoelEntityExtractor {
 
-    private EntityExtractor() {}
+    private YoelEntityExtractor() {}
 
     public record Entidades(BigDecimal cantidad, String producto, BigDecimal precio, boolean enPares) {}
 

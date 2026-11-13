@@ -5,7 +5,7 @@
 package com.jarvis.api;
 
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.ReportesExcel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -23,27 +23,27 @@ public class ReportesController {
 
     private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final DatosNegocio datos;
 
-    public ReportesController(InventoryService inv, DatosNegocio datos) {
+    public ReportesController(DYSAInventoryService inv, DatosNegocio datos) {
         this.inv = inv;
         this.datos = datos;
     }
 
     @GetMapping("/api/inventory/valorizado")
-    public InventoryService.Valorizado valorizado() {
+    public DYSAInventoryService.Valorizado valorizado() {
         return inv.valorizado();
     }
 
     @GetMapping("/api/reportes/panel")
-    public InventoryService.Panel panel(@RequestParam(defaultValue = "30") int dias) {
+    public DYSAInventoryService.Panel panel(@RequestParam(defaultValue = "30") int dias) {
         return inv.panel(dias);
     }
 
     @GetMapping("/api/inventory/kardex")
     public ResponseEntity<?> kardex(@RequestParam String nombre, @RequestParam(defaultValue = "500") int limite) {
-        InventoryService.Kardex k = inv.kardex(nombre, limite);
+        DYSAInventoryService.Kardex k = inv.kardex(nombre, limite);
         return k != null ? ResponseEntity.ok(k) : noExiste(nombre);
     }
 
@@ -54,7 +54,7 @@ public class ReportesController {
 
     @GetMapping("/api/reportes/kardex.xlsx")
     public ResponseEntity<?> kardexExcel(@RequestParam String nombre) {
-        InventoryService.Kardex k = inv.kardex(nombre, 100_000);
+        DYSAInventoryService.Kardex k = inv.kardex(nombre, 100_000);
         if (k == null) return noExiste(nombre);
         return excel("kardex-" + k.producto(), ReportesExcel.kardex(k, datos.nombre()));
     }

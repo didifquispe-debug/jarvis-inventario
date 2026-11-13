@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Compras;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol;
@@ -28,8 +28,8 @@ class CompraPorVozTest {
 
     private static final AtomicInteger SESION = new AtomicInteger();
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
     @Autowired CompraPorVozSkill compraVoz;
 
     private String sesion;

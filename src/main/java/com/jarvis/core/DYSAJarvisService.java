@@ -4,11 +4,11 @@
  */
 package com.jarvis.core;
 
-import com.jarvis.ai.AiBrain;
+import com.jarvis.ai.DYSA;
 import com.jarvis.ai.Intent;
 import com.jarvis.ai.IntentResult;
-import com.jarvis.ia.AsistenteIA;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.ia.YoelAsistenteIA;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.skills.CompraPorVozSkill;
 import com.jarvis.skills.ConsultasSkill;
 import com.jarvis.skills.DiccionarioSkill;
@@ -26,19 +26,19 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-public class JarvisService {
+public class DYSAJarvisService {
 
-    private static final Logger log = LoggerFactory.getLogger(JarvisService.class);
+    private static final Logger log = LoggerFactory.getLogger(DYSAJarvisService.class);
 
     public static final String NO_ENTENDI = "No entendí la orden. Diga 'ayuda' para ver lo que puedo hacer.";
 
     private final List<Skill> skills;
-    private final AiBrain brain;
+    private final DYSA brain;
     private final InventorySkill inventario;
     private final Diccionario diccionario;
     private final DiccionarioSkill ensenar;
-    private final InventoryService inventarioDatos;
-    private final AsistenteIA asistente;
+    private final DYSAInventoryService inventarioDatos;
+    private final YoelAsistenteIA asistente;
     private final AcercaDeJarvis acercaDe;
     private final OrdenesPorConfirmar porConfirmar;
     private final ConsultasSkill consultas;
@@ -46,9 +46,9 @@ public class JarvisService {
     private final CompraPorVozSkill compraVoz;
     private final boolean confirmarVoz;
 
-    public JarvisService(List<Skill> skills, AiBrain brain, InventorySkill inventario,
-                         Diccionario diccionario, DiccionarioSkill ensenar, InventoryService inventarioDatos,
-                         AsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar, ConsultasSkill consultas,
+    public DYSAJarvisService(List<Skill> skills, DYSA brain, InventorySkill inventario,
+                         Diccionario diccionario, DiccionarioSkill ensenar, DYSAInventoryService inventarioDatos,
+                         YoelAsistenteIA asistente, AcercaDeJarvis acercaDe, OrdenesPorConfirmar porConfirmar, ConsultasSkill consultas,
                          GestionSkill gestion, CompraPorVozSkill compraVoz, @Value("${jarvis.voz.confirmar:true}") boolean confirmarVoz) {
         this.skills = skills;
         this.brain = brain;

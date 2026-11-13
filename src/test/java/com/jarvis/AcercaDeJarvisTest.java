@@ -5,9 +5,9 @@
 package com.jarvis;
 
 import com.jarvis.core.AcercaDeJarvis;
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-acerca-${random.uuid}.json"})
 class AcercaDeJarvisTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
     @Autowired AcercaDeJarvis acercaDe;
 
     @BeforeEach void preparar() {

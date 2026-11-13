@@ -4,9 +4,9 @@
  */
 package com.jarvis.skills;
 
-import com.jarvis.ai.EntityExtractor;
+import com.jarvis.ai.YoelEntityExtractor;
 import com.jarvis.ai.IntentResult;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Num;
 import com.jarvis.inventory.Palabras;
 import com.jarvis.inventory.TipoComprobante;
@@ -26,9 +26,9 @@ import java.util.regex.Pattern;
 @Order(-10)
 public class InventorySkill implements Skill {
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
 
-    public InventorySkill(InventoryService inv) { this.inv = inv; }
+    public InventorySkill(DYSAInventoryService inv) { this.inv = inv; }
 
     @Override public String name() { return "Inventario"; }
     @Override public String example() {
@@ -119,7 +119,7 @@ public class InventorySkill implements Skill {
         Optional<String> correccion = correcciones(cmd, palabras);
         if (correccion.isPresent()) return correccion;
 
-        InventoryService.Opciones op = InventoryService.Opciones.POR_DEFECTO;
+        DYSAInventoryService.Opciones op = DYSAInventoryService.Opciones.POR_DEFECTO;
         if (SALIDA.matcher(cmd).find() || NUEVA_VENTA.matcher(cmd).find() || inv.ventaAbierta()) {
             Dichas d = opcionesDichas(cmd);
             if (!d.opciones().vacia()) {
@@ -153,7 +153,7 @@ public class InventorySkill implements Skill {
 
         if (inv.ventaAbierta()) {
             if (QUITAR.matcher(cmd).find()) {
-                String producto = EntityExtractor.producto(palabras, qty);
+                String producto = YoelEntityExtractor.producto(palabras, qty);
                 return Optional.of(producto.isBlank() ? "¿Qué producto quito de la venta, señor?" : inv.quitarDelCarrito(producto));
             }
             boolean entradaReal = ENTRADA.matcher(AGREGAR.matcher(cmd).replaceAll("")).find();
@@ -169,13 +169,13 @@ public class InventorySkill implements Skill {
 
         if (!esEntrada && !esSalida && !esConsulta) return Optional.empty();
 
-        BigDecimal precio = EntityExtractor.precio(cmd);
-        String producto = EntityExtractor.producto(palabras, qty);
+        BigDecimal precio = YoelEntityExtractor.precio(cmd);
+        String producto = YoelEntityExtractor.producto(palabras, qty);
 
         if (esEntrada) {
             if (!qty.hay()) return Optional.of("No logré identificar la cantidad, señor. Por favor repita la orden.");
             if (producto.isBlank()) return Optional.of("No logré identificar el producto, señor. Por favor repita la orden.");
-            return Optional.of(inv.entrada(cantidad(qty, producto, palabras), producto, precio, EntityExtractor.unidad(palabras), false));
+            return Optional.of(inv.entrada(cantidad(qty, producto, palabras), producto, precio, YoelEntityExtractor.unidad(palabras), false));
         }
         if (esSalida) {
             List<List<String>> partes = dividirProductos(palabras);
@@ -184,7 +184,7 @@ public class InventorySkill implements Skill {
                 return Optional.of("No logré identificar la cantidad ni el producto, señor. Por favor repita la orden.");
             return Optional.of(inv.salida(cantidad(qty, producto, palabras), producto, false, op));
         }
-        producto = EntityExtractor.producto(palabras, Palabras.Cantidad.NINGUNA);
+        producto = YoelEntityExtractor.producto(palabras, Palabras.Cantidad.NINGUNA);
         if (producto.isBlank()) return Optional.of("¿De qué producto desea saber el stock, señor?");
         return Optional.of(consultarStock(producto));
     }
@@ -197,17 +197,17 @@ public class InventorySkill implements Skill {
             List<String> resto = palabras.stream().filter(w -> !PALABRAS_CORRECCION.contains(w)).toList();
             Palabras.Cantidad q = Palabras.buscarCantidad(resto);
             if (!q.hay()) return Optional.of("¿Cuál es la cantidad correcta, señor? Por ejemplo: corrige la última venta, eran 3 poleras.");
-            String producto = EntityExtractor.producto(resto, q);
+            String producto = YoelEntityExtractor.producto(resto, q);
             return Optional.of(inv.corregirUltimaVenta(producto, cantidad(q, producto, resto), false).mensaje());
         }
 
         if (ELIMINAR_PRODUCTO.matcher(cmd).find() && (!inv.ventaAbierta() || cmd.contains("del inventario"))) {
-            String producto = EntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
+            String producto = YoelEntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
                     Palabras.Cantidad.NINGUNA);
             return Optional.of(producto.isBlank() ? "¿Qué producto elimino del inventario, señor?" : inv.pedirEliminarProducto(producto));
         }
         if (ELIMINAR_SUELTO.matcher(cmd).find() && !inv.ventaAbierta()) {
-            String producto = EntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
+            String producto = YoelEntityExtractor.producto(palabras.stream().filter(w -> !PALABRAS_ELIMINAR.contains(w)).toList(),
                     Palabras.Cantidad.NINGUNA);
             boolean esElimina = cmd.startsWith("elimin") || cmd.startsWith("suprim");
             if (producto.isBlank() && esElimina) return Optional.of("¿Qué producto elimino del inventario, señor?");
@@ -219,7 +219,7 @@ public class InventorySkill implements Skill {
             if (!m.find()) m = SE_VENDE.matcher(cmd);
             else m.reset();
             if (!m.find()) return Optional.of("Dígame así, señor: cambia la unidad de la tela a metros.");
-            String producto = EntityExtractor.producto(Arrays.asList(m.group(1).split(" ")), Palabras.Cantidad.NINGUNA);
+            String producto = YoelEntityExtractor.producto(Arrays.asList(m.group(1).split(" ")), Palabras.Cantidad.NINGUNA);
             if (producto.isBlank()) producto = m.group(1);
             return Optional.of(inv.cambiarUnidad(producto, m.group(2)));
         }
@@ -229,7 +229,7 @@ public class InventorySkill implements Skill {
             for (int i = 0; i < palabras.size(); i++) if (Palabras.esNumero(palabras.get(i))) iNumero = i;
             List<String> resto = new ArrayList<>();
             for (int i = 0; i < palabras.size(); i++) if (i != iNumero && !PALABRAS_MINIMO.contains(palabras.get(i))) resto.add(palabras.get(i));
-            String producto = EntityExtractor.producto(resto, Palabras.Cantidad.NINGUNA);
+            String producto = YoelEntityExtractor.producto(resto, Palabras.Cantidad.NINGUNA);
             if (producto.isBlank()) return Optional.of("¿De qué producto, señor? Por ejemplo: stock mínimo de la polera M en 5.");
             if (iNumero < 0) return Optional.of(inv.stockMinimo(producto));
             return Optional.of(inv.cambiarStockMinimo(producto, new BigDecimal(palabras.get(iNumero))));
@@ -240,7 +240,7 @@ public class InventorySkill implements Skill {
     private BigDecimal cantidad(Palabras.Cantidad q, String producto, List<String> palabras) {
         if (!q.enPares()) return q.valor();
         String unidad = inv.unidadDe(producto);
-        return q.valorEn(unidad != null ? unidad : EntityExtractor.unidad(palabras));
+        return q.valorEn(unidad != null ? unidad : YoelEntityExtractor.unidad(palabras));
     }
 
     private static int posicion(Pattern p, String cmd) {
@@ -267,12 +267,12 @@ public class InventorySkill implements Skill {
         return partes;
     }
 
-    private String venderVarios(List<List<String>> partes, InventoryService.Opciones op) {
+    private String venderVarios(List<List<String>> partes, DYSAInventoryService.Opciones op) {
         List<BigDecimal> cantidades = new ArrayList<>();
         List<String> productos = new ArrayList<>();
         for (List<String> p : partes) {
             Palabras.Cantidad q = Palabras.buscarCantidad(p);
-            String prod = EntityExtractor.producto(p, q);
+            String prod = YoelEntityExtractor.producto(p, q);
             if (!q.hay() || prod.isBlank())
                 return "No logré identificar la cantidad y el producto de \"" + String.join(" ", p) + "\", señor. Por favor repita la orden.";
             cantidades.add(cantidad(q, prod, p));
@@ -281,7 +281,7 @@ public class InventorySkill implements Skill {
         return inv.venderVarios(cantidades, productos, op);
     }
 
-    record Dichas(InventoryService.Opciones opciones, String resto) {}
+    record Dichas(DYSAInventoryService.Opciones opciones, String resto) {}
 
     static Dichas opcionesDichas(String cmd) {
         TipoComprobante tipo = null;
@@ -296,7 +296,7 @@ public class InventorySkill implements Skill {
             doc = m.group(1);
             resto = m.replaceAll(" ");
         }
-        return new Dichas(new InventoryService.Opciones(tipo, doc, null), resto.replaceAll("\\s+", " ").trim());
+        return new Dichas(new DYSAInventoryService.Opciones(tipo, doc, null), resto.replaceAll("\\s+", " ").trim());
     }
 
     private static boolean soloOpciones(String resto) {
@@ -308,7 +308,7 @@ public class InventorySkill implements Skill {
         List<String> respuestas = new ArrayList<>();
         for (List<String> p : dividirProductos(palabras)) {
             Palabras.Cantidad q = Palabras.buscarCantidad(p);
-            String prod = EntityExtractor.producto(p, q);
+            String prod = YoelEntityExtractor.producto(p, q);
             if (!q.hay() || prod.isBlank()) respuestas.add("No entendí \"" + String.join(" ", p) + "\".");
             else respuestas.add(inv.agregarAlCarrito(cantidad(q, prod, p), prod));
         }
@@ -327,7 +327,7 @@ public class InventorySkill implements Skill {
 
     private String productoSinPalabrasDePrecio(List<String> palabras) {
         List<String> limpias = palabras.stream().filter(w -> !PALABRAS_PRECIO.contains(w)).toList();
-        return EntityExtractor.producto(limpias, Palabras.Cantidad.NINGUNA);
+        return YoelEntityExtractor.producto(limpias, Palabras.Cantidad.NINGUNA);
     }
 
     public boolean ordenExplicita(String cmdRaw) {

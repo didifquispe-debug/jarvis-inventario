@@ -31,7 +31,7 @@ public final class ReportesExcel {
             "CORRECCION_VENTA", "Corrección de venta", "AJUSTE", "Ajuste", "COMPRA", "Compra",
             "ANULACION_COMPRA", "Anulación de compra", "ELIMINAR", "Baja del producto");
 
-    public static byte[] inventario(InventoryService.Valorizado v, List<FilaKardex> kardex, String negocio) {
+    public static byte[] inventario(DYSAInventoryService.Valorizado v, List<FilaKardex> kardex, String negocio) {
         try (XSSFWorkbook libro = new XSSFWorkbook()) {
             Estilos e = new Estilos(libro);
             Sheet hoja = libro.createSheet("Inventario");
@@ -40,7 +40,7 @@ public final class ReportesExcel {
             int f = encabezado(hoja, e, "Inventario valorizado", subtitulo(negocio, "al " + LocalDate.now().format(DMY)), t,
                     new int[]{34, 16, 14, 11, 10, 12, 11, 14, 15, 14, 18});
             int primera = f;
-            for (InventoryService.FilaValorizada p : v.filas()) {
+            for (DYSAInventoryService.FilaValorizada p : v.filas()) {
                 Row r = hoja.createRow(f++);
                 texto(r, 0, p.producto(), e.celda);
                 texto(r, 1, p.categoria().isEmpty() ? "Sin categoría" : p.categoria(), e.celda);
@@ -80,7 +80,7 @@ public final class ReportesExcel {
         }
     }
 
-    public static byte[] kardex(InventoryService.Kardex k, String negocio) {
+    public static byte[] kardex(DYSAInventoryService.Kardex k, String negocio) {
         try (XSSFWorkbook libro = new XSSFWorkbook()) {
             hojaKardex(libro, new Estilos(libro), k.filas(), "Kardex", "Kardex: " + k.producto() + " (" + k.unidad() + ")", negocio, false);
             return bytes(libro, "Kardex " + k.producto());
@@ -89,7 +89,7 @@ public final class ReportesExcel {
         }
     }
 
-    public static byte[] ventas(List<InventoryService.Comprobante> comprobantes, String desde, String hasta, String negocio) {
+    public static byte[] ventas(List<DYSAInventoryService.Comprobante> comprobantes, String desde, String hasta, String negocio) {
         try (XSSFWorkbook libro = new XSSFWorkbook()) {
             Estilos e = new Estilos(libro);
             String periodo = periodo(desde, hasta);
@@ -97,7 +97,7 @@ public final class ReportesExcel {
             String[] t = {"Fecha", "Hora", "Comprobante", "Tipo", "Cliente", "Documento", "Op. gravada", "IGV", "Total", "Estado"};
             int f = encabezado(hoja, e, "Ventas", subtitulo(negocio, periodo), t, new int[]{12, 8, 16, 14, 30, 14, 14, 12, 14, 22});
             int primera = f;
-            for (InventoryService.Comprobante c : comprobantes) {
+            for (DYSAInventoryService.Comprobante c : comprobantes) {
                 Row r = hoja.createRow(f++);
                 fecha(r, 0, c.fecha, e);
                 texto(r, 1, c.hora, e.celda);
@@ -119,9 +119,9 @@ public final class ReportesExcel {
             f = encabezado(det, e, "Detalle de ventas", subtitulo(negocio, periodo + " · sin comprobantes anulados · ganancia = venta sin IGV − costo"),
                     td, new int[]{12, 16, 26, 34, 10, 11, 14, 13, 14, 14, 13, 13});
             primera = f;
-            for (InventoryService.Comprobante c : comprobantes) {
+            for (DYSAInventoryService.Comprobante c : comprobantes) {
                 if (c.anulado) continue;
-                for (InventoryService.Venta v : c.items) {
+                for (DYSAInventoryService.Venta v : c.items) {
                     Row r = det.createRow(f++);
                     fecha(r, 0, c.fecha, e);
                     texto(r, 1, c.codigo.isEmpty() ? "N° " + c.numero : c.codigo, e.celda);

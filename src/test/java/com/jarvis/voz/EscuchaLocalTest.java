@@ -17,9 +17,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class EscuchaLocalTest {
 
     private String precisa;
-    private final EscuchaLocal escucha = new EscuchaLocal(new VozLocal(false, "x", "auto"), true, pcm -> precisa);
+    private final SumiEscuchaLocal escucha = new SumiEscuchaLocal(new SumiVozLocal(false, "x", "auto"), true, pcm -> precisa);
 
-    private List<EscuchaLocal.Evento> nuevos(long desde) throws InterruptedException {
+    private List<SumiEscuchaLocal.Evento> nuevos(long desde) throws InterruptedException {
         return escucha.eventos(desde, 0);
     }
 
@@ -27,7 +27,7 @@ class EscuchaLocalTest {
         long antes = escucha.ultimoId();
         precisa = preciso;
         escucha.alTerminarFrase(libre, new byte[0]);
-        List<EscuchaLocal.Evento> ev = nuevos(antes);
+        List<SumiEscuchaLocal.Evento> ev = nuevos(antes);
         return ev.isEmpty() ? "(nada)" : ev.get(ev.size() - 1).tipo() + ":" + ev.get(ev.size() - 1).texto();
     }
 
@@ -65,7 +65,7 @@ class EscuchaLocalTest {
     }
 
     @Test void siLaPasadaPrecisaFallaUsaLoQueOyo() throws Exception {
-        EscuchaLocal e = new EscuchaLocal(new VozLocal(false, "x", "auto"), true, pcm -> { throw new IllegalStateException(); });
+        SumiEscuchaLocal e = new SumiEscuchaLocal(new SumiVozLocal(false, "x", "auto"), true, pcm -> { throw new IllegalStateException(); });
         e.escucharUnaVez();
         e.alTerminarFrase("cierre de caja", new byte[0]);
         assertEquals("cierre de caja", e.eventos(0, 0).get(0).texto());
@@ -85,7 +85,7 @@ class EscuchaLocalTest {
         assertTrue(System.currentTimeMillis() - t >= 250, "espera antes de responder vacío");
         escucha.escucharUnaVez();
         escucha.alTerminarFrase("inventario", new byte[0]);
-        List<EscuchaLocal.Evento> ev = escucha.eventos(0, 1000);
+        List<SumiEscuchaLocal.Evento> ev = escucha.eventos(0, 1000);
         assertEquals(1, ev.size());
         assertEquals(List.of(), escucha.eventos(ev.get(0).id(), 0));
     }
@@ -93,7 +93,7 @@ class EscuchaLocalTest {
     @Test void sinModeloNoEstaDisponibleYDiceElMotivo() {
         assertFalse(escucha.disponible());
         assertTrue(String.valueOf(escucha.estado().get("motivo")).startsWith("No hay modelo de voz"));
-        EscuchaLocal apagada = new EscuchaLocal(new VozLocal(false, "x", "auto"), false, pcm -> "");
+        SumiEscuchaLocal apagada = new SumiEscuchaLocal(new SumiVozLocal(false, "x", "auto"), false, pcm -> "");
         assertEquals("Desactivado (jarvis.voz.escuchar=false).", apagada.estado().get("motivo"));
     }
 
@@ -104,14 +104,14 @@ class EscuchaLocalTest {
             "oye harvis cierre de caja|cierre de caja",
             "jarvis|''"})
     void loQueVieneTrasJarvis(String dicho, String orden) {
-        assertEquals(Optional.of(orden), VozLocal.trasJarvis(dicho));
+        assertEquals(Optional.of(orden), SumiVozLocal.trasJarvis(dicho));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"sí", "no", "ok", "cobrar", "inventario", "dos focos"})
-    void palabrasCortasQueSiSonOrdenes(String dicho) { assertFalse(EscuchaLocal.ruido(dicho), dicho); }
+    void palabrasCortasQueSiSonOrdenes(String dicho) { assertFalse(SumiEscuchaLocal.ruido(dicho), dicho); }
 
     @ParameterizedTest
     @ValueSource(strings = {"vendí dos cementos", "jardín", "", "har vis"})
-    void sinJarvis(String dicho) { assertEquals(Optional.empty(), VozLocal.trasJarvis(dicho)); }
+    void sinJarvis(String dicho) { assertEquals(Optional.empty(), SumiVozLocal.trasJarvis(dicho)); }
 }

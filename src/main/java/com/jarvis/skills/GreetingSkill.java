@@ -5,7 +5,7 @@
 package com.jarvis.skills;
 
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Moneda;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
@@ -20,9 +20,9 @@ public class GreetingSkill implements Skill {
 
     private final String owner;
     private final DatosNegocio datos;
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
 
-    public GreetingSkill(@Value("${jarvis.owner:señor}") String owner, DatosNegocio datos, InventoryService inv) {
+    public GreetingSkill(@Value("${jarvis.owner:señor}") String owner, DatosNegocio datos, DYSAInventoryService inv) {
         this.owner = owner;
         this.datos = datos;
         this.inv = inv;
@@ -44,7 +44,7 @@ public class GreetingSkill implements Skill {
     public String bienvenida() {
         StringBuilder s = new StringBuilder(parteDelDia()).append(", ").append(owner).append(". ");
         s.append(datos.nombre().isEmpty() ? "JARVIS en línea y a su servicio." : "Bienvenido a " + datos.nombre() + ". JARVIS en línea y a su servicio.");
-        InventoryService.Resumen r = inv.resumen();
+        DYSAInventoryService.Resumen r = inv.resumen();
         if (r.productos() == 0) {
             return s.append(" Aún no tiene productos registrados: empiece en Inventario o dígame, por ejemplo,")
                     .append(" \"agrega 10 poleras talla M a 25 soles\".").toString();

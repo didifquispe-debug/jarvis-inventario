@@ -22,7 +22,7 @@ class UsuariosTest {
 
     @TempDir Path dir;
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
     private static BigDecimal n(String s) { return new BigDecimal(s); }
 
@@ -31,7 +31,7 @@ class UsuariosTest {
     }
 
     @Test void sinUsuariosTodoSigueIgual() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertFalse(inv.usuarios().hayUsuarios());
         assertTrue(inv.crearProducto("Vela", n("2"), n("10"), "unidades", null, null).ok());
     }
@@ -105,19 +105,19 @@ class UsuariosTest {
     }
 
     @Test void elCajeroVendePeroNoTocaElInventario() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Polera", n("40"), n("10"), "unidades", n("2"), null).ok());
         assertTrue(como(Rol.CAJERO, () -> inv.salida(n("1"), "polera", false)).startsWith("Venta registrada"));
         assertTrue(como(Rol.CAJERO, () -> inv.entrada(n("5"), "polera", null, null, false)).contains("no tiene permiso"));
         assertTrue(como(Rol.CAJERO, () -> inv.cambiarPrecio("polera", n("1"))).contains("no tiene permiso"));
-        assertEquals(InventoryService.Estado.PROHIBIDO, como(Rol.CAJERO, inv::anularUltimaVenta).estado());
+        assertEquals(DYSAInventoryService.Estado.PROHIBIDO, como(Rol.CAJERO, inv::anularUltimaVenta).estado());
         assertTrue(como(Rol.CAJERO, inv::pedirNuevoInventario).contains("no tiene permiso"));
         assertEquals(n("40.00"), inv.productos().get(0).precio, "no cambió nada");
         assertEquals(n("9"), inv.productos().get(0).stock);
     }
 
     @Test void almacenNoVende() {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Polera", n("40"), n("10"), "unidades", n("2"), null).ok());
         assertTrue(como(Rol.ALMACEN, () -> inv.salida(n("1"), "polera", false)).contains("no tiene permiso para vender"));
         assertTrue(como(Rol.ALMACEN, () -> inv.entrada(n("5"), "polera", null, null, false)).startsWith("Entrada registrada"));

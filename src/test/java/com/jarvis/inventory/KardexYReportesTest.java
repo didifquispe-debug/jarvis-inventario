@@ -24,7 +24,7 @@ class KardexYReportesTest {
 
     @TempDir Path dir;
 
-    private InventoryService nuevo() { return new InventoryService(dir.resolve("inv.json").toString()); }
+    private DYSAInventoryService nuevo() { return new DYSAInventoryService(dir.resolve("inv.json").toString()); }
 
     private static BigDecimal n(String s) { return new BigDecimal(s); }
 
@@ -33,8 +33,8 @@ class KardexYReportesTest {
                 List.of(new Compras.LineaCompra(producto, n(cantidad), n(costo))));
     }
 
-    private InventoryService conMovimientos() {
-        InventoryService inv = nuevo();
+    private DYSAInventoryService conMovimientos() {
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Polera roja M", n("45"), n("10"), "unidades", n("5"), null,
                 new Producto.Ficha("Poleras", null, null, n("5"))).ok());
         assertTrue(inv.registrarCompra(compra("F001-1", "Polera roja M", "20", "6")).ok());
@@ -43,14 +43,14 @@ class KardexYReportesTest {
         assertTrue(inv.corregirUltimaVenta("Polera roja M", n("2"), true).ok());
         assertTrue(inv.anularUltimaVenta().ok());
         assertTrue(inv.editarProducto("Polera roja M", true,
-                new InventoryService.Cambios(null, null, n("40"), null, null, null)).ok());
+                new DYSAInventoryService.Cambios(null, null, n("40"), null, null, null)).ok());
         assertTrue(inv.anularCompra("CP-00000001").ok());
         return inv;
     }
 
     @Test void cadaMovimientoTieneSuEntradaSalidaYSaldo() {
         conMovimientos();
-        InventoryService.Kardex k = nuevo().kardex("Polera roja M", 100);
+        DYSAInventoryService.Kardex k = nuevo().kardex("Polera roja M", 100);
         assertEquals(List.of("ENTRADA", "COMPRA", "VENTA", "AJUSTE", "CORRECCION_VENTA", "ANULACION", "AJUSTE", "ANULACION_COMPRA"),
                 k.filas().stream().map(FilaKardex::tipo).toList());
         assertEquals(List.of(n("10"), n("20"), n("0"), n("0"), n("2"), n("2"), n("11"), n("0")),
@@ -64,14 +64,14 @@ class KardexYReportesTest {
     }
 
     @Test void losMovimientosQueNoSonDeStockNoEntranAlKardex() {
-        InventoryService inv = conMovimientos();
+        DYSAInventoryService inv = conMovimientos();
         inv.cambiarPrecio("polera roja m", n("49"));
         assertEquals(8, inv.kardex("Polera roja M", 100).filas().size());
         assertNull(inv.kardex("No existe", 10));
     }
 
     @Test void movimientosAntiguosSinSaldo() throws Exception {
-        InventoryService inv = nuevo();
+        DYSAInventoryService inv = nuevo();
         assertTrue(inv.crearProducto("Vela", n("2"), n("10"), "unidades", null, null).ok());
         try (Connection cx = DriverManager.getConnection("jdbc:sqlite:" + dir.resolve("inv.db").toAbsolutePath())) {
             cx.createStatement().execute("INSERT INTO movimiento (fecha, tipo, producto, cantidad_mil) VALUES ('2026-01-05T10:00:00', 'VENTA', 'Vela', 3000)");
@@ -82,13 +82,13 @@ class KardexYReportesTest {
     }
 
     @Test void inventarioValorizado() {
-        InventoryService inv = conMovimientos();
+        DYSAInventoryService inv = conMovimientos();
         assertTrue(inv.crearProducto("Gorra negra", n("15"), n("0"), "unidades", n("2"), null).ok());
-        InventoryService.Valorizado v = inv.valorizado();
+        DYSAInventoryService.Valorizado v = inv.valorizado();
         assertEquals(2, v.productos());
         assertEquals(1, v.sinCosto());
         assertEquals(1, v.sinStock());
-        InventoryService.FilaValorizada polera = v.filas().stream().filter(f -> f.producto().startsWith("Polera")).findFirst().orElseThrow();
+        DYSAInventoryService.FilaValorizada polera = v.filas().stream().filter(f -> f.producto().startsWith("Polera")).findFirst().orElseThrow();
         assertEquals(n("113.40"), polera.valorCosto(), "20 × 5.67");
         assertEquals(n("900.00"), polera.valorVenta(), "20 × 45");
         assertEquals(n("786.60"), v.margen());
@@ -96,7 +96,7 @@ class KardexYReportesTest {
     }
 
     @Test void excelDeInventarioYKardex() throws Exception {
-        InventoryService inv = conMovimientos();
+        DYSAInventoryService inv = conMovimientos();
         try (XSSFWorkbook libro = new XSSFWorkbook(new ByteArrayInputStream(ReportesExcel.inventario(inv.valorizado(), inv.kardexCompleto(), "Tienda X")))) {
             Sheet hoja = libro.getSheet("Inventario");
             assertEquals("Inventario valorizado", hoja.getRow(0).getCell(0).getStringCellValue());
@@ -116,8 +116,8 @@ class KardexYReportesTest {
     }
 
     @Test void excelDeVentasConGananciaSinIgv() throws Exception {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
-        inv.editarProducto("Foco LED 9W", true, new InventoryService.Cambios(null, null, null, null, null, null,
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
+        inv.editarProducto("Foco LED 9W", true, new DYSAInventoryService.Cambios(null, null, null, null, null, null,
                 new Producto.Ficha(null, null, null, n("5")), false));
         inv.salida(n("2"), "foco", false);
         inv.salida(n("1"), "cemento", false);
@@ -142,7 +142,7 @@ class KardexYReportesTest {
     }
 
     @Test void excelDeCompras() throws Exception {
-        InventoryService inv = Ejemplos.sembrar(nuevo());
+        DYSAInventoryService inv = Ejemplos.sembrar(nuevo());
         inv.registrarCompra(compra("F001-1", "Foco LED 9W", "10", "4.5"));
         inv.registrarCompra(compra("F001-2", "Foco LED 9W", "3", "4.5"));
         inv.anularCompra("CP-00000002");

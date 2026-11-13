@@ -18,44 +18,44 @@ class AccessTokenTest {
 
     @Test void claveDeFabricaNuncaSeUsa() throws Exception {
         Path archivo = dir.resolve("clave");
-        AccessToken t = new AccessToken(AccessToken.CLAVE_DE_FABRICA, archivo.toString());
+        ApazaAccessToken t = new ApazaAccessToken(ApazaAccessToken.CLAVE_DE_FABRICA, archivo.toString());
         assertTrue(t.generada());
-        assertNotEquals(AccessToken.CLAVE_DE_FABRICA, t.value());
-        assertFalse(t.matches(AccessToken.CLAVE_DE_FABRICA), "la clave de fábrica no debe abrir la puerta");
+        assertNotEquals(ApazaAccessToken.CLAVE_DE_FABRICA, t.value());
+        assertFalse(t.matches(ApazaAccessToken.CLAVE_DE_FABRICA), "la clave de fábrica no debe abrir la puerta");
         assertTrue(t.value().matches("[a-z2-9]{4}(-[a-z2-9]{4}){3}"), t.value());
         assertEquals(t.value(), Files.readString(archivo).trim(), "se guarda para el próximo arranque");
     }
 
     @Test void claveVaciaTambienGenera() {
-        AccessToken t = new AccessToken("  ", dir.resolve("clave").toString());
+        ApazaAccessToken t = new ApazaAccessToken("  ", dir.resolve("clave").toString());
         assertTrue(t.generada());
         assertTrue(t.matches(t.value()));
     }
 
     @Test void segundoArranqueReutilizaLaGuardadaSinMostrarla() {
         String archivo = dir.resolve("clave").toString();
-        AccessToken primero = new AccessToken(AccessToken.CLAVE_DE_FABRICA, archivo);
-        AccessToken segundo = new AccessToken(AccessToken.CLAVE_DE_FABRICA, archivo);
+        ApazaAccessToken primero = new ApazaAccessToken(ApazaAccessToken.CLAVE_DE_FABRICA, archivo);
+        ApazaAccessToken segundo = new ApazaAccessToken(ApazaAccessToken.CLAVE_DE_FABRICA, archivo);
         assertEquals(primero.value(), segundo.value());
         assertFalse(segundo.generada(), "solo se muestra cuando se crea");
-        assertEquals(primero.value(), AccessToken.resolverSinGenerar(AccessToken.CLAVE_DE_FABRICA, archivo));
+        assertEquals(primero.value(), ApazaAccessToken.resolverSinGenerar(ApazaAccessToken.CLAVE_DE_FABRICA, archivo));
     }
 
     @Test void clavePropiaTieneprioridad() {
-        AccessToken t = new AccessToken("mi-clave-larga-123", dir.resolve("clave").toString());
+        ApazaAccessToken t = new ApazaAccessToken("mi-clave-larga-123", dir.resolve("clave").toString());
         assertFalse(t.generada());
         assertEquals("mi-clave-larga-123", t.value());
         assertFalse(Files.exists(dir.resolve("clave")), "no crea archivo si hay clave propia");
     }
 
     @Test void clavesAleatoriasDistintas() {
-        assertNotEquals(AccessToken.generar(), AccessToken.generar());
+        assertNotEquals(ApazaAccessToken.generar(), ApazaAccessToken.generar());
     }
 
     @Test void comparacionEnTiempoConstanteEsCorrecta() {
-        assertTrue(AccessToken.constantTimeEquals("abc", "abc"));
-        assertFalse(AccessToken.constantTimeEquals("abc", "abd"));
-        assertFalse(AccessToken.constantTimeEquals("abc", null));
-        assertFalse(new AccessToken("x-clave-propia", dir.resolve("c").toString()).matches(""));
+        assertTrue(ApazaAccessToken.constantTimeEquals("abc", "abc"));
+        assertFalse(ApazaAccessToken.constantTimeEquals("abc", "abd"));
+        assertFalse(ApazaAccessToken.constantTimeEquals("abc", null));
+        assertFalse(new ApazaAccessToken("x-clave-propia", dir.resolve("c").toString()).matches(""));
     }
 }

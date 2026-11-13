@@ -6,9 +6,9 @@ package com.jarvis.api;
 
 import com.jarvis.core.Actualizaciones;
 import com.jarvis.core.DatosNegocio;
-import com.jarvis.core.Impresion;
-import com.jarvis.core.JarvisService;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.core.DidierImpresion;
+import com.jarvis.core.DYSAJarvisService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.skills.GreetingSkill;
 import com.jarvis.system.SystemMonitor;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,17 +23,17 @@ import java.util.Map;
 @CrossOrigin
 public class JarvisController {
 
-    private final JarvisService jarvis;
+    private final DYSAJarvisService jarvis;
     private final SystemMonitor monitor;
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
     private final GreetingSkill saludo;
     private final int port;
     private final DatosNegocio negocio;
-    private final Impresion impresion;
+    private final DidierImpresion impresion;
     private final Actualizaciones actualizaciones;
 
-    public JarvisController(JarvisService jarvis, SystemMonitor monitor, InventoryService inv, GreetingSkill saludo,
-                            @Value("${server.port:8081}") int port, DatosNegocio negocio, Impresion impresion,
+    public JarvisController(DYSAJarvisService jarvis, SystemMonitor monitor, DYSAInventoryService inv, GreetingSkill saludo,
+                            @Value("${server.port:7060}") int port, DatosNegocio negocio, DidierImpresion impresion,
                             Actualizaciones actualizaciones) {
         this.impresion = impresion;
         this.actualizaciones = actualizaciones;
@@ -51,7 +51,7 @@ public class JarvisController {
     public Map<String, Object> command(@RequestBody CommandRequest req) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("reply", jarvis.process(req.text(), Boolean.TRUE.equals(req.voz())));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         if (c != null) body.put("recibo", Map.of("comprobante", c, "negocio", negocio.paraRecibo()));
         body.put("carrito", inv.carritoActual());
         return body;
@@ -91,12 +91,12 @@ public class JarvisController {
     }
 
     @GetMapping("/impresion")
-    public Impresion.Config impresion() {
+    public DidierImpresion.Config impresion() {
         return impresion.config();
     }
 
     @PutMapping("/impresion")
-    public ResponseEntity<Map<String, Object>> guardarImpresion(@RequestBody(required = false) Impresion.Config config) {
+    public ResponseEntity<Map<String, Object>> guardarImpresion(@RequestBody(required = false) DidierImpresion.Config config) {
         return InventoryController.responder(impresion.guardar(config));
     }
 

@@ -4,7 +4,7 @@
  */
 package com.jarvis;
 
-import com.jarvis.voz.VozLocal;
+import com.jarvis.voz.SumiVozLocal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -49,13 +49,13 @@ class VozSinInternetTest {
     }
 
     @Test void motorDesdeLaConfiguracion() {
-        assertEquals(VozLocal.Motor.LOCAL, new VozLocal(false, "x", "Local").motor());
-        assertEquals(VozLocal.Motor.AUTO, new VozLocal(false, "x", "cualquiera").motor());
+        assertEquals(SumiVozLocal.Motor.LOCAL, new SumiVozLocal(false, "x", "Local").motor());
+        assertEquals(SumiVozLocal.Motor.AUTO, new SumiVozLocal(false, "x", "cualquiera").motor());
     }
 
     @Test void reconoceFrasesEnEspanol() throws Exception {
         assumeTrue(Files.isDirectory(MODELO.resolve("am")), "modelo de voz no instalado en " + MODELO);
-        VozLocal voz = new VozLocal(true, MODELO.toString(), "auto");
+        SumiVozLocal voz = new SumiVozLocal(true, MODELO.toString(), "auto");
         voz.iniciar();
         for (int i = 0; i < 600 && voz.cargando(); i++) Thread.sleep(50);
         assertTrue(voz.listo(), "el modelo debió cargar");

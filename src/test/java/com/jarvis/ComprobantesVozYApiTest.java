@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Producto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,8 +35,8 @@ class ComprobantesVozYApiTest {
     private static final String CLAVE = "clave-comprobantes";
 
     @Autowired MockMvc mvc;
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
 
     @BeforeEach
     void preparar() {

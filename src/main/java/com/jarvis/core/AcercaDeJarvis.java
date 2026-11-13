@@ -105,7 +105,7 @@ public class AcercaDeJarvis {
                         + "toque Cobrar; o dígame \"vendí 2 poleras M\" (puede añadir \"con nota de venta\" o \"para el DNI\" del cliente); "
                         + "o para varios productos diga \"nueva venta\", luego cada producto, y al final \"cobrar\"."),
                 tema("\\b(boleta|comprobante|factura de venta|igv|pdf|imprim|ticket)", "Cada venta emite una boleta (serie B001) o una nota "
-                        + "de venta (NV01), con el IGV del 18 por ciento separado. Para verla, imprimirla o sacar el PDF, toque el comprobante "
+                        + "de venta (NV01); cada tienda adicional tiene su propia serie (B002, NV02...). El IGV del 18 por ciento va separado. Para verla, imprimirla o sacar el PDF, toque el comprobante "
                         + "en la pantalla Comprobantes, o dígame \"último comprobante\"."),
                 tema("\\b(client|dni)", "En la pantalla Clientes toque Nuevo cliente y escriba su DNI de 8 dígitos o su RUC de 11 y su nombre. "
                         + "Luego, al vender, escriba su DNI en la venta o dígame \"para el DNI\" seguido del número."),

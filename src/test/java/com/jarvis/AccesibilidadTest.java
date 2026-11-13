@@ -32,7 +32,25 @@ class AccesibilidadTest {
 
     private static String html() throws IOException {
         String s = leer("index.html");
-        return s.substring(0, s.indexOf("<script>"));
+        assertFalse(s.contains("<script>"), "el código de la pantalla va en static/js, no dentro de index.html");
+        return s;
+    }
+
+    /** Los scripts de la pantalla, en el orden en que index.html los carga. */
+    private static String scripts() throws IOException {
+        Matcher m = Pattern.compile("<script src=\"([^\"]+)\"></script>").matcher(leer("index.html"));
+        StringBuilder s = new StringBuilder();
+        while (m.find()) s.append(leer(m.group(1))).append('\n');
+        assertTrue(s.length() > 0, "index.html no carga ningún script");
+        return s.toString();
+    }
+
+    /** index.html con sus estilos y scripts: lo que el navegador termina usando. */
+    private static String paginaCompleta() throws IOException {
+        Matcher m = Pattern.compile("<link rel=\"stylesheet\" href=\"([^\"]+)\">").matcher(leer("index.html"));
+        StringBuilder s = new StringBuilder(html());
+        while (m.find()) s.append(leer(m.group(1)));
+        return s.append(scripts()).toString();
     }
 
     private static String atributo(String attrs, String nombre) {
@@ -59,7 +77,7 @@ class AccesibilidadTest {
     }
 
     @Test void cadaBotonTieneNombre() throws IOException {
-        String s = leer("index.html");
+        String s = html() + scripts();
         List<String> sin = new ArrayList<>();
         Matcher m = BOTON.matcher(s);
         while (m.find()) {
@@ -113,13 +131,13 @@ class AccesibilidadTest {
         String h = html();
         assertTrue(h.contains("id=\"anuncio\" class=\"sr-only\" role=\"status\" aria-live=\"polite\""), "región para el lector de pantalla");
         assertTrue(h.contains("id=\"log\" role=\"log\" aria-live=\"off\""), "el chat se escribe letra por letra: no se anuncia");
-        assertTrue(leer("index.html").contains("if (who !== 'me') anunciar(text);"));
+        assertTrue(scripts().contains("if (who !== 'me') anunciar(text);"));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"index.html", "manual.html", "manifest.json"})
     void nadaSeCargaDeInternet(String archivo) throws IOException {
-        String s = leer(archivo);
+        String s = archivo.equals("index.html") ? paginaCompleta() : leer(archivo);
         Matcher m = Pattern.compile("(?:src|href)\\s*=\\s*[\"'](https?://[^\"']+)|url\\(\\s*[\"']?(https?://[^)\"']+)|@import\\s+[\"'](https?://[^\"']+)")
                 .matcher(s);
         List<String> fuera = new ArrayList<>();
@@ -131,7 +149,7 @@ class AccesibilidadTest {
     }
 
     @Test void elScriptNoDeclaraDosVecesElMismoNombre() throws IOException {
-        Matcher m = Pattern.compile("(?m)^(?:const|let|var|(?:async )?function)\\s+([A-Za-z_$][\\w$]*)").matcher(leer("index.html"));
+        Matcher m = Pattern.compile("(?m)^(?:const|let|var|(?:async )?function)\\s+([A-Za-z_$][\\w$]*)").matcher(scripts());
         Set<String> vistos = new HashSet<>();
         List<String> repetidos = new ArrayList<>();
         while (m.find()) if (!vistos.add(m.group(1))) repetidos.add(m.group(1));

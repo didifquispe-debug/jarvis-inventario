@@ -7,7 +7,7 @@ package com.jarvis.skills;
 import com.jarvis.inventory.Clientes;
 import com.jarvis.inventory.Compras;
 import com.jarvis.inventory.FilaKardex;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import com.jarvis.inventory.Num;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol.Permiso;
@@ -49,9 +49,9 @@ public class GestionSkill implements Skill {
     private static final Pattern PROVEEDOR = Pattern.compile(
             "\\b(?:datos|telefono|ruc|direccion|contacto)(?: (?:de|del))?(?: la empresa| el proveedor| proveedor)? (.+)$");
 
-    private final InventoryService inv;
+    private final DYSAInventoryService inv;
 
-    public GestionSkill(InventoryService inv) { this.inv = inv; }
+    public GestionSkill(DYSAInventoryService inv) { this.inv = inv; }
 
     @Override public String name() { return "Copias, kardex, clientes y proveedores"; }
 
@@ -94,7 +94,7 @@ public class GestionSkill implements Skill {
         if (no != null) return no;
         String documento = documentoDicho.replace(" ", "");
         String nombre = nombrePropio(nombreDicho);
-        InventoryService.Resultado r = inv.clientes().crear(new Clientes.Datos(documento, nombre, "", "", ""));
+        DYSAInventoryService.Resultado r = inv.clientes().crear(new Clientes.Datos(documento, nombre, "", "", ""));
         return r.mensaje();
     }
 
@@ -159,7 +159,7 @@ public class GestionSkill implements Skill {
         if (producto == null) return Optional.empty();
         if (!ClientSession.puede(Permiso.INVENTARIO) && !ClientSession.puede(Permiso.VER_COSTOS))
             return Optional.of(ClientSession.sinPermiso(Permiso.INVENTARIO));
-        InventoryService.Kardex k = inv.kardex(producto, 5);
+        DYSAInventoryService.Kardex k = inv.kardex(producto, 5);
         if (k == null) return Optional.empty();
         if (k.filas().isEmpty()) return Optional.of(k.producto() + " aún no tiene movimientos. Stock: " + Num.txt(k.stock()) + " " + k.unidad() + ".");
         List<String> partes = new ArrayList<>();

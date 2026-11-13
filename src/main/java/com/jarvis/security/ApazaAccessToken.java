@@ -18,9 +18,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 @Component
-public class AccessToken {
+public class ApazaAccessToken {
 
-    private static final Logger log = LoggerFactory.getLogger(AccessToken.class);
+    private static final Logger log = LoggerFactory.getLogger(ApazaAccessToken.class);
 
     public static final String CLAVE_DE_FABRICA = "cambia-esta-clave";
     public static final String ARCHIVO_POR_DEFECTO = "${user.home}/.jarvis-clave";
@@ -31,7 +31,7 @@ public class AccessToken {
     private final String value;
     private final boolean generada;
 
-    public AccessToken(@Value("${jarvis.token:}") String configured,
+    public ApazaAccessToken(@Value("${jarvis.token:}") String configured,
                        @Value("${jarvis.token-file:" + ARCHIVO_POR_DEFECTO + "}") String archivo) {
         String conf = configured == null ? "" : configured.trim();
         if (esPropia(conf)) {

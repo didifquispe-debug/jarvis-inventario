@@ -18,11 +18,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class VariantesTest {
 
     @TempDir Path dir;
-    InventoryService inv;
+    DYSAInventoryService inv;
     InventorySkill voz;
 
     @BeforeEach void tienda() {
-        inv = new InventoryService(dir.resolve("inv.json").toString());
+        inv = new DYSAInventoryService(dir.resolve("inv.json").toString());
         voz = new InventorySkill(inv);
         crear("Zapatilla Nike Air 39", "250", "5", "pares");
         crear("Zapatilla Nike Air 40", "250", "6", "pares");
@@ -92,7 +92,7 @@ class VariantesTest {
         assertTrue(r.startsWith("Venta registrada: 2 productos"), r);
         assertEquals(8, stock("Polera roja L"));
         assertEquals(5, stock("Zapatilla Nike Air 40"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(List.of("Polera roja L", "Zapatilla Nike Air 40"), c.items.stream().map(v -> v.producto).toList());
     }
 }

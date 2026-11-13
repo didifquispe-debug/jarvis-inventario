@@ -6,7 +6,7 @@ package com.jarvis.api;
 
 import com.jarvis.inventory.Tiendas;
 import com.jarvis.inventory.Usuarios;
-import com.jarvis.security.ApiAuthFilter;
+import com.jarvis.security.ApazaApiAuthFilter;
 import com.jarvis.security.ClientSession;
 import com.jarvis.security.Rol;
 import jakarta.servlet.http.HttpServletRequest;
@@ -65,7 +65,7 @@ public class UsuariosController {
     }
 
     @DeleteMapping("/api/sesion")
-    public Map<String, Object> salir(@RequestHeader(value = ApiAuthFilter.CABECERA_USUARIO, required = false) String token) {
+    public Map<String, Object> salir(@RequestHeader(value = ApazaApiAuthFilter.CABECERA_USUARIO, required = false) String token) {
         usuarios.cerrar(token);
         return Map.of("ok", true, "reply", "Sesión cerrada.");
     }
@@ -77,7 +77,7 @@ public class UsuariosController {
 
     @PostMapping("/api/usuarios")
     public ResponseEntity<Map<String, Object>> crear(@RequestBody NuevoUsuario req, HttpServletRequest http) {
-        if (!usuarios.hayUsuarios() && !ApiAuthFilter.esLocal(http.getRemoteAddr()))
+        if (!usuarios.hayUsuarios() && !ApazaApiAuthFilter.esLocal(http.getRemoteAddr()))
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("ok", false, "reply", "El primer usuario (el administrador) se crea desde la laptop de JARVIS."));
         return InventoryController.responder(usuarios.crear(req.nombre(), req.rol(), req.pin(),

@@ -4,9 +4,9 @@
  */
 package com.jarvis;
 
-import com.jarvis.core.JarvisService;
+import com.jarvis.core.DYSAJarvisService;
 import com.jarvis.inventory.Ejemplos;
-import com.jarvis.inventory.InventoryService;
+import com.jarvis.inventory.DYSAInventoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "jarvis.inventory.file=${java.io.tmpdir}/jarvis-test-${random.uuid}.json"})
 class VentaTest {
 
-    @Autowired JarvisService jarvis;
-    @Autowired InventoryService inv;
+    @Autowired DYSAJarvisService jarvis;
+    @Autowired DYSAInventoryService inv;
 
     @BeforeEach void limpiar() { Ejemplos.sembrar(inv); inv.cancelarVenta(); inv.tomarComprobanteNuevo(); }
 
@@ -40,7 +40,7 @@ class VentaTest {
         String r = jarvis.process(frase);
         assertTrue(r.startsWith("Venta registrada"), frase + " -> " + r);
         assertEquals(antes - 2, stockCemento(), frase);
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertNotNull(c, "debe emitir comprobante");
         assertEquals(1, c.items.size());
         assertEquals(new java.math.BigDecimal("2"), c.items.get(0).cantidad);
@@ -73,7 +73,7 @@ class VentaTest {
         assertTrue(r.startsWith("Venta registrada: 2 productos"), r);
         assertEquals(cemento - 2, stock("Cemento"));
         assertEquals(focos - 3, stock("Foco"));
-        InventoryService.Comprobante c = inv.tomarComprobanteNuevo();
+        DYSAInventoryService.Comprobante c = inv.tomarComprobanteNuevo();
         assertEquals(2, c.items.size());
         assertEquals(new java.math.BigDecimal("78.50"), c.total);
         assertTrue(c.items.stream().allMatch(v -> v.numero == c.numero), "todas las líneas, un comprobante");
